@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -15,6 +16,7 @@ import { PageHeader } from '@/components/shared/Display';
 import { Field } from '@/components/shared/Field';
 import { FormDialog } from '@/components/shared/FormDialog';
 import { rolesApi, usersApi } from '@/api/endpoints/identity';
+import { businessesApi } from '@/api/endpoints/business';
 import { usePermissions, useQueryKey } from '@/hooks/useSessionInfo';
 import { email, phone, requiredText } from '@/lib/schemas';
 import { emptyToNull } from '@/lib/utils';
@@ -33,14 +35,20 @@ const createSchema = z.object({
 const editSchema = z.object({ fullName: requiredText('Full name', 150), email: email.refine((v) => v !== '', 'Email is required.'), phoneNumber: phone });
 const resetSchema = z.object({ newPassword: passwordRule });
 
-type Action = { kind: 'edit' | 'roles' | 'reset' | 'deactivate' | 'lock'; user: UserDto } | { kind: 'create' } | null;
+type Action = { kind: 'edit' | 'roles' | 'reset' | 'deactivate' | 'lock' | 'activate'; user: UserDto } | { kind: 'create' } | null;
 
 function Users() {
   const key = useQueryKey();
   const qc = useQueryClient();
+  const router = useRouter();
   const can = usePermissions();
   const me = useSession((s) => s.user);
   const users = useQuery({ queryKey: key('users'), queryFn: usersApi.list });
+  // The licence's user limit, for "N of M users". Users.View alone may not include Businesses.View.
+  const license = useQuery({ queryKey: key('license'), queryFn: businessesApi.currentLicense, enabled: can('Businesses.View'), retry: false });
+  const maxUsers = license.data?.maxUsers ?? null;
+  const activeCount = users.data?.filter((u) => u.isActive).length ?? 0;
+  const atLimit = maxUsers !== null && activeCount >= maxUsers;
   const roles = useQuery({ queryKey: key('roles'), queryFn: rolesApi.list, enabled: can(['Roles.View', 'Users.AssignRoles', 'Users.Create']) });
   const [action, setAction] = useState<Action>(null);
   const [roleIds, setRoleIds] = useState<string[]>([]);
@@ -73,6 +81,8 @@ function Users() {
         const u = row.original;
         const self = u.id === me?.id;
         return (
+          // Menu clicks bubble through the portal; keep them from opening the row.
+          <div onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`Actions for ${u.fullName}`}><MoreHorizontal /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -89,9 +99,10 @@ function Users() {
                 : <DropdownMenuItem destructive onSelect={() => setAction({ kind: 'lock', user: u })}><Lock />Lock</DropdownMenuItem>)}
               {can('Users.Deactivate') && !self && (u.isActive
                 ? <DropdownMenuItem destructive onSelect={() => setAction({ kind: 'deactivate', user: u })}><PowerOff />Deactivate</DropdownMenuItem>
-                : <DropdownMenuItem onSelect={() => act(() => usersApi.activate(u.id), `${u.fullName} activated`).catch((e) => toast.error(e.message))}><Power />Activate</DropdownMenuItem>)}
+                : <DropdownMenuItem onSelect={() => setAction({ kind: 'activate', user: u })}><Power />Activate</DropdownMenuItem>)}
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         );
       },
     },
@@ -100,8 +111,11 @@ function Users() {
   const target = action && 'user' in action ? action.user : null;
   return (
     <>
-      <PageHeader title="Users" description="People who can sign in to this business, and their roles." actions={<Can permission="Users.Create"><Button onClick={() => setAction({ kind: 'create' })}><Plus />New user</Button></Can>} />
-      <DataTable columns={columns} data={users.data} isLoading={users.isLoading} error={users.error} onRetry={() => users.refetch()} getRowId={(u) => u.id} searchable emptyTitle="No users" />
+      <PageHeader
+        title="Users"
+        description={<>People who can sign in to this business, and their roles.{maxUsers !== null && <span className={atLimit ? 'ml-1 font-medium text-warning-foreground dark:text-warning' : 'ml-1'}> {activeCount} of {maxUsers} users{atLimit ? ': the licence limit is reached' : ''}.</span>}</>}
+        actions={<Can permission="Users.Create"><Button onClick={() => setAction({ kind: 'create' })}><Plus />New user</Button></Can>} />
+      <DataTable columns={columns} data={users.data} isLoading={users.isLoading} error={users.error} onRetry={() => users.refetch()} getRowId={(u) => u.id} onRowClick={(u) => router.push(`/users/${u.id}`)} searchable emptyTitle="No users" />
 
       <FormDialog
         open={action?.kind === 'create'}
@@ -183,6 +197,15 @@ function Users() {
           ))}
         </ul>
       </ConfirmDialog>
+
+      <ConfirmDialog
+        open={action?.kind === 'activate'}
+        onOpenChange={(o) => !o && setAction(null)}
+        title={`Activate ${target?.fullName ?? ''}?`}
+        description={maxUsers !== null ? `They can sign in again. The licence allows ${maxUsers} active users; ${activeCount} are active now.` : 'They can sign in again.'}
+        confirmLabel="Activate"
+        onConfirm={() => act(() => usersApi.activate(target!.id), `${target?.fullName} activated`)}
+      />
 
       <ConfirmDialog
         open={action?.kind === 'deactivate' || action?.kind === 'lock'}

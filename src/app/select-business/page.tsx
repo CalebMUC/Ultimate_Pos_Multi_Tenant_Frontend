@@ -7,7 +7,7 @@ import { BrandMark } from '@/components/layout/BrandMark';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/shared/States';
 import { AuthGuard } from '@/features/auth/AuthGuard';
-import { BusinessBadges, useSwitchBusiness } from '@/features/auth/BusinessSwitcher';
+import { BusinessBadges, blockedReason, useSwitchBusiness } from '@/features/auth/BusinessSwitcher';
 import { logout } from '@/features/auth/sessionActions';
 import { useSession } from '@/stores/session';
 import { cn } from '@/lib/utils';
@@ -47,10 +47,11 @@ function Picker() {
               <li key={b.businessId}>
                 <button
                   type="button"
-                  disabled={!!pending}
+                  disabled={!!pending || !!blockedReason(b.accessStatus)}
+                  title={blockedReason(b.accessStatus) ?? undefined}
                   onClick={() => choose(b.businessId)}
                   className={cn(
-                    'flex w-full items-center gap-3 rounded-lg border bg-card p-4 text-left shadow-sm transition-colors hover:border-primary hover:bg-accent/40 disabled:opacity-60',
+                    'flex w-full items-center gap-3 rounded-lg border bg-card p-4 text-left shadow-sm transition-colors hover:border-primary hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border disabled:hover:bg-card',
                     b.businessId === activeBusinessId && 'border-primary/60',
                   )}
                 >

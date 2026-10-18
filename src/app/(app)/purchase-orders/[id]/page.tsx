@@ -17,6 +17,7 @@ import { useApiMutation } from '@/hooks/useApiMutation';
 import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDate } from '@/lib/format';
 import { ReceiveDialog } from '@/features/purchasing/ReceiveDialog';
+import { WithActivityTab } from '@/features/audit/WithActivityTab';
 import { orderValue } from '@/features/purchasing/orderValue';
 
 function PurchaseOrderDetail({ id }: { id: string }) {
@@ -45,6 +46,7 @@ function PurchaseOrderDetail({ id }: { id: string }) {
           </>
         }
       />
+      <WithActivityTab entityType="PurchaseOrder" entityId={id}>
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2 overflow-hidden">
           <Table>
@@ -93,6 +95,7 @@ function PurchaseOrderDetail({ id }: { id: string }) {
           </CardContent>
         </Card>
       </div>
+      </WithActivityTab>
       <ConfirmDialog
         open={cancelling}
         onOpenChange={setCancelling}

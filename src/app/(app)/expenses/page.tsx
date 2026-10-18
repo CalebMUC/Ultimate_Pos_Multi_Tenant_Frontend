@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Ban, ExternalLink, Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ import type { ExpenseDto } from '@/api/dto/expenses';
 
 function Expenses() {
   const key = useQueryKey();
+  const router = useRouter();
   const can = usePermissions();
   const [range, setRange] = useState(() => presetRange('month'));
   const [categoryId, setCategoryId] = useState('');
@@ -69,7 +71,7 @@ function Expenses() {
       header: '',
       meta: { align: 'right' },
       cell: ({ row }) => (
-        <div className="flex justify-end gap-1">
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           {row.original.receiptUrl && <Button variant="ghost" size="icon-sm" asChild><a href={row.original.receiptUrl} target="_blank" rel="noreferrer" aria-label="Open receipt"><ExternalLink /></a></Button>}
           {row.original.status === ExpenseStatus.Posted && can('Expenses.Update') && <Button variant="ghost" size="icon-sm" onClick={() => setEditing(row.original)} aria-label="Edit"><Pencil /></Button>}
           {row.original.status === ExpenseStatus.Posted && can('Expenses.Void') && <Button variant="ghost" size="icon-sm" onClick={() => { setReason(''); setVoiding(row.original); }} aria-label="Void"><Ban /></Button>}
@@ -89,6 +91,7 @@ function Expenses() {
         error={query.error}
         onRetry={() => query.refetch()}
         getRowId={(x) => x.expenseId}
+        onRowClick={(x) => router.push(`/expenses/${x.expenseId}`)}
         page={page}
         pageSize={pageSize}
         totalCount={query.data?.meta.totalCount ?? 0}

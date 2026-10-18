@@ -7,24 +7,24 @@ import { ChevronDown } from 'lucide-react';
 import { navigation, platformNavigation, type NavGroup } from '@/config/navigation';
 import { useActiveBusiness, usePermissions } from '@/hooks/useSessionInfo';
 import { usePharmacyMenu } from '@/features/auth/usePharmacyMenu';
-import { useSession } from '@/stores/session';
 import { cn } from '@/lib/utils';
 import { BrandMark } from './BrandMark';
 
-/** The navigation the user can see: filtered by permission, business kind and the pharmacy rule. */
-export function useVisibleNavigation(): NavGroup[] {
+export type ShellArea = 'business' | 'platform';
+
+/** The navigation the user can see: filtered by permission, business kind and the pharmacy rule. Each area has its own menu. */
+export function useVisibleNavigation(area: ShellArea = 'business'): NavGroup[] {
   const can = usePermissions();
   const { capabilities } = useActiveBusiness();
-  const activeBusinessId = useSession((s) => s.activeBusinessId);
-  const pharmacy = usePharmacyMenu();
+  const pharmacy = usePharmacyMenu(area === 'business');
 
   return useMemo(() => {
-    const source = activeBusinessId ? navigation : platformNavigation;
+    const source = area === 'platform' ? platformNavigation : navigation;
     return source
       .filter((g) => (!g.requires || capabilities[g.requires]) && (!g.pharmacy || pharmacy) && can(g.permission))
       .map((g) => ({ ...g, items: g.items?.filter((i) => (!i.requires || capabilities[i.requires]) && can(i.permission)) }))
       .filter((g) => g.href || (g.items && g.items.length > 0));
-  }, [activeBusinessId, capabilities, pharmacy, can]);
+  }, [area, capabilities, pharmacy, can]);
 }
 
 function isActive(pathname: string, href: string) {
@@ -37,9 +37,9 @@ function bestMatch(pathname: string, groups: NavGroup[]): string | null {
   return hrefs.filter((h) => isActive(pathname, h)).sort((a, b) => b.length - a.length)[0] ?? null;
 }
 
-export function Sidebar({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+export function Sidebar({ collapsed, onNavigate, area = 'business' }: { collapsed: boolean; onNavigate?: () => void; area?: ShellArea }) {
   const pathname = usePathname();
-  const groups = useVisibleNavigation();
+  const groups = useVisibleNavigation(area);
   const active = bestMatch(pathname, groups);
   const [open, setOpen] = useState<Record<string, boolean>>({});
 

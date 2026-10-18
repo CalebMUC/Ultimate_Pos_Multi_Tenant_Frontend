@@ -1,6 +1,7 @@
 // Application/Identity/Dtos/AuthDtos.cs
 import type { BusinessKind, BusinessType } from '../enums';
 import type { DateTimeString, Guid } from './common';
+import type { AccessStatus, BusinessAccessDto } from './platform';
 
 export interface LoginRequest { email: string; password: string; businessId?: Guid | null }
 export interface RegisterRequest { email: string; password: string; fullName: string; phoneNumber: string; roleName: string }
@@ -23,6 +24,8 @@ export interface BusinessMembershipDto {
   kind: BusinessKind;
   businessType: BusinessType;
   isDefault: boolean;
+  /** Active, ExpiringSoon, GracePeriod, Expired, Unlicensed, Suspended or Closed: for the business picker. */
+  accessStatus?: AccessStatus | null;
 }
 
 export interface LoginResponseDto {
@@ -34,9 +37,19 @@ export interface LoginResponseDto {
   /** Null when the user has platform access only. */
   activeBusinessId: Guid | null;
   businesses: BusinessMembershipDto[];
+  /** Someone else set the password: the user must change it before anything else. */
+  mustChangePassword?: boolean;
+  /** Banner text: the licence ends soon, or has ended and is in its grace period. */
+  licenseWarning?: string | null;
 }
 
-export interface MeDto { user: UserDto; activeBusinessId: Guid | null; businesses: BusinessMembershipDto[] }
+export interface MeDto {
+  user: UserDto;
+  activeBusinessId: Guid | null;
+  businesses: BusinessMembershipDto[];
+  mustChangePassword?: boolean;
+  businessAccess?: BusinessAccessDto | null;
+}
 export interface SwitchBusinessRequest { businessId: Guid; refreshToken: string | null }
 export interface ChangePasswordRequest { currentPassword: string; newPassword: string }
 export interface ResetPasswordRequest { newPassword: string }

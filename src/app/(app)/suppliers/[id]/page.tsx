@@ -19,6 +19,7 @@ import { useApiMutation } from '@/hooks/useApiMutation';
 import { usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { SupplierFormDialog } from '@/features/suppliers/SupplierFormDialog';
+import { WithActivityTab } from '@/features/audit/WithActivityTab';
 import type { SupplierLedgerEntryDto } from '@/api/dto/business';
 
 /** Bills raise what we owe; payments and reversals lower it. */
@@ -80,6 +81,7 @@ function SupplierDetail({ id }: { id: string }) {
           </>
         }
       />
+      <WithActivityTab entityType="Supplier" entityId={id}>
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4">
           {canLedger && <StatCard label="We owe" value={balance.data ? formatMoney(balance.data.outstandingBalance) : '—'} icon={<Wallet />} tone={(balance.data?.outstandingBalance ?? 0) > 0 ? 'warning' : 'success'} />}
@@ -126,6 +128,7 @@ function SupplierDetail({ id }: { id: string }) {
           </div>
         )}
       </div>
+      </WithActivityTab>
       <SupplierFormDialog open={editing} onOpenChange={setEditing} supplier={s} />
       <SettlementDialog open={paying} onOpenChange={setPaying} title={`Pay ${s.supplierName}`} outstanding={balance.data?.outstandingBalance} onSubmit={(p) => pay.mutateAsync(p)} />
     </>

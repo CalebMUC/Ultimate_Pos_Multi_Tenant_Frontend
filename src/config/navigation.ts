@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  BarChart3, Boxes, Building2, ClipboardList, Factory, LayoutDashboard, Pill, Receipt, Settings, ShieldCheck, ShoppingCart, Tags, Truck,
+  BadgeCheck, BarChart3, Bell, Boxes, Building2, ClipboardList, Factory, LayoutDashboard, Pill, Receipt, ScrollText, Settings, ShieldCheck, ShoppingCart, Tags, Truck,
   Users, Wallet,
 } from 'lucide-react';
 import type { PermissionRequirement } from '@/api/permissions';
@@ -128,19 +128,25 @@ export const navigation: NavGroup[] = [
     icon: ShieldCheck,
     items: [
       { label: 'Business Profile', href: '/admin/business', permission: 'Businesses.Update' },
-      { label: 'Businesses', href: '/admin/businesses', permission: ['Businesses.ViewAll', 'Businesses.Register'] },
+      { label: 'Licence', href: '/settings/license', permission: 'Businesses.View' },
       { label: 'Users', href: '/admin/users', permission: 'Users.View' },
       { label: 'Roles & Permissions', href: '/admin/roles', permission: 'Roles.View' },
       { label: 'M-Pesa Setup', href: '/admin/mpesa', permission: 'Mpesa.Configure' },
+      { label: 'Audit Log', href: '/admin/audit-log', permission: 'AuditLog.View' },
     ],
   },
+  { label: 'Notifications', icon: Bell, href: '/notifications' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ];
 
-/** Shown to platform users with no business selected. */
+/** The Super User area (/platform). Never mixed with the business navigation. */
 export const platformNavigation: NavGroup[] = [
-  { label: 'Businesses', icon: Building2, href: '/admin/businesses', permission: ['Businesses.ViewAll', 'Businesses.Register'] },
-  { label: 'Settings', icon: Settings, href: '/settings' },
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/platform', permission: 'Platform.Dashboard.View' },
+  { label: 'Businesses', icon: Building2, href: '/platform/businesses', permission: 'Businesses.ViewAll' },
+  { label: 'Licences', icon: BadgeCheck, href: '/platform/licenses', permission: 'Licenses.View' },
+  { label: 'Super Users', icon: ShieldCheck, href: '/platform/super-users', permission: 'Platform.Users.Manage' },
+  { label: 'Platform Audit Log', icon: ScrollText, href: '/platform/audit-log', permission: 'Platform.Support' },
+  { label: 'Notifications', icon: Bell, href: '/platform/notifications' },
 ];
 
 export const quickLinks: { label: string; href: string; icon: LucideIcon; permission?: PermissionRequirement }[] = [

@@ -11,11 +11,12 @@ export default function IndexPage() {
   const status = useSession((s) => s.status);
   const user = useSession((s) => s.user);
   const activeBusinessId = useSession((s) => s.activeBusinessId);
+  const mustChangePassword = useSession((s) => s.mustChangePassword);
 
   useEffect(() => {
     if (status === 'anonymous') router.replace('/login');
-    if (status === 'authenticated') router.replace(homePathFor(user?.permissions ?? [], activeBusinessId));
-  }, [status, user, activeBusinessId, router]);
+    if (status === 'authenticated') router.replace(homePathFor(user?.permissions ?? [], activeBusinessId, mustChangePassword));
+  }, [status, user, activeBusinessId, mustChangePassword, router]);
 
   return <LoadingState label="Starting Ultimate POS…" className="min-h-screen" />;
 }

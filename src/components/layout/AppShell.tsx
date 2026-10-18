@@ -7,9 +7,10 @@ import { usePreferences } from '@/stores/preferences';
 import { cn } from '@/lib/utils';
 import { CommandPalette } from './CommandPalette';
 import { Header } from './Header';
-import { Sidebar } from './Sidebar';
+import { Sidebar, type ShellArea } from './Sidebar';
+import { LicenseBanner } from '@/features/access/LicenseBanner';
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, area = 'business' }: { children: ReactNode; area?: ShellArea }) {
   const collapsed = usePreferences((s) => s.sidebarCollapsed);
   const setPref = usePreferences((s) => s.set);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -20,7 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside className={cn('fixed inset-y-0 left-0 z-40 hidden transition-[width] lg:block no-print', collapsed ? 'w-16' : 'w-60')}>
-        <Sidebar collapsed={collapsed} />
+        <Sidebar collapsed={collapsed} area={area} />
       </aside>
       <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
         <DialogContent
@@ -28,14 +29,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           aria-describedby={undefined}
         >
           <DialogTitle className="sr-only">Menu</DialogTitle>
-          <Sidebar collapsed={false} onNavigate={() => setMobileOpen(false)} />
+          <Sidebar collapsed={false} area={area} onNavigate={() => setMobileOpen(false)} />
         </DialogContent>
       </Dialog>
       <div className={cn('flex min-w-0 flex-1 flex-col transition-[padding]', collapsed ? 'lg:pl-16' : 'lg:pl-60')}>
-        <Header onToggleSidebar={() => setPref('sidebarCollapsed', !collapsed)} onOpenMobileNav={() => setMobileOpen(true)} />
+        <Header area={area} onToggleSidebar={() => setPref('sidebarCollapsed', !collapsed)} onOpenMobileNav={() => setMobileOpen(true)} />
+        {area === 'business' && <LicenseBanner />}
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
-      <CommandPalette />
+      {area === 'business' && <CommandPalette />}
     </div>
   );
 }

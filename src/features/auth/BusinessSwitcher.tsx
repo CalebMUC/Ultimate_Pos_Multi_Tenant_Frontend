@@ -10,17 +10,26 @@ import { useSession } from '@/stores/session';
 import { labels } from '@/api/enums';
 import { toastError } from '@/lib/forms';
 import { cn } from '@/lib/utils';
+import { accessStatusStyle, isBlockedStatus } from '@/features/access/access';
+import { AccessStatusBadge } from '@/features/access/AccessComponents';
 import type { Guid } from '@/api/dto/common';
 import type { BusinessMembershipDto } from '@/api/dto/identity';
 import { switchBusiness } from './sessionActions';
 import { homePathFor } from './AuthGuard';
 
-export function BusinessBadges({ membership, vat }: { membership: Pick<BusinessMembershipDto, 'kind' | 'businessType'>; vat?: boolean }) {
+/** Why a business in the picker can't be chosen, or null when it can. */
+export function blockedReason(status: string | null | undefined): string | null {
+  if (!isBlockedStatus(status)) return null;
+  return `${accessStatusStyle(status).label}: this business can’t be used right now. Contact the Ultimate POS team.`;
+}
+
+export function BusinessBadges({ membership, vat }: { membership: Pick<BusinessMembershipDto, 'kind' | 'businessType' | 'accessStatus'>; vat?: boolean }) {
   return (
     <span className="flex flex-wrap gap-1">
       <Badge variant="secondary">{labels.businessKind[membership.kind]}</Badge>
       <Badge variant="outline">{labels.businessType[membership.businessType]}</Badge>
       {vat && <Badge variant="info">VAT</Badge>}
+      {membership.accessStatus && membership.accessStatus !== 'Active' && <AccessStatusBadge status={membership.accessStatus} />}
     </span>
   );
 }
@@ -51,6 +60,7 @@ export function BusinessSwitcher() {
   const profile = useSession((s) => s.business);
   const { switchTo, pending } = useSwitchBusiness();
   const active = businesses.find((b) => b.businessId === activeBusinessId);
+  const blockedOf = (b: BusinessMembershipDto) => (b.businessId === activeBusinessId ? null : blockedReason(b.accessStatus));
 
   const display = (
     <span className="flex min-w-0 items-center gap-2.5">
@@ -84,7 +94,18 @@ export function BusinessSwitcher() {
         <DropdownMenuLabel>Switch business</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {businesses.map((b) => (
-          <DropdownMenuItem key={b.businessId} disabled={!!pending} onSelect={() => b.businessId !== activeBusinessId && switchTo(b.businessId)} className="items-start">
+          <DropdownMenuItem
+            key={b.businessId}
+            disabled={!!pending}
+            // Not `disabled` when blocked: Radix would ignore the pointer, and the reason has to show on hover.
+            aria-disabled={blockedOf(b) ? true : undefined}
+            title={blockedOf(b) ?? undefined}
+            onSelect={(e) => {
+              if (blockedOf(b)) { e.preventDefault(); return; }
+              if (b.businessId !== activeBusinessId) void switchTo(b.businessId);
+            }}
+            className={cn('items-start', blockedOf(b) && 'cursor-not-allowed opacity-60')}
+          >
             <Check className={cn('mt-0.5', b.businessId === activeBusinessId ? 'opacity-100' : 'opacity-0')} />
             <span className="min-w-0 flex-1 space-y-1">
               <span className="block truncate font-medium">{b.tradingName || b.businessName}</span>

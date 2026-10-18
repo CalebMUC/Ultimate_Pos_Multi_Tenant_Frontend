@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { FocusBanner } from '@/components/shared/FocusBanner';
 import { useQuery } from '@tanstack/react-query';
 import { SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -37,11 +38,15 @@ const columns: ColumnDef<StockLevelDto, unknown>[] = [
   },
 ];
 
+/** Also serves /inventory?productId=… (low/out-of-stock notifications), narrowed to that product. */
 function StockLevels() {
+  const productId = useSearchParams().get('productId');
   const router = useRouter();
   const key = useQueryKey();
   const [lowOnly, setLowOnly] = useState(false);
   const query = useQuery({ queryKey: key('stock', { levels: true, lowOnly }), queryFn: () => stockApi.levels(lowOnly) });
+  const focused = productId ? query.data?.filter((s) => s.productId === productId) : undefined;
+  const rows = productId ? focused : query.data;
   return (
     <>
       <PageHeader
@@ -49,9 +54,15 @@ function StockLevels() {
         description="Quantity on hand per product, in its base unit. Batch-tracked products also show what is unexpired."
         actions={<Can permission="Stock.Adjust"><Button asChild><Link href="/inventory/adjustments"><SlidersHorizontal />Adjust stock</Link></Button></Can>}
       />
+      {productId && (
+        <FocusBanner>
+          {focused?.length ? <>Showing <span className="font-medium">{focused[0].productName}</span>.</> : query.isLoading ? 'Showing one product.' : 'That product has no stock record yet.'}
+          {' '}<Link href={`/products/${productId}`} className="text-primary hover:underline">Open product</Link>
+        </FocusBanner>
+      )}
       <DataTable
         columns={columns}
-        data={query.data}
+        data={rows}
         isLoading={query.isLoading}
         error={query.error}
         onRetry={() => query.refetch()}
@@ -84,5 +95,5 @@ function StockLevels() {
 }
 
 export default function Page() {
-  return <PermissionRoute permission="Stock.View"><StockLevels /></PermissionRoute>;
+  return <PermissionRoute permission="Stock.View"><Suspense><StockLevels /></Suspense></PermissionRoute>;
 }

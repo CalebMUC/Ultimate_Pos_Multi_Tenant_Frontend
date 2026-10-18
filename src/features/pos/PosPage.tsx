@@ -98,6 +98,8 @@ export function PosPage() {
     qc.invalidateQueries({ queryKey: ['stock'] });
     qc.invalidateQueries({ queryKey: ['mpesa-unmatched'] });
     qc.invalidateQueries({ queryKey: ['dashboard'] });
+    // A sale can raise stock alerts, which the API's worker sends within about 5 s: check then rather than at the next poll.
+    setTimeout(() => qc.invalidateQueries({ queryKey: ['notifications'] }), 6_000);
     setTimeout(() => searchRef.current?.focus(), 50);
   }
 

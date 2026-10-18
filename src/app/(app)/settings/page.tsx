@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { BadgeCheck, ChevronRight } from 'lucide-react';
+import { Can } from '@/components/shared/Can';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, NativeSelect } from '@/components/ui/primitives';
 import { Switch } from '@/components/ui/overlays';
 import { PageHeader } from '@/components/shared/Display';
@@ -25,6 +28,13 @@ export default function SettingsPage() {
     <>
       <PageHeader title="Settings" description="Preferences for this device and browser." />
       <div className="grid max-w-3xl gap-4">
+        <Can permission="Businesses.View">
+          <Link href="/settings/license" className="flex items-center gap-3 rounded-lg border bg-card p-4 shadow-sm transition-colors hover:border-primary">
+            <BadgeCheck className="size-5 text-primary" />
+            <span className="flex-1"><span className="block font-medium">Licence</span><span className="text-sm text-muted-foreground">Status, end date, user limit and history.</span></span>
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </Link>
+        </Can>
         <Card>
           <CardHeader><CardTitle>Appearance</CardTitle></CardHeader>
           <CardContent className="divide-y">

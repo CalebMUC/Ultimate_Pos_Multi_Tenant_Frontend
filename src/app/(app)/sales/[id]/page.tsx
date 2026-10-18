@@ -18,6 +18,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatDateTime, formatMoney } from '@/lib/format';
 import { ReceiptDialog } from '@/features/sales/Receipt';
 import { ReturnDialog } from '@/features/sales/ReturnDialog';
+import { WithActivityTab } from '@/features/audit/WithActivityTab';
 
 function SaleDetail({ id }: { id: string }) {
   const key = useQueryKey();
@@ -58,6 +59,7 @@ function SaleDetail({ id }: { id: string }) {
           </>
         }
       />
+      <WithActivityTab entityType="Sale" entityId={id}>
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle>Items</CardTitle></CardHeader>
@@ -162,6 +164,7 @@ function SaleDetail({ id }: { id: string }) {
         </Card>
       )}
 
+      </WithActivityTab>
       <ConfirmDialog
         open={voiding}
         onOpenChange={setVoiding}

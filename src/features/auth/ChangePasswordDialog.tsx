@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { FormAlert } from '@/components/shared/States';
 import { Field } from '@/components/shared/Field';
 import { Input } from '@/components/ui/primitives';
-import { authApi } from '@/api/endpoints/identity';
+import { normaliseError } from '@/api/errors';
 import { applyApiErrors } from '@/lib/forms';
+import { changePassword } from './sessionActions';
 
 /** Same rule as the API: at least 8 characters, with a letter and a digit. */
 export const passwordRule = z
@@ -22,44 +23,63 @@ export const passwordRule = z
 
 const schema = z
   .object({ currentPassword: z.string().min(1, 'Enter your current password.'), newPassword: passwordRule, confirm: z.string() })
-  .refine((v) => v.newPassword === v.confirm, { path: ['confirm'], message: 'Passwords do not match.' });
+  .refine((v) => v.newPassword === v.confirm, { path: ['confirm'], message: 'Passwords do not match.' })
+  .refine((v) => v.newPassword !== v.currentPassword, { path: ['newPassword'], message: 'Choose a password different from the current one.' });
 type Values = z.infer<typeof schema>;
 
-export function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange(open: boolean): void }) {
-  const [unmatched, setUnmatched] = useState<string[]>([]);
+/** The change-password form, shared by the dialog and the blocking /change-password page. */
+export function useChangePasswordForm(onDone: () => void) {
+  const [messages, setMessages] = useState<string[]>([]);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { currentPassword: '', newPassword: '', confirm: '' } });
-
-  async function submit(values: Values) {
-    setUnmatched([]);
+  const submit = form.handleSubmit(async (values) => {
+    setMessages([]);
     try {
-      await authApi.changePassword({ currentPassword: values.currentPassword, newPassword: values.newPassword });
-      toast.success('Password changed. Your other devices have been signed out.');
+      await changePassword(values.currentPassword, values.newPassword);
       form.reset();
-      onOpenChange(false);
+      onDone();
     } catch (e) {
       const rest = applyApiErrors(form, e);
-      setUnmatched(rest.length || !Object.keys(form.formState.errors).length ? [((e as Error).message)] : rest);
+      const apiError = normaliseError(e);
+      setMessages(rest.length ? rest : apiError.hasFieldErrors() ? [] : [apiError.message]);
     }
-  }
+  });
+  const reset = () => { form.reset(); setMessages([]); };
+  return { form, submit, messages, reset };
+}
+
+export function ChangePasswordFields({ form, messages, autoFocus }: { form: ReturnType<typeof useChangePasswordForm>['form']; messages: string[]; autoFocus?: boolean }) {
+  const e = form.formState.errors;
+  return (
+    <div className="space-y-3">
+      <FormAlert messages={messages} />
+      <Field label="Current password" error={e.currentPassword} hint="If an administrator set it for you, use that one.">
+        <Input type="password" autoComplete="current-password" autoFocus={autoFocus} {...form.register('currentPassword')} />
+      </Field>
+      <Field label="New password" error={e.newPassword} hint="At least 8 characters, with a letter and a digit.">
+        <Input type="password" autoComplete="new-password" {...form.register('newPassword')} />
+      </Field>
+      <Field label="Confirm new password" error={e.confirm}>
+        <Input type="password" autoComplete="new-password" {...form.register('confirm')} />
+      </Field>
+    </div>
+  );
+}
+
+export function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange(open: boolean): void }) {
+  const { form, submit, messages, reset } = useChangePasswordForm(() => {
+    toast.success('Password changed. Your other devices have been signed out.');
+    onOpenChange(false);
+  });
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) form.reset(); setUnmatched([]); onOpenChange(o); }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
       <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Change password</DialogTitle>
           <DialogDescription>This signs you out on your other devices.</DialogDescription>
         </DialogHeader>
-        <form id="change-password" onSubmit={form.handleSubmit(submit)} className="space-y-3" noValidate>
-          <FormAlert messages={unmatched} />
-          <Field label="Current password" error={form.formState.errors.currentPassword}>
-            <Input type="password" autoComplete="current-password" {...form.register('currentPassword')} />
-          </Field>
-          <Field label="New password" error={form.formState.errors.newPassword} hint="At least 8 characters, with a letter and a digit.">
-            <Input type="password" autoComplete="new-password" {...form.register('newPassword')} />
-          </Field>
-          <Field label="Confirm new password" error={form.formState.errors.confirm}>
-            <Input type="password" autoComplete="new-password" {...form.register('confirm')} />
-          </Field>
+        <form id="change-password" onSubmit={submit} noValidate>
+          <ChangePasswordFields form={form} messages={messages} />
         </form>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

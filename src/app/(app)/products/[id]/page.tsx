@@ -25,6 +25,7 @@ import { usePermission, usePermissions, useQueryKey } from '@/hooks/useSessionIn
 import { formatDate, formatDateOnly, formatDateTime, formatQty, toIsoDate } from '@/lib/format';
 import { requiredId, requiredNumber } from '@/lib/schemas';
 import { ProductFormDialog } from '@/features/products/ProductFormDialog';
+import { ActivityTimeline } from '@/features/audit/ActivityTimeline';
 import type { ProductDetailDto, ProductPriceTierDto, ProductUnitConversionDto } from '@/api/dto/catalog';
 import type { StockBatchDto, StockMovementDto } from '@/api/dto/inventory';
 
@@ -60,6 +61,7 @@ function ProductDetail({ id }: { id: string }) {
   const qc = useQueryClient();
   const can = usePermissions();
   const canStock = usePermission('Stock.View');
+  const canAudit = usePermission('AuditLog.View');
   const product = useQuery({ queryKey: key('products', { detail: id }), queryFn: () => productsApi.get(id) });
   const level = useQuery({ queryKey: key('stock', { productId: id }), queryFn: () => stockApi.level(id), enabled: canStock });
   const movements = useQuery({ queryKey: key('stock', { productId: id, movements: true }), queryFn: () => stockApi.movements(id), enabled: canStock });
@@ -171,6 +173,7 @@ function ProductDetail({ id }: { id: string }) {
           <TabsTrigger value="units">Pack units</TabsTrigger>
           {canStock && <TabsTrigger value="movements">Stock movements</TabsTrigger>}
           {canStock && p.isBatchTracked && <TabsTrigger value="batches">Batches</TabsTrigger>}
+          {canAudit && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
         <TabsContent value="overview">
           <Card>
@@ -227,6 +230,11 @@ function ProductDetail({ id }: { id: string }) {
         {canStock && p.isBatchTracked && (
           <TabsContent value="batches">
             <DataTable columns={batchColumns} data={batches.data} isLoading={batches.isLoading} error={batches.error} getRowId={(b) => b.stockBatchId} emptyTitle="No batches in stock" />
+          </TabsContent>
+        )}
+        {canAudit && (
+          <TabsContent value="activity">
+            <Card><CardContent className="pt-4"><ActivityTimeline entityType="Product" entityId={id} /></CardContent></Card>
           </TabsContent>
         )}
       </Tabs>

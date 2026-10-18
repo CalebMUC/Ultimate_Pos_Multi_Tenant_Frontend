@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import {
   flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useReactTable,
   type ColumnDef, type OnChangeFn, type PaginationState, type SortingState,
@@ -30,6 +30,8 @@ interface BaseProps<T> {
   csv?: { fileName: string; columns: CsvColumn<T>[] };
   rowClassName?: (row: T) => string | undefined;
   footer?: ReactNode;
+  /** Makes rows expandable: clicking a row shows this under it. Ignored when onRowClick is set. */
+  renderExpanded?: (row: T) => ReactNode;
 }
 
 interface ClientProps<T> extends BaseProps<T> {
@@ -62,6 +64,9 @@ export function DataTable<T>(props: DataTableProps<T>) {
   const server = props.mode === 'server';
   const [clientSorting, setClientSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const expandable = !!props.renderExpanded && !props.onRowClick;
+  const toggle = (id: string) => setExpanded((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const [clientPagination, setClientPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: (!server && (props as ClientProps<T>).pageSize) || 25,
@@ -189,22 +194,34 @@ export function DataTable<T>(props: DataTableProps<T>) {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  onClick={props.onRowClick ? () => props.onRowClick!(row.original) : undefined}
-                  className={cn(props.onRowClick && 'cursor-pointer', props.rowClassName?.(row.original))}
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const meta = cell.column.columnDef.meta as { align?: 'right' | 'center'; className?: string } | undefined;
-                    return (
-                      <TableCell key={cell.id} className={cn(meta?.align === 'right' && 'text-right', meta?.align === 'center' && 'text-center', meta?.className)}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))
+              rows.map((row) => {
+                const isOpen = expandable && expanded.has(row.id);
+                return (
+                  <Fragment key={row.id}>
+                    <TableRow
+                      onClick={props.onRowClick ? () => props.onRowClick!(row.original) : expandable ? () => toggle(row.id) : undefined}
+                      onKeyDown={expandable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(row.id); } } : undefined}
+                      tabIndex={expandable ? 0 : undefined}
+                      aria-expanded={expandable ? isOpen : undefined}
+                      className={cn((props.onRowClick || expandable) && 'cursor-pointer', isOpen && 'border-b-0 bg-muted/40', props.rowClassName?.(row.original))}
+                    >
+                      {row.getVisibleCells().map((cell) => {
+                        const meta = cell.column.columnDef.meta as { align?: 'right' | 'center'; className?: string } | undefined;
+                        return (
+                          <TableCell key={cell.id} className={cn(meta?.align === 'right' && 'text-right', meta?.align === 'center' && 'text-center', meta?.className)}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                    {isOpen && (
+                      <TableRow className="bg-muted/40 hover:bg-muted/40">
+                        <TableCell colSpan={colSpan} className="pt-0">{props.renderExpanded!(row.original)}</TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
           </TableBody>
           {props.footer}

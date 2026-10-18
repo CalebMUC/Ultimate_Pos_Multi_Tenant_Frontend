@@ -1,7 +1,8 @@
 import { api } from '../client';
 import type { Guid } from '../dto/common';
+import type { RegisterBusinessResultDto } from '../dto/platform';
 import type {
-  BusinessDto, CustomerBalanceDto, CustomerDto, CustomerLedgerEntryDto, RecordCustomerPaymentRequestDto, RegisterBusinessRequestDto,
+  BusinessDto, BusinessLicenseStatusDto, CustomerBalanceDto, CustomerDto, CustomerLedgerEntryDto, RecordCustomerPaymentRequestDto, RegisterBusinessRequestDto,
   RegisterCustomerRequestDto, UpdateBusinessRequestDto, UpdateCustomerRequestDto,
 } from '../dto/business';
 
@@ -10,10 +11,11 @@ export const businessesApi = {
   list: () => api.get<BusinessDto[]>('/businesses'),
   current: () => api.get<BusinessDto>('/businesses/current'),
   get: (id: Guid) => api.get<BusinessDto>(`/businesses/${id}`),
-  register: (body: RegisterBusinessRequestDto) => api.post<BusinessDto>('/businesses', body),
+  /** Super users: registers a business and its owner. The owner's temporary password is returned once. */
+  register: (body: RegisterBusinessRequestDto) => api.post<RegisterBusinessResultDto>('/businesses', body),
+  /** The signed-in business's own licence status and history (Businesses.View). */
+  currentLicense: () => api.get<BusinessLicenseStatusDto>('/businesses/current/license'),
   update: (id: Guid, body: UpdateBusinessRequestDto) => api.put<BusinessDto>(`/businesses/${id}`, body),
-  activate: (id: Guid) => api.post<BusinessDto>(`/businesses/${id}/activate`),
-  deactivate: (id: Guid) => api.post<BusinessDto>(`/businesses/${id}/deactivate`),
 };
 
 export const customersApi = {

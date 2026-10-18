@@ -5,6 +5,7 @@ import { tokenStorage } from '@/api/tokenStorage';
 import { queryClient } from '@/lib/queryClient';
 import { useCartStore } from '@/stores/cart';
 import { useSession } from '@/stores/session';
+import { useAccess } from '@/stores/access';
 import type { Guid } from '@/api/dto/common';
 import type { LoginResponseDto } from '@/api/dto/identity';
 
@@ -34,6 +35,8 @@ export async function bootstrapSession() {
   try {
     await refreshSession();
     await loadCurrentBusiness();
+    // The forced-password flag and the licence position, which the refresh response only partly carries.
+    void refreshMe().catch(() => undefined);
   } catch {
     // A network failure leaves us without an access token; treat as signed out but keep the refresh token for next time.
     if (useSession.getState().status !== 'authenticated') useSession.getState().clear();
@@ -46,6 +49,7 @@ export async function login(email: string, password: string, businessId?: Guid |
   useCartStore.getState().clearAll();
   applyLoginResponse(data);
   await loadCurrentBusiness();
+  void refreshMe().catch(() => undefined);
   return data;
 }
 
@@ -64,11 +68,29 @@ export async function switchBusiness(businessId: Guid) {
   return data;
 }
 
-/** Re-reads roles and permissions (GET /auth/me). */
+/** Re-reads roles, permissions, the forced-password flag and the licence position (GET /auth/me). */
 export async function refreshMe() {
   const me = await authApi.me();
-  useSession.getState().setUser(me.user, me.businesses, me.activeBusinessId);
+  useSession.getState().setUser(me.user, me.businesses, me.activeBusinessId, me.mustChangePassword ?? false);
+  const access = me.businessAccess;
+  if (access) {
+    const warns = access.allowed && (access.status === 'ExpiringSoon' || access.status === 'GracePeriod') && access.message;
+    useAccess.getState().setWarning(warns ? { message: access.message!, status: access.status } : null);
+  }
   return me;
+}
+
+/**
+ * Changes the password, then signs in again with it: the API ends every session on a password change, this one included,
+ * so without a fresh sign-in the user would be thrown out at the next token refresh. The cart and caches are kept.
+ */
+export async function changePassword(currentPassword: string, newPassword: string) {
+  const { user, activeBusinessId } = useSession.getState();
+  await authApi.changePassword({ currentPassword, newPassword });
+  if (!user) return;
+  const data = await authApi.login({ email: user.email, password: newPassword, businessId: activeBusinessId });
+  applyLoginResponse(data);
+  if (data.activeBusinessId !== activeBusinessId) await loadCurrentBusiness();
 }
 
 export async function logout() {

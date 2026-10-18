@@ -1,6 +1,7 @@
 // Application/Business/Dtos/BusinessDtos.cs and Application/Accounting/Dtos/AccountingDtos.cs
 import type { BusinessKind, BusinessType, CustomerLedgerEntryType, PriceType, SettlementMethod, SupplierLedgerEntryType } from '../enums';
-import type { DateTimeString, Guid } from './common';
+import type { DateOnly, DateTimeString, Guid } from './common';
+import type { BusinessAccessDto, BusinessLicenseDto, BusinessOwnerRequestDto } from './platform';
 
 interface BusinessProfileFields {
   businessName: string;
@@ -19,15 +20,26 @@ interface BusinessProfileFields {
   maxDiscountPercent: number | null;
 }
 
-export interface RegisterBusinessRequestDto extends BusinessProfileFields { kind: BusinessKind }
+export interface RegisterBusinessRequestDto extends BusinessProfileFields {
+  kind: BusinessKind;
+  /** The person who will run it: becomes its first Admin. Super users only. */
+  owner?: BusinessOwnerRequestDto | null;
+}
 /** Full replace. Kind cannot change. */
 export type UpdateBusinessRequestDto = BusinessProfileFields;
 
 export interface BusinessDto extends BusinessProfileFields {
   businessId: Guid;
   kind: BusinessKind;
+  /** False once closed by the platform. */
   isActive: boolean;
+  isSuspended?: boolean;
+  suspensionReason?: string | null;
+  licenseEndsOn?: DateOnly | null;
+  licenseMaxUsers?: number | null;
 }
+
+export interface BusinessLicenseStatusDto { access: BusinessAccessDto; maxUsers: number | null; licenses: BusinessLicenseDto[] }
 
 export interface RegisterCustomerRequestDto {
   businessId?: Guid | null;

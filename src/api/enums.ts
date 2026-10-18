@@ -20,6 +20,10 @@ export enum SupplierLedgerEntryType { Bill = 0, Payment = 1, Reversal = 2 }
 export enum RefundMethod { Cash = 0, Mpesa = 1, CreditNote = 2 }
 export enum BusinessType { Wholesaler = 0, Retailer = 1 }
 export enum BusinessKind { Manufacturer = 0, Trader = 1 }
+export enum LicenseKind { Trial = 0, Paid = 1, Complimentary = 2 }
+export enum LicenseState { Active = 0, Cancelled = 1 }
+/** Notifications and audit-log entries. Arrives as a number; query strings accept the name. */
+export enum EventSeverity { Info = 0, Warning = 1, Critical = 2 }
 
 export type ExpiryStatus = 'Expired' | 'NearExpiry' | 'Ok' | 'NoExpiry';
 export type StockStatus = 'InStock' | 'LowStock' | 'OutOfStock';
@@ -67,6 +71,9 @@ export const labels = {
   refundMethod: { [RefundMethod.Cash]: 'Cash', [RefundMethod.Mpesa]: 'M-Pesa', [RefundMethod.CreditNote]: 'Credit note' },
   businessType: { [BusinessType.Wholesaler]: 'Wholesaler', [BusinessType.Retailer]: 'Retailer' },
   businessKind: { [BusinessKind.Manufacturer]: 'Manufacturer', [BusinessKind.Trader]: 'Trader' },
+  licenseKind: { [LicenseKind.Trial]: 'Trial', [LicenseKind.Paid]: 'Paid', [LicenseKind.Complimentary]: 'Complimentary' },
+  licenseState: { [LicenseState.Active]: 'Active', [LicenseState.Cancelled]: 'Cancelled' },
+  eventSeverity: { [EventSeverity.Info]: 'Info', [EventSeverity.Warning]: 'Warning', [EventSeverity.Critical]: 'Critical' },
   expiryStatus: { Expired: 'Expired', NearExpiry: 'Near expiry', Ok: 'OK', NoExpiry: 'No expiry' } as Record<ExpiryStatus, string>,
 } as const;
 

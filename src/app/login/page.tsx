@@ -11,8 +11,10 @@ import { Input, Label } from '@/components/ui/primitives';
 import { FormAlert } from '@/components/shared/States';
 import { BrandMark } from '@/components/layout/BrandMark';
 import { login } from '@/features/auth/sessionActions';
-import { homePathFor } from '@/features/auth/AuthGuard';
-import { isApiError } from '@/api/errors';
+import { landingPath, safeReturnTo } from '@/features/auth/AuthGuard';
+import { isAccessCode } from '@/features/access/access';
+import { reportAccessBlocked } from '@/api/client';
+import { isApiError, normaliseError } from '@/api/errors';
 import { tokenStorage } from '@/api/tokenStorage';
 import { useSession } from '@/stores/session';
 
@@ -22,10 +24,6 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-/** Only same-origin paths, never a full URL, so returnTo can't send the user off-site. */
-function safeReturnTo(value: string | null): string | null {
-  return value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/login') ? value : null;
-}
 
 function LoginForm() {
   const router = useRouter();
@@ -38,8 +36,8 @@ function LoginForm() {
   // Already signed in (session restored): skip the form.
   useEffect(() => {
     if (status !== 'authenticated') return;
-    const { user, activeBusinessId } = useSession.getState();
-    router.replace(returnTo ?? homePathFor(user?.permissions ?? [], activeBusinessId));
+    const { user, activeBusinessId, mustChangePassword } = useSession.getState();
+    router.replace(landingPath({ permissions: user?.permissions ?? [], activeBusinessId, mustChangePassword }, returnTo));
   }, [status, returnTo, router]);
 
   async function onSubmit(values: FormValues) {
@@ -50,13 +48,23 @@ function LoginForm() {
       try {
         data = await login(values.email, values.password, remembered);
       } catch (e) {
-        // The remembered business may belong to someone else on this device, or the user may have lost access to it.
-        if (remembered && isApiError(e, 'FORBIDDEN')) data = await login(values.email, values.password, null);
+        // The remembered business may belong to someone else on this device, the user may have lost access to it, or it may
+        // be suspended or out of licence: without it, the API signs in to a business the user can still use.
+        if (remembered && (isApiError(e, 'FORBIDDEN') || isAccessCode(normaliseError(e).code))) data = await login(values.email, values.password, null);
         else throw e;
       }
-      const choose = data.businesses.length > 1 && !remembered;
-      router.replace(choose ? `/select-business${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}` : returnTo ?? homePathFor(data.user.permissions, data.activeBusinessId));
+      const choose = data.businesses.length > 1 && !remembered && !!data.activeBusinessId;
+      router.replace(landingPath(
+        { permissions: data.user.permissions, activeBusinessId: data.activeBusinessId, mustChangePassword: data.mustChangePassword ?? false },
+        returnTo,
+        choose,
+      ));
     } catch (e) {
+      // No business the user belongs to can be used today: say why, full page.
+      if (reportAccessBlocked(normaliseError(e))) {
+        router.push(`/blocked?code=${normaliseError(e).code}`);
+        return;
+      }
       setError(e);
     }
   }

@@ -9,6 +9,8 @@ import { Can } from '@/components/shared/Can';
 import { BusinessSwitcher } from '@/features/auth/BusinessSwitcher';
 import { ChangePasswordDialog } from '@/features/auth/ChangePasswordDialog';
 import { logout } from '@/features/auth/sessionActions';
+import { NotificationBell } from '@/features/notifications/NotificationBell';
+import type { ShellArea } from './Sidebar';
 import { usePreferences, type Theme } from '@/stores/preferences';
 import { useSession } from '@/stores/session';
 
@@ -24,7 +26,7 @@ function ThemeToggle() {
   );
 }
 
-function UserMenu() {
+function UserMenu({ area = 'business' }: { area?: ShellArea }) {
   const user = useSession((s) => s.user);
   const [changing, setChanging] = useState(false);
   const initials = (user?.fullName ?? '?').split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
@@ -41,9 +43,11 @@ function UserMenu() {
             {user?.roles.length ? <span className="mt-1 block truncate text-xs">{user.roles.join(', ')}</span> : null}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/account"><UserRound />Profile & session</Link>
-          </DropdownMenuItem>
+          {area === 'business' && (
+            <DropdownMenuItem asChild>
+              <Link href="/account"><UserRound />Profile & session</Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={() => setChanging(true)}><KeyRound />Change password</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -62,8 +66,9 @@ function UserMenu() {
   );
 }
 
-export function Header({ onToggleSidebar, onOpenMobileNav }: { onToggleSidebar(): void; onOpenMobileNav(): void }) {
+export function Header({ onToggleSidebar, onOpenMobileNav, area = 'business' }: { onToggleSidebar(): void; onOpenMobileNav(): void; area?: ShellArea }) {
   const hasBusiness = useSession((s) => !!s.activeBusinessId);
+  if (area === 'platform') return <PlatformHeader onToggleSidebar={onToggleSidebar} onOpenMobileNav={onOpenMobileNav} />;
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-card/95 px-3 backdrop-blur no-print">
       <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenMobileNav} aria-label="Open menu"><Menu /></Button>
@@ -89,8 +94,28 @@ export function Header({ onToggleSidebar, onOpenMobileNav }: { onToggleSidebar()
           </Button>
         </Can>
       )}
+      <NotificationBell />
       <ThemeToggle />
       <UserMenu />
+    </header>
+  );
+}
+
+/** The Super User area: no business switcher, search or New Sale. Platform notifications land in the bell. */
+function PlatformHeader({ onToggleSidebar, onOpenMobileNav }: { onToggleSidebar(): void; onOpenMobileNav(): void }) {
+  const user = useSession((s) => s.user);
+  return (
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-card/95 px-3 backdrop-blur no-print">
+      <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenMobileNav} aria-label="Open menu"><Menu /></Button>
+      <Button variant="ghost" size="icon" className="hidden lg:inline-flex" onClick={onToggleSidebar} aria-label="Toggle sidebar"><PanelLeft /></Button>
+      <span className="flex items-center gap-2">
+        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">Platform</span>
+        <span className="hidden text-sm text-muted-foreground sm:inline">Signed in as <span className="font-medium text-foreground">{user?.fullName}</span></span>
+      </span>
+      <div className="flex-1" />
+      <NotificationBell area="platform" />
+      <ThemeToggle />
+      <UserMenu area="platform" />
     </header>
   );
 }
