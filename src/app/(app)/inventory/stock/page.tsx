@@ -15,6 +15,8 @@ import { PageHeader, QuantityText } from '@/components/shared/Display';
 import { stockApi } from '@/api/endpoints/inventory';
 import { useQueryKey } from '@/hooks/useSessionInfo';
 import type { StockLevelDto } from '@/api/dto/inventory';
+import { branchLabel, useBranchFilter } from '@/features/branches/branches';
+import { withBranchColumn } from '@/features/branches/branchColumn';
 
 const columns: ColumnDef<StockLevelDto, unknown>[] = [
   { header: 'Product', accessorKey: 'productName', cell: ({ row }) => <span className="font-medium">{row.original.productName}</span> },
@@ -43,8 +45,9 @@ function StockLevels() {
   const productId = useSearchParams().get('productId');
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [lowOnly, setLowOnly] = useState(false);
-  const query = useQuery({ queryKey: key('stock', { levels: true, lowOnly }), queryFn: () => stockApi.levels(lowOnly) });
+  const query = useQuery({ queryKey: key('stock', { levels: true, lowOnly, branchId: branch.branchId }), queryFn: () => stockApi.levels(lowOnly, branch.scope) });
   const focused = productId ? query.data?.filter((s) => s.productId === productId) : undefined;
   const rows = productId ? focused : query.data;
   return (
@@ -61,12 +64,13 @@ function StockLevels() {
         </FocusBanner>
       )}
       <DataTable
-        columns={columns}
+        branchFilter={branch}
+        columns={withBranchColumn(columns, branch.visible && !branch.branchId)}
         data={rows}
         isLoading={query.isLoading}
         error={query.error}
         onRetry={() => query.refetch()}
-        getRowId={(s) => s.productId}
+        getRowId={(s) => `${s.productId}:${s.branchId ?? ''}`}
         onRowClick={(s) => router.push(`/products/${s.productId}`)}
         searchable
         searchPlaceholder="Product or SKU…"
@@ -80,6 +84,7 @@ function StockLevels() {
         csv={{
           fileName: 'stock-levels',
           columns: [
+            { header: 'Branch', value: (s) => branchLabel(s) },
             { header: 'SKU', value: (s) => s.sku },
             { header: 'Product', value: (s) => s.productName },
             { header: 'On hand', value: (s) => s.quantityOnHand },

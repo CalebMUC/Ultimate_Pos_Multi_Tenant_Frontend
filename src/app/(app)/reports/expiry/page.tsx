@@ -12,6 +12,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatMoney } from '@/lib/format';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { ExpiryReportItemDto } from '@/api/dto/inventory';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<ExpiryReportItemDto, unknown>[] = [
   { header: 'Product', accessorKey: 'productName', cell: ({ row }) => <span className="font-medium">{row.original.productName}</span> },
@@ -26,11 +27,13 @@ const columns: ColumnDef<ExpiryReportItemDto, unknown>[] = [
 function Expiry() {
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [within, setWithin] = useState(90);
-  const q = useQuery({ queryKey: key('reports', { expiry: within }), queryFn: () => stockApi.expiryReport(within) });
+  const q = useQuery({ queryKey: key('reports', { expiry: within, branchId: branch.branchId }), queryFn: () => stockApi.expiryReport(within, branch.scope) });
   const r = q.data;
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Expiry report"
       description={r ? `Expired batches and batches expiring by ${formatDateOnly(r.asOf)} + ${r.withinDays} days.` : 'Expired and soon-to-expire batches.'}
       filters={

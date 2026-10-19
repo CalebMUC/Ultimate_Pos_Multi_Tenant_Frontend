@@ -12,6 +12,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatMoney, formatPercent } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { ReportLayout } from '@/features/reports/ReportLayout';
+import { useBranchFilter } from '@/features/branches/branches';
 
 function Line({ label, value, strong, indent, negative }: { label: string; value: number; strong?: boolean; indent?: boolean; negative?: boolean }) {
   return (
@@ -24,11 +25,13 @@ function Line({ label, value, strong, indent, negative }: { label: string; value
 
 function ProfitAndLoss() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('month'));
-  const q = useQuery({ queryKey: key('reports', { pnl: range }), queryFn: () => costingApi.profitAndLoss(range.from, range.to) });
+  const q = useQuery({ queryKey: key('reports', { pnl: range, branchId: branch.branchId }), queryFn: () => costingApi.profitAndLoss(range.from, range.to, branch.scope) });
   const r = q.data;
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Profit & loss"
       description="Revenue (excluding VAT) less cost of goods sold and operating expenses."
       filters={<DateRangeFilter value={range} onChange={setRange} />}

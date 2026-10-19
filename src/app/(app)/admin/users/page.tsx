@@ -23,6 +23,7 @@ import { emptyToNull } from '@/lib/utils';
 import { passwordRule } from '@/features/auth/ChangePasswordDialog';
 import { refreshMe } from '@/features/auth/sessionActions';
 import { useSession } from '@/stores/session';
+import { branchLabel } from '@/features/branches/branches';
 import type { UserDto } from '@/api/dto/identity';
 
 const createSchema = z.object({
@@ -31,6 +32,9 @@ const createSchema = z.object({
   phoneNumber: z.string().trim().min(1, 'Phone is required.').regex(/^\+?[\d\s-]{9,15}$/, 'Enter a valid phone number.'),
   password: passwordRule,
   roleName: z.string().min(1, 'Choose a role.'),
+  // Left empty, the API assigns the creator's current branch.
+  branchIds: z.array(z.string()),
+  defaultBranchId: z.string(),
 });
 const editSchema = z.object({ fullName: requiredText('Full name', 150), email: email.refine((v) => v !== '', 'Email is required.'), phoneNumber: phone });
 const resetSchema = z.object({ newPassword: passwordRule });
@@ -43,6 +47,8 @@ function Users() {
   const router = useRouter();
   const can = usePermissions();
   const me = useSession((s) => s.user);
+  const activeBranchId = useSession((s) => s.activeBranchId);
+  const myBranches = useSession((s) => s.branches);
   const users = useQuery({ queryKey: key('users'), queryFn: usersApi.list });
   // The licence's user limit, for "N of M users". Users.View alone may not include Businesses.View.
   const license = useQuery({ queryKey: key('license'), queryFn: businessesApi.currentLicense, enabled: can('Businesses.View'), retry: false });
@@ -123,8 +129,16 @@ function Users() {
         title="New user"
         description="They sign in with this email and password, and should change the password afterwards."
         schema={createSchema}
-        defaultValues={{ fullName: '', email: '', phoneNumber: '', password: '', roleName: '' }}
-        onSubmit={async (v) => { const u = await usersApi.create(v); await refresh(); toast.success(`${u.fullName} added`); }}
+        defaultValues={{ fullName: '', email: '', phoneNumber: '', password: '', roleName: '', branchIds: activeBranchId ? [activeBranchId] : [], defaultBranchId: activeBranchId ?? '' }}
+        onSubmit={async ({ branchIds, defaultBranchId, ...v }) => {
+          const u = await usersApi.create({
+            ...v,
+            branchIds: branchIds.length ? branchIds : null,
+            defaultBranchId: branchIds.includes(defaultBranchId) ? defaultBranchId : branchIds[0] ?? null,
+          });
+          await refresh();
+          toast.success(`${u.fullName} added`);
+        }}
       >
         {(form) => (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -140,6 +154,37 @@ function Users() {
             <Field label="Temporary password" required error={form.formState.errors.password} hint="At least 8 characters, with a letter and a digit." className="sm:col-span-2">
               <Input type="password" autoComplete="new-password" {...form.register('password')} />
             </Field>
+            {myBranches.length > 1 && (
+              <fieldset className="space-y-1.5 sm:col-span-2">
+                <legend className="text-sm font-medium">Branches</legend>
+                <p className="text-xs text-muted-foreground">Where they will work. Pick the default they sign in to.</p>
+                <ul className="divide-y rounded-md border">
+                  {myBranches.map((b) => {
+                    const ids = form.watch('branchIds');
+                    const on = ids.includes(b.branchId);
+                    return (
+                      <li key={b.branchId} className="flex items-center gap-3 px-3 py-1.5 text-sm">
+                        <Checkbox
+                          id={`nb-${b.branchId}`}
+                          checked={on}
+                          onCheckedChange={(v) => {
+                            const next = v === true ? [...ids, b.branchId] : ids.filter((x) => x !== b.branchId);
+                            form.setValue('branchIds', next, { shouldDirty: true });
+                            if (!next.includes(form.getValues('defaultBranchId'))) form.setValue('defaultBranchId', next[0] ?? '');
+                          }}
+                        />
+                        <label htmlFor={`nb-${b.branchId}`} className="flex-1">{branchLabel(b)}</label>
+                        <label className={`flex items-center gap-1.5 text-xs ${on ? '' : 'invisible'}`}>
+                          <input type="radio" name="new-user-default-branch" checked={form.watch('defaultBranchId') === b.branchId} onChange={() => form.setValue('defaultBranchId', b.branchId)} />
+                          Default branch
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {form.formState.errors.branchIds && <p className="text-xs text-destructive">{form.formState.errors.branchIds.message}</p>}
+              </fieldset>
+            )}
           </div>
         )}
       </FormDialog>

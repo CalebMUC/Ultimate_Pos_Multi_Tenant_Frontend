@@ -24,6 +24,8 @@ import { applyApiErrors } from '@/lib/forms';
 import { requiredNumber, text } from '@/lib/schemas';
 import { emptyToNull, round2, sum } from '@/lib/utils';
 import { sellableUnits } from '@/features/pos/cartActions';
+import { branchLabel } from '@/features/branches/branches';
+import { useSession } from '@/stores/session';
 
 const lineSchema = z.object({
   productId: z.string().min(1, 'Select a product.'),
@@ -34,6 +36,8 @@ const lineSchema = z.object({
 });
 const schema = z.object({
   supplierId: z.string().min(1, 'Select a supplier.'),
+  /** The delivery branch: goods are received into its stock. */
+  branchId: z.string(),
   expectedDeliveryDate: z.string(),
   notes: text(500),
   lines: z.array(lineSchema).min(1, 'Add at least one line.'),
@@ -57,10 +61,12 @@ function NewPurchaseOrder() {
   const params = useSearchParams();
   const qc = useQueryClient();
   const purchasable = usePurchasableItemTypes();
+  const activeBranchId = useSession((s) => s.activeBranchId);
+  const myBranches = useSession((s) => s.branches);
   const [messages, setMessages] = useState<string[]>([]);
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { supplierId: params.get('supplierId') ?? '', expectedDeliveryDate: '', notes: '', lines: [emptyLine] },
+    defaultValues: { supplierId: params.get('supplierId') ?? '', branchId: activeBranchId ?? '', expectedDeliveryDate: '', notes: '', lines: [emptyLine] },
   });
   const lines = useFieldArray({ control: form.control, name: 'lines' });
   const watched = useWatch({ control: form.control, name: 'lines' });
@@ -75,6 +81,7 @@ function NewPurchaseOrder() {
         expectedDeliveryDate: v.expectedDeliveryDate ? new Date(`${v.expectedDeliveryDate}T00:00:00`).toISOString() : null,
         notes: emptyToNull(v.notes),
         lines: v.lines.map(({ productId, unitOfMeasureId, quantityOrdered, unitCost }) => ({ productId, unitOfMeasureId, quantityOrdered, unitCost })),
+        branchId: v.branchId || null,
       });
       await qc.invalidateQueries({ queryKey: ['purchase-orders'] });
       toast.success(`Order ${po.orderNumber} created`);
@@ -100,6 +107,13 @@ function NewPurchaseOrder() {
             <Field label="Supplier" required error={e.supplierId}>
               <div><SupplierPicker value={form.watch('supplierId') || null} invalid={!!e.supplierId} onChange={(id) => form.setValue('supplierId', id ?? '', { shouldValidate: true })} /></div>
             </Field>
+            {myBranches.length > 1 && (
+              <Field label="Deliver to" error={e.branchId} hint="Goods are received into this branch's stock.">
+                <NativeSelect {...form.register('branchId')}>
+                  {myBranches.map((b) => <option key={b.branchId} value={b.branchId}>{branchLabel(b)}{b.branchId === activeBranchId ? ' (here)' : ''}</option>)}
+                </NativeSelect>
+              </Field>
+            )}
             <Field label="Expected delivery" error={e.expectedDeliveryDate}><Input type="date" {...form.register('expectedDeliveryDate')} /></Field>
             <Field label="Notes" error={e.notes}><Textarea className="min-h-9" {...form.register('notes')} /></Field>
           </CardContent>

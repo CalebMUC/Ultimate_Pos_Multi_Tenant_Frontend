@@ -106,6 +106,7 @@ function SaleDetail({ id }: { id: string }) {
               <DetailList
                 columns={1}
                 items={[
+                  ...(s.kraBranchId ? [{ label: 'Branch', value: `${s.kraBranchId} · ${s.branchName ?? ''}` }] : []),
                   { label: 'Customer', value: s.customerId ? <Link className="text-primary hover:underline" href={`/customers/${s.customerId}`}>{s.customerName}</Link> : 'Walk-in' },
                   { label: 'Payment', value: labels.paymentMethod[s.paymentMethod] },
                   { label: 'Cashier', value: s.createdByName },

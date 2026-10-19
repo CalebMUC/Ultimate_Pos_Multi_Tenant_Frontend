@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { BusinessDto } from '@/api/dto/business';
 import type { BusinessMembershipDto, UserDto } from '@/api/dto/identity';
+import type { BranchMembershipDto } from '@/api/dto/branches';
 import type { Guid } from '@/api/dto/common';
 import { PLATFORM_PERMISSIONS } from '@/api/permissions';
 
@@ -18,6 +19,10 @@ interface SessionState {
   business: BusinessDto | null;
   /** Someone else set the password: nothing else is usable until it is changed. */
   mustChangePassword: boolean;
+  /** The branch the token is for: every write happens here. */
+  activeBranchId: Guid | null;
+  /** Where the user may work in this business, default first. */
+  branches: BranchMembershipDto[];
 
   setAuthenticated(payload: {
     accessToken: string;
@@ -26,9 +31,11 @@ interface SessionState {
     activeBusinessId: Guid | null;
     businesses: BusinessMembershipDto[];
     mustChangePassword?: boolean;
+    activeBranchId?: Guid | null;
+    branches?: BranchMembershipDto[];
   }): void;
   setBusiness(business: BusinessDto | null): void;
-  setUser(user: UserDto, businesses: BusinessMembershipDto[], activeBusinessId: Guid | null, mustChangePassword?: boolean): void;
+  setUser(user: UserDto, businesses: BusinessMembershipDto[], activeBusinessId: Guid | null, mustChangePassword?: boolean, branches?: BranchMembershipDto[]): void;
   clear(): void;
 }
 
@@ -41,8 +48,10 @@ export const useSession = create<SessionState>((set) => ({
   businesses: [],
   business: null,
   mustChangePassword: false,
+  activeBranchId: null,
+  branches: [],
 
-  setAuthenticated: ({ accessToken, expiresAt, user, activeBusinessId, businesses, mustChangePassword }) =>
+  setAuthenticated: ({ accessToken, expiresAt, user, activeBusinessId, businesses, mustChangePassword, activeBranchId, branches }) =>
     set((state) => ({
       status: 'authenticated',
       accessToken,
@@ -51,14 +60,16 @@ export const useSession = create<SessionState>((set) => ({
       activeBusinessId,
       businesses,
       mustChangePassword: !!mustChangePassword,
+      activeBranchId: activeBranchId ?? null,
+      branches: branches ?? [],
       // Keep the loaded profile only if the business did not change.
       business: state.business && state.business.businessId === activeBusinessId ? state.business : null,
     })),
   setBusiness: (business) => set({ business }),
-  setUser: (user, businesses, activeBusinessId, mustChangePassword) =>
-    set((s) => ({ user, businesses, activeBusinessId, mustChangePassword: mustChangePassword ?? s.mustChangePassword })),
+  setUser: (user, businesses, activeBusinessId, mustChangePassword, branches) =>
+    set((s) => ({ user, businesses, activeBusinessId, mustChangePassword: mustChangePassword ?? s.mustChangePassword, branches: branches ?? s.branches })),
   clear: () =>
-    set({ status: 'anonymous', accessToken: null, expiresAt: null, user: null, activeBusinessId: null, businesses: [], business: null, mustChangePassword: false }),
+    set({ status: 'anonymous', accessToken: null, expiresAt: null, user: null, activeBusinessId: null, businesses: [], business: null, mustChangePassword: false, activeBranchId: null, branches: [] }),
 }));
 
 export const sessionSelectors = {

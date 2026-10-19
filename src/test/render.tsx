@@ -4,12 +4,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/components/ui/overlays';
 import { BusinessKind, BusinessType } from '@/api/enums';
 import { useSession } from '@/stores/session';
+import type { BranchMembershipDto } from '@/api/dto/branches';
 
 export const API = 'http://localhost/api/v1';
 export const BUSINESS_ID = 'b0000000-0000-0000-0000-000000000001';
+export const HEAD_OFFICE = { branchId: 'br000000-0000-0000-0000-000000000000', branchNumber: 0, kraBranchId: '00', name: 'Head Office', code: 'HQ', isDefault: true };
+export const WESTLANDS = { branchId: 'br000000-0000-0000-0000-000000000001', branchNumber: 1, kraBranchId: '01', name: 'Westlands', code: 'WL', isDefault: false };
 
-/** Signs a test user in to one business with the given permissions (no network). */
-export function signIn(permissions: string[] = []) {
+/** Signs a test user in (no network). branches: where they may work, default first; the first is active unless activeBranchId says otherwise. */
+export function signIn(permissions: string[] = [], opts: { branches?: BranchMembershipDto[]; activeBranchId?: string } = {}) {
+  const branches = opts.branches ?? [HEAD_OFFICE];
   useSession.setState({
     status: 'authenticated',
     accessToken: 'test-token',
@@ -18,6 +22,9 @@ export function signIn(permissions: string[] = []) {
     activeBusinessId: BUSINESS_ID,
     businesses: [{ businessId: BUSINESS_ID, businessName: 'Test Ltd', tradingName: null, kind: BusinessKind.Trader, businessType: BusinessType.Retailer, isDefault: true }],
     business: null,
+    mustChangePassword: false,
+    branches,
+    activeBranchId: opts.activeBranchId ?? branches[0]?.branchId ?? null,
   });
 }
 

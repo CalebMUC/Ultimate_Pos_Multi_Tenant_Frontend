@@ -2,7 +2,7 @@ import { addDays, todayIso, toIsoDate } from '@/lib/format';
 import type { AccessCode, AccessStatus } from '@/api/dto/platform';
 
 /** 403 codes that refuse a whole business: shown as a full-page blocking screen, never a toast. */
-export const ACCESS_CODES: readonly AccessCode[] = ['BUSINESS_SUSPENDED', 'BUSINESS_CLOSED', 'LICENSE_EXPIRED', 'UNLICENSED'];
+export const ACCESS_CODES: readonly AccessCode[] = ['BUSINESS_SUSPENDED', 'BUSINESS_CLOSED', 'LICENSE_EXPIRED', 'UNLICENSED', 'NO_BRANCH'];
 
 export function isAccessCode(code: unknown): code is AccessCode {
   return typeof code === 'string' && (ACCESS_CODES as readonly string[]).includes(code);
@@ -19,6 +19,8 @@ export function accessScreen(code: string | null | undefined): AccessScreen {
       return { title: 'This business has been closed', description: 'It no longer runs on Ultimate POS. Its records are kept.', showReason: false };
     case 'LICENSE_EXPIRED':
       return { title: 'The licence has expired', description: 'Renew to continue.', showReason: true };
+    case 'NO_BRANCH':
+      return { title: 'You haven’t been assigned to a branch yet', description: 'Ask your administrator.', showReason: false };
     case 'UNLICENSED':
       return { title: 'This business has no licence yet', description: 'It can be used once a licence is issued.', showReason: true };
     default:

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/primitives';
 import { FormAlert } from '@/components/shared/States';
 import { BrandMark } from '@/components/layout/BrandMark';
-import { login } from '@/features/auth/sessionActions';
+import { login, logout } from '@/features/auth/sessionActions';
+import { BranchChoiceList } from '@/features/branches/BranchChoiceList';
 import { landingPath, safeReturnTo } from '@/features/auth/AuthGuard';
 import { isAccessCode } from '@/features/access/access';
 import { reportAccessBlocked } from '@/api/client';
@@ -31,35 +32,57 @@ function LoginForm() {
   const returnTo = safeReturnTo(params.get('returnTo'));
   const status = useSession((s) => s.status);
   const [error, setError] = useState<unknown>(null);
+  /** Signed in, with several branches: where to go once one is chosen. */
+  const [branchStep, setBranchStep] = useState<string | null>(null);
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { email: '', password: '' } });
+  // A sign-in from this form routes itself (through the pickers); the effect below is only for a session restored on load.
+  const signingIn = useRef(false);
 
   // Already signed in (session restored): skip the form.
   useEffect(() => {
-    if (status !== 'authenticated') return;
+    if (status !== 'authenticated' || signingIn.current) return;
     const { user, activeBusinessId, mustChangePassword } = useSession.getState();
     router.replace(landingPath({ permissions: user?.permissions ?? [], activeBusinessId, mustChangePassword }, returnTo));
   }, [status, returnTo, router]);
 
   async function onSubmit(values: FormValues) {
     setError(null);
+    signingIn.current = true;
     const remembered = tokenStorage.getLastBusinessId();
+    const rememberedBranch = tokenStorage.getLastBranchId(remembered);
+    // The remembered business and branch may belong to someone else on this device, the user may have lost access to them,
+    // the branch may be closed, or the business suspended: fall back step by step, and the API picks what the user can use.
+    const fallsBack = (e: unknown) => isApiError(e, 'FORBIDDEN') || isAccessCode(normaliseError(e).code);
+    const attempts: [string | null, string | null][] = [[remembered, rememberedBranch], [remembered, null], [null, null]];
+    const tries = attempts.filter(([b, br], i) => i === 0 || (b !== attempts[i - 1][0] || br !== attempts[i - 1][1]));
     try {
       let data;
-      try {
-        data = await login(values.email, values.password, remembered);
-      } catch (e) {
-        // The remembered business may belong to someone else on this device, the user may have lost access to it, or it may
-        // be suspended or out of licence: without it, the API signs in to a business the user can still use.
-        if (remembered && (isApiError(e, 'FORBIDDEN') || isAccessCode(normaliseError(e).code))) data = await login(values.email, values.password, null);
-        else throw e;
+      for (let i = 0; ; i++) {
+        try {
+          data = await login(values.email, values.password, tries[i][0], tries[i][1]);
+          break;
+        } catch (e) {
+          if (i < tries.length - 1 && fallsBack(e)) continue;
+          throw e;
+        }
       }
-      const choose = data.businesses.length > 1 && !remembered && !!data.activeBusinessId;
+      const chooseBusiness = data.businesses.length > 1 && !remembered && !!data.activeBusinessId;
+      // Several branches: the user picks where they work today (their last or default branch is preselected).
+      const chooseBranch = !!data.activeBusinessId && (data.branches?.length ?? 0) > 1;
+      const mustChange = data.mustChangePassword ?? false;
+      if (chooseBranch && !chooseBusiness && !mustChange) {
+        // Right here in the sign-in card. (After a business picker or a password change, it's the /select-branch page.)
+        setBranchStep(landingPath({ permissions: data.user.permissions, activeBusinessId: data.activeBusinessId, mustChangePassword: false }, returnTo));
+        return;
+      }
       router.replace(landingPath(
         { permissions: data.user.permissions, activeBusinessId: data.activeBusinessId, mustChangePassword: data.mustChangePassword ?? false },
         returnTo,
-        choose,
+        chooseBusiness,
+        chooseBranch,
       ));
     } catch (e) {
+      signingIn.current = false;
       // No business the user belongs to can be used today: say why, full page.
       if (reportAccessBlocked(normaliseError(e))) {
         router.push(`/blocked?code=${normaliseError(e).code}`);
@@ -70,8 +93,38 @@ function LoginForm() {
   }
 
   const { errors, isSubmitting } = form.formState;
+  if (branchStep) {
+    const business = useSession.getState().businesses.find((b) => b.businessId === useSession.getState().activeBusinessId);
+    return (
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold">Where are you working today?</h1>
+          <p className="text-sm text-muted-foreground">
+            {business ? <>{business.tradingName || business.businessName} · </> : null}Choose your branch. You can switch from the header later.
+          </p>
+        </div>
+        <BranchChoiceList onChosen={() => router.replace(branchStep)} />
+        <Button
+          variant="ghost"
+          className="w-full"
+          onClick={async () => {
+            await logout();
+            signingIn.current = false;
+            setBranchStep(null);
+            form.reset({ email: form.getValues('email'), password: '' });
+          }}
+        >
+          Not you? Sign in again
+        </Button>
+      </div>
+    );
+  }
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold">Sign in</h1>
+        <p className="text-sm text-muted-foreground">Use the email and password your administrator gave you.</p>
+      </div>
       <FormAlert error={error} />
       <div className="space-y-1.5">
         <Label htmlFor="email">Email</Label>
@@ -114,10 +167,6 @@ export default function LoginPage() {
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm space-y-6">
           <div className="lg:hidden"><BrandMark dark={false} /></div>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold">Sign in</h1>
-            <p className="text-sm text-muted-foreground">Use the email and password your administrator gave you.</p>
-          </div>
           <Suspense>
             <LoginForm />
           </Suspense>

@@ -14,6 +14,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney, formatQty } from '@/lib/format';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { StockAdjustmentItemDto } from '@/api/dto/reports';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<StockAdjustmentItemDto, unknown>[] = [
   { header: 'When', accessorKey: 'createdAt', cell: ({ row }) => formatDateTime(row.original.createdAt) },
@@ -31,13 +32,15 @@ const columns: ColumnDef<StockAdjustmentItemDto, unknown>[] = [
 
 function StockAdjustments() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('month'));
   const [productId, setProductId] = useState<string | null>(null);
-  const q = useQuery({ queryKey: key('reports', { adjustments: range, productId }), queryFn: () => reportsApi.stockAdjustments(range.from, range.to, productId ?? undefined) });
+  const q = useQuery({ queryKey: key('reports', { adjustments: range, productId, branchId: branch.branchId }), queryFn: () => reportsApi.stockAdjustments(range.from, range.to, productId ?? undefined, branch.scope) });
   const r = q.data;
   const money = (v: number | null) => (v === null ? '—' : formatMoney(v));
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Stock adjustments"
       description="Every manual change to stock, who made it and why."
       filters={<><DateRangeFilter value={range} onChange={setRange} /><div className="w-64"><ProductPicker value={productId} onChange={(id) => setProductId(id)} placeholder="All products" clearable /></div></>}

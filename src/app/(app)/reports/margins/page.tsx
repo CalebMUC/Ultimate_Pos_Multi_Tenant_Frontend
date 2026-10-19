@@ -14,6 +14,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatPercent } from '@/lib/format';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { MarginRowDto } from '@/api/dto/inventory';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<MarginRowDto, unknown>[] = [
   { header: 'Product', accessorKey: 'productName', cell: ({ row }) => <span className="font-medium">{row.original.productName}</span> },
@@ -27,10 +28,12 @@ const columns: ColumnDef<MarginRowDto, unknown>[] = [
 
 function Margins() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [priceType, setPriceType] = useState<PriceType | null>(null);
-  const q = useQuery({ queryKey: key('reports', { margins: priceType }), queryFn: () => costingApi.margins(priceType ?? undefined) });
+  const q = useQuery({ queryKey: key('reports', { margins: priceType, branchId: branch.branchId }), queryFn: () => costingApi.margins(priceType ?? undefined, branch.scope) });
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Margins"
       description="Current price against average cost, per product, unit and price list. Negative margins sell at a loss."
       filters={<EnumSelect map={labels.priceType} value={priceType} onChange={setPriceType} placeholder="All price lists" className="w-40" aria-label="Price list" />}

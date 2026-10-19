@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -16,6 +16,8 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDate } from '@/lib/format';
 import { orderValue } from '@/features/purchasing/orderValue';
 import type { PurchaseOrderDto } from '@/api/dto/inventory';
+import { useBranchFilter } from '@/features/branches/branches';
+import { withBranchColumn } from '@/features/branches/branchColumn';
 
 const columns: ColumnDef<PurchaseOrderDto, unknown>[] = [
   { header: 'Order', accessorKey: 'orderNumber', cell: ({ row }) => <span className="font-medium">{row.original.orderNumber}</span> },
@@ -30,12 +32,15 @@ const columns: ColumnDef<PurchaseOrderDto, unknown>[] = [
 function PurchaseOrders() {
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [status, setStatus] = useState<PurchaseOrderStatus | null>(null);
   const [supplierId, setSupplierId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  // Another branch is another list: start from its first page.
+  useEffect(() => setPage(1), [branch.branchId]);
   const [pageSize, setPageSize] = useState(25);
   const params = { page, pageSize, status: status ?? undefined, supplierId: supplierId ?? undefined };
-  const query = useQuery({ queryKey: key('purchase-orders', params), queryFn: () => purchaseOrdersApi.list(params), placeholderData: keepPreviousData });
+  const query = useQuery({ queryKey: key('purchase-orders', { ...params, branchId: branch.branchId }), queryFn: () => purchaseOrdersApi.list({ ...params, ...branch.scope }), placeholderData: keepPreviousData });
   return (
     <>
       <PageHeader
@@ -44,8 +49,9 @@ function PurchaseOrders() {
         actions={<Can permission="PurchaseOrders.Create"><Button asChild><Link href="/purchase-orders/new"><Plus />New order</Link></Button></Can>}
       />
       <DataTable
+        branchFilter={branch}
         mode="server"
-        columns={columns}
+        columns={withBranchColumn(columns, branch.visible, { header: 'Deliver to' })}
         data={query.data?.items}
         isLoading={query.isLoading}
         error={query.error}

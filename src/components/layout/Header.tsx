@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/overlays';
 import { Can } from '@/components/shared/Can';
 import { BusinessSwitcher } from '@/features/auth/BusinessSwitcher';
+import { BranchSwitcher } from '@/features/branches/BranchSwitcher';
 import { ChangePasswordDialog } from '@/features/auth/ChangePasswordDialog';
 import { logout } from '@/features/auth/sessionActions';
 import { NotificationBell } from '@/features/notifications/NotificationBell';
@@ -74,6 +75,7 @@ export function Header({ onToggleSidebar, onOpenMobileNav, area = 'business' }: 
       <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenMobileNav} aria-label="Open menu"><Menu /></Button>
       <Button variant="ghost" size="icon" className="hidden lg:inline-flex" onClick={onToggleSidebar} aria-label="Toggle sidebar"><PanelLeft /></Button>
       <BusinessSwitcher />
+      <BranchSwitcher />
       <div className="flex-1" />
       <button
         type="button"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Ban, ExternalLink, Pencil, Plus } from 'lucide-react';
@@ -21,9 +21,13 @@ import { usePermissions, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly } from '@/lib/format';
 import { ExpenseFormDialog } from '@/features/expenses/ExpenseFormDialog';
 import type { ExpenseDto } from '@/api/dto/expenses';
+import { useBranchFilter, useBranchLabels } from '@/features/branches/branches';
+import { withBranchColumn } from '@/features/branches/branchColumn';
 
 function Expenses() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
+  const branchName = useBranchLabels();
   const router = useRouter();
   const can = usePermissions();
   const [range, setRange] = useState(() => presetRange('month'));
@@ -33,6 +37,8 @@ function Expenses() {
   const [missingEtims, setMissingEtims] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  // Another branch is another list: start from its first page.
+  useEffect(() => setPage(1), [branch.branchId]);
   const [pageSize, setPageSize] = useState(25);
   const [editing, setEditing] = useState<ExpenseDto | 'new' | null>(null);
   const [voiding, setVoiding] = useState<ExpenseDto | null>(null);
@@ -42,7 +48,7 @@ function Expenses() {
     ...range, page, pageSize, search: debounced || undefined, categoryId: categoryId || undefined, paymentMethod: method ?? undefined,
     status: status ?? undefined, missingEtims: missingEtims || undefined,
   };
-  const query = useQuery({ queryKey: key('expenses', params), queryFn: () => expensesApi.list(params), placeholderData: keepPreviousData });
+  const query = useQuery({ queryKey: key('expenses', { ...params, branchId: branch.branchId }), queryFn: () => expensesApi.list({ ...params, ...branch.scope }), placeholderData: keepPreviousData });
   const voidExpense = useApiMutation((v: { id: string; reason: string }) => expensesApi.void(v.id, v.reason), { invalidate: ['expenses', 'dashboard'], success: 'Expense voided', toastErrors: false });
   const reset = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); setPage(1); };
 
@@ -84,8 +90,9 @@ function Expenses() {
     <>
       <PageHeader title="Expenses" description="Operating costs: rent, salaries, utilities, transport… They feed the profit and loss report." actions={<Can permission="Expenses.Create"><Button onClick={() => setEditing('new')}><Plus />New expense</Button></Can>} />
       <DataTable
+        branchFilter={branch}
         mode="server"
-        columns={columns}
+        columns={withBranchColumn(columns, branch.visible, { label: (x) => (x.branchId ? branchName(x.branchId) : null), fallback: 'Business-wide' })}
         data={query.data?.items}
         isLoading={query.isLoading}
         error={query.error}

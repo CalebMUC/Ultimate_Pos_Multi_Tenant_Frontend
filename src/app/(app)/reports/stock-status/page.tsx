@@ -15,6 +15,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatMoney, formatQty } from '@/lib/format';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { StockStatusItemDto } from '@/api/dto/reports';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<StockStatusItemDto, unknown>[] = [
   { header: 'Product', accessorKey: 'productName', cell: ({ row }) => <span><span className="font-medium">{row.original.productName}</span><span className="block text-xs text-muted-foreground">{row.original.sku} · {row.original.category}</span></span> },
@@ -31,15 +32,17 @@ const columns: ColumnDef<StockStatusItemDto, unknown>[] = [
 function StockStatusReport() {
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [itemType, setItemType] = useState<ItemType | null>(null);
   const [categoryId, setCategoryId] = useState('');
   const [status, setStatus] = useState<StockStatus | ''>('');
   const [usageDays, setUsageDays] = useState(30);
   const params = { itemType: itemType ?? undefined, categoryId: categoryId || undefined, status: status || undefined, usageDays };
-  const q = useQuery({ queryKey: key('reports', { stockStatus: params }), queryFn: () => reportsApi.stockStatus(params) });
+  const q = useQuery({ queryKey: key('reports', { stockStatus: params, branchId: branch.branchId }), queryFn: () => reportsApi.stockStatus({ ...params, ...branch.scope }) });
   const r = q.data;
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Stock status"
       description="What is in stock, low or out, and how many days it will last at recent usage."
       filters={

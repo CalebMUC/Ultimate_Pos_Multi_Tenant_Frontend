@@ -120,6 +120,10 @@ export interface SaleDto {
   taxTotal: number;
   returnedAmount: number;
   prescription: SalePrescriptionDto | null;
+  /** Where it was sold: printed on receipts, also when reprinting at another branch. */
+  branchId?: Guid;
+  kraBranchId?: string | null;
+  branchName?: string | null;
 }
 
 export interface SaleQuery {
@@ -198,4 +202,8 @@ export interface MpesaTransactionDto {
   amount: number;
   transactionDate: DateTimeString | null;
   saleId: Guid | null;
+  /** Paid to a branch's own till. All null for the business short code: any branch may match it. */
+  branchId?: Guid | null;
+  kraBranchId?: string | null;
+  branchName?: string | null;
 }

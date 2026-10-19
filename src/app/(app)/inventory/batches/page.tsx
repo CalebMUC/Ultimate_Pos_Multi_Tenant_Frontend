@@ -14,6 +14,8 @@ import { stockApi } from '@/api/endpoints/inventory';
 import { usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatMoney } from '@/lib/format';
 import type { StockBatchDto } from '@/api/dto/inventory';
+import { branchLabel, useBranchFilter } from '@/features/branches/branches';
+import { withBranchColumn } from '@/features/branches/branchColumn';
 
 const columns: ColumnDef<StockBatchDto, unknown>[] = [
   { header: 'Product', accessorKey: 'productName', cell: ({ row }) => <span className="font-medium">{row.original.productName}</span> },
@@ -28,6 +30,7 @@ const columns: ColumnDef<StockBatchDto, unknown>[] = [
 function Batches() {
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const canReports = usePermission('InventoryReports.View');
   const [within, setWithin] = useState('');
   const [includeExpired, setIncludeExpired] = useState(true);
@@ -37,7 +40,7 @@ function Batches() {
   const params = batchId
     ? { includeExpired: true, includeEmpty: true }
     : { expiringWithinDays: within ? Number(within) : undefined, includeExpired, includeEmpty };
-  const query = useQuery({ queryKey: key('stock', { batches: params }), queryFn: () => stockApi.batches(params) });
+  const query = useQuery({ queryKey: key('stock', { batches: params, branchId: branch.branchId }), queryFn: () => stockApi.batches({ ...params, ...branch.scope }) });
   const focused = batchId ? query.data?.filter((b) => b.stockBatchId === batchId) : undefined;
   const report = useQuery({ queryKey: key('stock', { expiry: 90 }), queryFn: () => stockApi.expiryReport(90), enabled: canReports });
   const r = report.data;
@@ -58,7 +61,8 @@ function Batches() {
         </FocusBanner>
       )}
       <DataTable
-        columns={columns}
+        branchFilter={branch}
+        columns={withBranchColumn(columns, branch.visible && !branch.branchId)}
         data={batchId ? focused : query.data}
         isLoading={query.isLoading}
         error={query.error}
@@ -82,6 +86,7 @@ function Batches() {
         csv={{
           fileName: 'batches',
           columns: [
+            { header: 'Branch', value: (b) => branchLabel(b) },
             { header: 'SKU', value: (b) => b.sku },
             { header: 'Product', value: (b) => b.productName },
             { header: 'Batch', value: (b) => b.batchNumber },

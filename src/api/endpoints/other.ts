@@ -1,6 +1,7 @@
 import { utcOffsetMinutes } from '@/lib/format';
 import { cleanParams } from '@/lib/utils';
 import { api } from '../client';
+import { branchParam, type BranchScope } from '../branchScope';
 import { mapExpense } from '../mappers';
 import type { ItemType, StockStatus } from '../enums';
 import type { DateOnly, Guid, PageParams } from '../dto/common';
@@ -27,7 +28,7 @@ export const expenseCategoriesApi = {
 };
 
 export const expensesApi = {
-  list: async (query: ExpenseQuery) => {
+  list: async (query: ExpenseQuery & BranchScope) => {
     const paged = await api.getPaged<ExpenseApiDto>('/expenses', cleanParams(query));
     return { ...paged, items: paged.items.map(mapExpense) };
   },
@@ -35,7 +36,7 @@ export const expensesApi = {
   create: async (body: CreateExpenseRequestDto) => mapExpense(await api.post<ExpenseApiDto>('/expenses', body)),
   update: async (id: Guid, body: UpdateExpenseRequestDto) => mapExpense(await api.put<ExpenseApiDto>(`/expenses/${id}`, body)),
   void: async (id: Guid, reason: string) => mapExpense(await api.post<ExpenseApiDto>(`/expenses/${id}/void`, { reason })),
-  summary: (from: DateOnly, to: DateOnly) => api.get<ExpenseSummaryDto>('/expenses/summary', { from, to }),
+  summary: (from: DateOnly, to: DateOnly, scope?: BranchScope) => api.get<ExpenseSummaryDto>('/expenses/summary', { from, to, ...branchParam(scope) }),
 };
 
 export const formulasApi = {
@@ -49,29 +50,32 @@ export const formulasApi = {
 export const productionApi = {
   preview: (body: CreateProductionRunRequestDto) => api.post<ProductionPreviewDto>('/production-runs/preview', body),
   record: (body: CreateProductionRunRequestDto) => api.post<ProductionRunDto>('/production-runs', body),
-  list: (query: PageParams & { productId?: Guid }) => api.getPaged<ProductionRunDto>('/production-runs', cleanParams(query)),
+  list: (query: PageParams & BranchScope & { productId?: Guid }) => api.getPaged<ProductionRunDto>('/production-runs', cleanParams(query)),
   get: (id: Guid) => api.get<ProductionRunDto>(`/production-runs/${id}`),
 };
 
 export const dashboardApi = {
-  summary: (from?: DateOnly, to?: DateOnly) => api.get<DashboardSummaryDto>('/dashboard/summary', cleanParams({ from, to, ...tz() })),
+  summary: (from?: DateOnly, to?: DateOnly, scope?: BranchScope) =>
+    api.get<DashboardSummaryDto>('/dashboard/summary', cleanParams({ from, to, ...tz(), ...branchParam(scope) })),
 };
 
 export const reportsApi = {
-  sales: (from: DateOnly, to: DateOnly, top = 10) => api.get<SalesReportDto>('/reports/sales', { from, to, top, ...tz() }),
-  productionCosts: (from: DateOnly, to: DateOnly, productId?: Guid) =>
-    api.get<ProductionCostReportDto>('/reports/production-costs', cleanParams({ from, to, productId, ...tz() })),
-  customerAging: (query: { asOf?: DateOnly; customerId?: Guid; includeInvoices?: boolean; includeSettled?: boolean } = {}) =>
+  sales: (from: DateOnly, to: DateOnly, top = 10, scope?: BranchScope) =>
+    api.get<SalesReportDto>('/reports/sales', { from, to, top, ...tz(), ...branchParam(scope) }),
+  productionCosts: (from: DateOnly, to: DateOnly, productId?: Guid, scope?: BranchScope) =>
+    api.get<ProductionCostReportDto>('/reports/production-costs', cleanParams({ from, to, productId, ...tz(), ...branchParam(scope) })),
+  customerAging: (query: BranchScope & { asOf?: DateOnly; customerId?: Guid; includeInvoices?: boolean; includeSettled?: boolean } = {}) =>
     api.get<CustomerAgingReportDto>('/reports/customer-aging', cleanParams({ ...query, ...tz() })),
-  stockStatus: (query: { itemType?: ItemType; categoryId?: Guid; status?: StockStatus; includeInactive?: boolean; usageDays?: number } = {}) =>
+  stockStatus: (query: BranchScope & { itemType?: ItemType; categoryId?: Guid; status?: StockStatus; includeInactive?: boolean; usageDays?: number } = {}) =>
     api.get<StockStatusReportDto>('/reports/inventory/stock-status', cleanParams({ ...query, ...tz() })),
-  stockMovements: (from: DateOnly, to: DateOnly, productId?: Guid) =>
-    api.get<StockMovementReportDto>('/reports/inventory/movements', cleanParams({ from, to, productId, ...tz() })),
-  stockAdjustments: (from: DateOnly, to: DateOnly, productId?: Guid) =>
-    api.get<StockAdjustmentReportDto>('/reports/inventory/adjustments', cleanParams({ from, to, productId, ...tz() })),
-  purchaseSummary: (from: DateOnly, to: DateOnly, supplierId?: Guid) =>
-    api.get<PurchaseSummaryDto>('/reports/purchases/summary', cleanParams({ from, to, supplierId, ...tz() })),
-  openOrders: (supplierId?: Guid) => api.get<OpenOrdersReportDto>('/reports/purchases/open-orders', cleanParams({ supplierId, ...tz() })),
-  priceTrends: (from: DateOnly, to: DateOnly, productId?: Guid, supplierId?: Guid) =>
-    api.get<PriceTrendsReportDto>('/reports/purchases/price-trends', cleanParams({ from, to, productId, supplierId, ...tz() })),
+  stockMovements: (from: DateOnly, to: DateOnly, productId?: Guid, scope?: BranchScope) =>
+    api.get<StockMovementReportDto>('/reports/inventory/movements', cleanParams({ from, to, productId, ...tz(), ...branchParam(scope) })),
+  stockAdjustments: (from: DateOnly, to: DateOnly, productId?: Guid, scope?: BranchScope) =>
+    api.get<StockAdjustmentReportDto>('/reports/inventory/adjustments', cleanParams({ from, to, productId, ...tz(), ...branchParam(scope) })),
+  purchaseSummary: (from: DateOnly, to: DateOnly, supplierId?: Guid, scope?: BranchScope) =>
+    api.get<PurchaseSummaryDto>('/reports/purchases/summary', cleanParams({ from, to, supplierId, ...tz(), ...branchParam(scope) })),
+  openOrders: (supplierId?: Guid, scope?: BranchScope) =>
+    api.get<OpenOrdersReportDto>('/reports/purchases/open-orders', cleanParams({ supplierId, ...tz(), ...branchParam(scope) })),
+  priceTrends: (from: DateOnly, to: DateOnly, productId?: Guid, supplierId?: Guid, scope?: BranchScope) =>
+    api.get<PriceTrendsReportDto>('/reports/purchases/price-trends', cleanParams({ from, to, productId, supplierId, ...tz(), ...branchParam(scope) })),
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { PermissionRoute } from '@/components/shared/Can';
@@ -12,6 +12,7 @@ import { labels } from '@/api/enums';
 import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime } from '@/lib/format';
 import type { SaleReturnDto } from '@/api/dto/sales';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<SaleReturnDto, unknown>[] = [
   { header: 'Return', accessorKey: 'returnNumber', cell: ({ row }) => <span className="font-medium">{row.original.returnNumber}</span> },
@@ -27,15 +28,19 @@ const columns: ColumnDef<SaleReturnDto, unknown>[] = [
 function Returns() {
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('month'));
   const [page, setPage] = useState(1);
+  // Another branch is another list: start from its first page.
+  useEffect(() => setPage(1), [branch.branchId]);
   const [pageSize, setPageSize] = useState(25);
   const params = { ...range, page, pageSize };
-  const query = useQuery({ queryKey: key('sales', { returns: params }), queryFn: () => salesApi.returns(params), placeholderData: keepPreviousData });
+  const query = useQuery({ queryKey: key('sales', { returns: params, branchId: branch.branchId }), queryFn: () => salesApi.returns({ ...params, ...branch.scope }), placeholderData: keepPreviousData });
   return (
     <>
       <PageHeader title="Returns" description="Goods returned against sales, with the refund given." />
       <DataTable
+        branchFilter={branch}
         mode="server"
         columns={columns}
         data={query.data?.items}

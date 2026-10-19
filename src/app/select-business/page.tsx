@@ -18,12 +18,15 @@ function Picker() {
   const businesses = useSession((s) => s.businesses);
   const activeBusinessId = useSession((s) => s.activeBusinessId);
   const user = useSession((s) => s.user);
-  const { switchTo, pending } = useSwitchBusiness();
+  const { switchTo, pending } = useSwitchBusiness({ pickBranch: true });
+  const branches = useSession((s) => s.branches);
 
   // The token is already for the active (default) business: choosing it needs no switch.
   async function choose(businessId: string) {
     if (businessId === activeBusinessId) {
-      window.location.assign(returnTo && returnTo.startsWith('/') ? returnTo : '/');
+      const next = returnTo && returnTo.startsWith('/') ? returnTo : '/';
+      // Signing in continues to the branch picker when there is a choice to make.
+      window.location.assign(branches.length > 1 ? `/select-branch?returnTo=${encodeURIComponent(next)}` : next);
       return;
     }
     await switchTo(businessId, returnTo && returnTo.startsWith('/') ? returnTo : null);

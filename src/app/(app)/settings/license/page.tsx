@@ -29,7 +29,7 @@ function LicensePage() {
 
   if (license.isLoading) return <LoadingState />;
   if (license.error || !license.data) return <ErrorState error={license.error} onRetry={() => license.refetch()} />;
-  const { access, maxUsers, licenses } = license.data;
+  const { access, maxUsers, licenses, maxBranches = null, openBranches } = license.data;
   const activeUsers = users.data?.filter((u) => u.isActive).length;
 
   return (
@@ -46,6 +46,7 @@ function LicensePage() {
                 { label: 'Ends on', value: formatDateOnly(access.licenseEndsOn) },
                 { label: 'Days left', value: daysText(access.daysRemaining) },
                 { label: 'User limit', value: maxUsers === null ? 'Unlimited' : activeUsers !== undefined ? `${activeUsers} of ${maxUsers} active` : `${maxUsers} users` },
+                { label: 'Branches', value: maxBranches === null ? `${openBranches ?? '—'} open · unlimited` : `${openBranches ?? '—'} of ${maxBranches} open` },
               ]}
             />
             {access.message && <p className="rounded-md bg-muted px-3 py-2 text-sm">{access.message}</p>}

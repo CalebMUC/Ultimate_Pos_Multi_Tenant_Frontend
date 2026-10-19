@@ -10,6 +10,8 @@ import { useSession } from '@/stores/session';
 import { labels } from '@/api/enums';
 import { toastError } from '@/lib/forms';
 import { cn } from '@/lib/utils';
+import { normaliseError } from '@/api/errors';
+import { reportAccessBlocked } from '@/api/client';
 import { accessStatusStyle, isBlockedStatus } from '@/features/access/access';
 import { AccessStatusBadge } from '@/features/access/AccessComponents';
 import type { Guid } from '@/api/dto/common';
@@ -34,7 +36,8 @@ export function BusinessBadges({ membership, vat }: { membership: Pick<BusinessM
   );
 }
 
-export function useSwitchBusiness() {
+/** pickBranch: during sign-in, a user with several branches then chooses one. In the header, the last or default branch is used. */
+export function useSwitchBusiness({ pickBranch = false }: { pickBranch?: boolean } = {}) {
   const router = useRouter();
   const [pending, setPending] = useState<Guid | null>(null);
   async function run(businessId: Guid, returnTo?: string | null) {
@@ -43,9 +46,13 @@ export function useSwitchBusiness() {
       const data = await switchBusiness(businessId);
       const name = data.businesses.find((b) => b.businessId === businessId)?.businessName;
       toast.success(name ? `Switched to ${name}` : 'Business switched');
-      router.replace(returnTo ?? homePathFor(data.user.permissions, data.activeBusinessId));
+      const destination = returnTo ?? homePathFor(data.user.permissions, data.activeBusinessId);
+      router.replace(pickBranch && (data.branches?.length ?? 0) > 1 ? `/select-branch?returnTo=${encodeURIComponent(destination)}` : destination);
     } catch (e) {
-      toastError(e);
+      // Not assigned to any branch there: the full-page screen, as at sign-in.
+      const apiError = normaliseError(e);
+      if (apiError.code === 'NO_BRANCH' && reportAccessBlocked(apiError)) router.push('/blocked?code=NO_BRANCH');
+      else toastError(e);
     } finally {
       setPending(null);
     }

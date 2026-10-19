@@ -12,6 +12,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatMoney, formatPercent } from '@/lib/format';
 import { dayBounds, ReportLayout } from '@/features/reports/ReportLayout';
 import type { ProfitRowDto } from '@/api/dto/inventory';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<ProfitRowDto, unknown>[] = [
   { header: 'Product', accessorKey: 'productName', cell: ({ row }) => <span className="font-medium">{row.original.productName}</span> },
@@ -25,13 +26,15 @@ const columns: ColumnDef<ProfitRowDto, unknown>[] = [
 
 function Profit() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('month'));
   const [productId, setProductId] = useState<string | null>(null);
   const { start, end } = dayBounds(range.from, range.to);
-  const q = useQuery({ queryKey: key('reports', { profit: range, productId }), queryFn: () => costingApi.profit(start, end, productId ?? undefined) });
+  const q = useQuery({ queryKey: key('reports', { profit: range, productId, branchId: branch.branchId }), queryFn: () => costingApi.profit(start, end, productId ?? undefined, branch.scope) });
   const r = q.data;
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Profit by product"
       description="Revenue, cost and margin per product sold. Up to 366 days at a time."
       filters={<><DateRangeFilter value={range} onChange={setRange} /><div className="w-64"><ProductPicker value={productId} onChange={(id) => setProductId(id)} placeholder="All products" clearable /></div></>}

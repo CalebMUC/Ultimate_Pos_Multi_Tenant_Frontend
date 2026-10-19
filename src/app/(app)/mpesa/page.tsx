@@ -12,11 +12,14 @@ import { labels } from '@/api/enums';
 import { useActiveBusiness, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime } from '@/lib/format';
 import type { MpesaTransactionDto } from '@/api/dto/sales';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<MpesaTransactionDto, unknown>[] = [
   { header: 'Receipt', accessorKey: 'mpesaReceiptNumber', cell: ({ row }) => <span className="font-medium">{row.original.mpesaReceiptNumber ?? '—'}</span> },
   { header: 'Date', accessorKey: 'transactionDate', cell: ({ row }) => formatDateTime(row.original.transactionDate) },
   { header: 'Phone', accessorKey: 'phoneNumber' },
+  // A branch's own till belongs to it; the business short code has no branch, and any branch may match it.
+  { header: 'Branch', id: 'branch', accessorFn: (t) => t.kraBranchId ?? '', cell: ({ row }) => (row.original.kraBranchId ? `${row.original.kraBranchId} · ${row.original.branchName ?? ''}` : <span className="text-muted-foreground">Any branch</span>) },
   { header: 'Type', accessorKey: 'transactionType', cell: ({ row }) => labels.mpesaTransactionType[row.original.transactionType] },
   { header: 'Status', accessorKey: 'status', cell: ({ row }) => labels.mpesaTransactionStatus[row.original.status] },
   { header: 'Amount', accessorKey: 'amount', meta: { align: 'right' }, cell: ({ row }) => <MoneyText value={row.original.amount} className="font-medium" /> },
@@ -24,8 +27,9 @@ const columns: ColumnDef<MpesaTransactionDto, unknown>[] = [
 
 function Mpesa() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const { business } = useActiveBusiness();
-  const query = useQuery({ queryKey: key('mpesa-unmatched'), queryFn: mpesaApi.unmatched, refetchInterval: 15_000 });
+  const query = useQuery({ queryKey: key('mpesa-unmatched', { branchId: branch.branchId }), queryFn: () => mpesaApi.unmatched(branch.scope), refetchInterval: 15_000 });
   return (
     <>
       <PageHeader
@@ -39,6 +43,7 @@ function Mpesa() {
         </Alert>
       )}
       <DataTable
+        branchFilter={branch}
         columns={columns}
         data={query.data}
         isLoading={query.isLoading}

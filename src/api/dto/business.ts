@@ -37,9 +37,11 @@ export interface BusinessDto extends BusinessProfileFields {
   suspensionReason?: string | null;
   licenseEndsOn?: DateOnly | null;
   licenseMaxUsers?: number | null;
+  licenseMaxBranches?: number | null;
 }
 
-export interface BusinessLicenseStatusDto { access: BusinessAccessDto; maxUsers: number | null; licenses: BusinessLicenseDto[] }
+/** maxBranches: open branches allowed (head office included), null = unlimited. openBranches: every open branch, whoever asks. */
+export interface BusinessLicenseStatusDto { access: BusinessAccessDto; maxUsers: number | null; licenses: BusinessLicenseDto[]; maxBranches?: number | null; openBranches?: number }
 
 export interface RegisterCustomerRequestDto {
   businessId?: Guid | null;

@@ -18,10 +18,12 @@ import { usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatDateTime, formatMoney } from '@/lib/format';
 import { ActivityTimeline } from '@/features/audit/ActivityTimeline';
 import { ExpenseFormDialog } from '@/features/expenses/ExpenseFormDialog';
+import { useBranchLabels } from '@/features/branches/branches';
 
 function ExpenseDetail({ id }: { id: string }) {
   const key = useQueryKey();
   const canAudit = usePermission('AuditLog.View');
+  const branchName = useBranchLabels();
   const expense = useQuery({ queryKey: key('expenses', { id }), queryFn: () => expensesApi.get(id) });
   const [editing, setEditing] = useState(false);
   const [voiding, setVoiding] = useState(false);
@@ -56,6 +58,7 @@ function ExpenseDetail({ id }: { id: string }) {
               items={[
                 { label: 'Amount', value: <span className={`text-lg font-semibold ${posted ? '' : 'line-through opacity-60'}`}>{formatMoney(x.amount)}</span> },
                 { label: 'Paid by', value: [labels.expensePaymentMethod[x.paymentMethod], x.paymentReference].filter(Boolean).join(' · ') },
+                { label: 'Branch', value: x.branchId ? branchName(x.branchId) : 'Business-wide' },
                 { label: 'Category', value: `${x.categoryCode} · ${x.categoryName}` },
                 { label: 'Supplier / payee', value: x.supplierId ? <Link className="text-primary hover:underline" href={`/suppliers/${x.supplierId}`}>{x.supplierName}</Link> : x.payeeName },
                 { label: 'Supplier invoice no.', value: x.supplierInvoiceNumber },

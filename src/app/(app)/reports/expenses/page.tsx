@@ -14,14 +14,17 @@ import { humanize } from '@/api/mappers';
 import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatMoney } from '@/lib/format';
 import { ReportLayout } from '@/features/reports/ReportLayout';
+import { useBranchFilter } from '@/features/branches/branches';
 
 function ExpenseSummary() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('month'));
-  const q = useQuery({ queryKey: key('expenses', { summary: range }), queryFn: () => expensesApi.summary(range.from, range.to) });
+  const q = useQuery({ queryKey: key('expenses', { summary: range, branchId: branch.branchId }), queryFn: () => expensesApi.summary(range.from, range.to, branch.scope) });
   const r = q.data;
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Expense summary"
       description="Posted expenses by category and payment method."
       filters={<DateRangeFilter value={range} onChange={setRange} />}

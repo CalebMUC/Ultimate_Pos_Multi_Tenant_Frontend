@@ -44,7 +44,7 @@ export function guardRedirect(
   if (area === 'business') {
     // Super Users have no business: the business app is closed to them.
     if (state.isPlatformUser) return '/platform';
-    if (!state.activeBusinessId && pathname !== '/select-business') return '/select-business';
+    if (!state.activeBusinessId && pathname !== '/select-business' && pathname !== '/select-branch') return '/select-business';
   }
   if (area === 'platform' && !state.isPlatformUser) return homePathFor(state.permissions, state.activeBusinessId);
   return null;
@@ -76,18 +76,21 @@ export function AuthGuard({ children, area = 'business' }: { children: ReactNode
 }
 
 /**
- * Where to go after signing in. A password change comes first (then on to the destination); a returnTo is honoured only inside
- * the user's own area; a user of several businesses who hasn't picked one before chooses first.
+ * Where to go after signing in, in order: the password change (if owed), the business picker (several businesses, none picked
+ * before), the branch picker (several branches), then the destination. A returnTo is honoured only inside the user's own area.
  */
 export function landingPath(
   state: { permissions: readonly string[]; activeBusinessId: Guid | null; mustChangePassword: boolean },
   returnTo: string | null,
   chooseBusiness = false,
+  chooseBranch = false,
 ): string {
   const platform = isPlatformAccount(state.permissions, state.activeBusinessId);
   const fitsArea = returnTo && (platform ? returnTo.startsWith('/platform') : !returnTo.startsWith('/platform'));
-  const destination = chooseBusiness && !platform
-    ? `/select-business${fitsArea ? `?returnTo=${encodeURIComponent(returnTo!)}` : ''}`
-    : (fitsArea ? returnTo! : homePathFor(state.permissions, state.activeBusinessId));
+  const target = fitsArea ? returnTo! : homePathFor(state.permissions, state.activeBusinessId);
+  const withReturn = (path: string, next: string | null) => (next ? `${path}?returnTo=${encodeURIComponent(next)}` : path);
+  let destination = target;
+  if (!platform && chooseBusiness) destination = withReturn('/select-business', fitsArea ? returnTo! : null);
+  else if (!platform && chooseBranch) destination = withReturn('/select-branch', target);
   return state.mustChangePassword ? `/change-password?returnTo=${encodeURIComponent(destination)}` : destination;
 }

@@ -17,6 +17,8 @@ import { usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { toastError } from '@/lib/forms';
 import { useSession } from '@/stores/session';
 import { ActivityTimeline } from '@/features/audit/ActivityTimeline';
+import { UserBranchesPanel } from '@/features/branches/UserBranchesPanel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
 import type { UserDto } from '@/api/dto/identity';
 
 /** One user of this business. Linked from user notifications (new user, deactivated, account locked) and the audit log. */
@@ -78,6 +80,13 @@ function UserDetail({ id }: { id: string }) {
           </>
         }
       />
+      <Tabs defaultValue="details">
+      <TabsList className="mb-1">
+        <TabsTrigger value="details">Details</TabsTrigger>
+        <TabsTrigger value="branches">Branches</TabsTrigger>
+      </TabsList>
+      <TabsContent value="branches"><UserBranchesPanel userId={id} userName={u.fullName} /></TabsContent>
+      <TabsContent value="details">
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4">
           <Card>
@@ -103,6 +112,8 @@ function UserDetail({ id }: { id: string }) {
           </Card>
         )}
       </div>
+      </TabsContent>
+      </Tabs>
       <ConfirmDialog
         open={confirm !== null}
         onOpenChange={(o) => !o && setConfirm(null)}

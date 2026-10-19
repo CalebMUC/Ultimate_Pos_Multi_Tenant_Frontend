@@ -1,6 +1,7 @@
 import { utcOffsetMinutes } from '@/lib/format';
 import { cleanParams } from '@/lib/utils';
 import { api } from '../client';
+import { branchParam, type BranchScope } from '../branchScope';
 import type { DateOnly, Guid, PageParams } from '../dto/common';
 import type {
   CreateSaleRequestDto, CreateSaleReturnRequestDto, MpesaTransactionDto, PrescriptionRegisterEntryDto, SaleDto, SalePreviewDto, SaleQuery,
@@ -12,21 +13,21 @@ export const salesApi = {
   preview: (body: CreateSaleRequestDto, signal?: AbortSignal) => api.post<SalePreviewDto>('/sales/preview', body, { signal }),
   /** Never retried automatically: there is no idempotency key. */
   create: (body: CreateSaleRequestDto) => api.post<SaleDto>('/sales', body),
-  list: (query: SaleQuery) => api.getPaged<SaleDto>('/sales', cleanParams({ ...query, utcOffsetMinutes: utcOffsetMinutes() })),
+  list: (query: SaleQuery & BranchScope) => api.getPaged<SaleDto>('/sales', cleanParams({ ...query, utcOffsetMinutes: utcOffsetMinutes() })),
   get: (id: Guid) => api.get<SaleDto>(`/sales/${id}`),
   void: (id: Guid) => api.post<SaleDto>(`/sales/${id}/void`),
   /** Asks M-Pesa for the STK push result and settles the sale as Completed or Failed. */
   reconcileMpesa: (id: Guid) => api.post<SaleDto>(`/sales/${id}/mpesa/reconcile`),
   createReturn: (id: Guid, body: CreateSaleReturnRequestDto) => api.post<SaleReturnDto>(`/sales/${id}/returns`, body),
   returnsForSale: (id: Guid) => api.get<SaleReturnDto[]>(`/sales/${id}/returns`),
-  returns: (query: PageParams & { from?: DateOnly; to?: DateOnly }) =>
+  returns: (query: PageParams & BranchScope & { from?: DateOnly; to?: DateOnly }) =>
     api.getPaged<SaleReturnDto>('/sales/returns', cleanParams({ ...query, utcOffsetMinutes: utcOffsetMinutes() })),
-  prescriptions: (query: { from: DateOnly; to: DateOnly; search?: string }) =>
+  prescriptions: (query: BranchScope & { from: DateOnly; to: DateOnly; search?: string }) =>
     api.get<PrescriptionRegisterEntryDto[]>('/sales/prescriptions', cleanParams({ ...query, utcOffsetMinutes: utcOffsetMinutes() })),
 };
 
 export const mpesaApi = {
-  /** This business's till payments, routed by its short code. */
-  unmatched: () => api.get<MpesaTransactionDto[]>('/mpesa/transactions/unmatched'),
+  /** A branch's own-till payments belong to it; payments to the business short code have no branch. */
+  unmatched: (scope?: BranchScope) => api.get<MpesaTransactionDto[]>('/mpesa/transactions/unmatched', branchParam(scope)),
   registerC2bUrls: () => api.post<{ registered: boolean }>('/mpesa/c2b/register-urls'),
 };

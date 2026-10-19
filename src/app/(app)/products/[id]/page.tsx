@@ -26,6 +26,7 @@ import { formatDate, formatDateOnly, formatDateTime, formatQty, toIsoDate } from
 import { requiredId, requiredNumber } from '@/lib/schemas';
 import { ProductFormDialog } from '@/features/products/ProductFormDialog';
 import { ActivityTimeline } from '@/features/audit/ActivityTimeline';
+import { branchLabel, useActiveBranch } from '@/features/branches/branches';
 import type { ProductDetailDto, ProductPriceTierDto, ProductUnitConversionDto } from '@/api/dto/catalog';
 import type { StockBatchDto, StockMovementDto } from '@/api/dto/inventory';
 
@@ -61,6 +62,8 @@ function ProductDetail({ id }: { id: string }) {
   const qc = useQueryClient();
   const can = usePermissions();
   const canStock = usePermission('Stock.View');
+  const activeBranch = useActiveBranch();
+  const atBranch = activeBranch ? `At ${branchLabel(activeBranch)}` : undefined;
   const canAudit = usePermission('AuditLog.View');
   const product = useQuery({ queryKey: key('products', { detail: id }), queryFn: () => productsApi.get(id) });
   const level = useQuery({ queryKey: key('stock', { productId: id }), queryFn: () => stockApi.level(id), enabled: canStock });
@@ -161,7 +164,7 @@ function ProductDetail({ id }: { id: string }) {
       />
       {canStock && level.data && (
         <div className="mb-4 grid gap-3 sm:grid-cols-3">
-          <StatCard label="On hand" value={formatQty(level.data.quantityOnHand, level.data.baseUnitSymbol)} tone={level.data.belowReorderLevel ? 'warning' : 'default'} hint={level.data.belowReorderLevel ? 'Below reorder level' : undefined} />
+          <StatCard label="On hand" value={formatQty(level.data.quantityOnHand, level.data.baseUnitSymbol)} tone={level.data.belowReorderLevel ? 'warning' : 'default'} hint={[atBranch, level.data.belowReorderLevel ? 'below reorder level' : null].filter(Boolean).join(' · ') || undefined} />
           {p.isBatchTracked && <StatCard label="Sellable (unexpired)" value={formatQty(level.data.sellableQuantity, level.data.baseUnitSymbol)} />}
           <StatCard label="Reorder level" value={formatQty(level.data.reorderLevel, level.data.baseUnitSymbol)} />
         </div>

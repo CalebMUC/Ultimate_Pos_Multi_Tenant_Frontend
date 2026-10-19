@@ -14,6 +14,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatMoney } from '@/lib/format';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { OpenOrderDto } from '@/api/dto/reports';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<OpenOrderDto, unknown>[] = [
   { header: 'Order', accessorKey: 'orderNumber', cell: ({ row }) => <span className="font-medium">{row.original.orderNumber}</span> },
@@ -37,11 +38,13 @@ const columns: ColumnDef<OpenOrderDto, unknown>[] = [
 function OpenOrders() {
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [supplierId, setSupplierId] = useState<string | null>(null);
-  const q = useQuery({ queryKey: key('reports', { openOrders: supplierId }), queryFn: () => reportsApi.openOrders(supplierId ?? undefined) });
+  const q = useQuery({ queryKey: key('reports', { openOrders: supplierId, branchId: branch.branchId }), queryFn: () => reportsApi.openOrders(supplierId ?? undefined, branch.scope) });
   const r = q.data;
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Open orders"
       description="Orders not fully received yet. Late ones first."
       filters={<div className="w-56"><SupplierPicker value={supplierId} onChange={(id) => setSupplierId(id)} placeholder="All suppliers" clearable /></div>}

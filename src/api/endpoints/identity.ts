@@ -2,12 +2,14 @@ import { anonymousApi, api } from '../client';
 import type { Guid } from '../dto/common';
 import type {
   AssignPermissionsRequestDto, ChangePasswordRequest, CreateRoleRequestDto, LoginRequest, LoginResponseDto, MeDto, PermissionDto,
-  PermissionModuleDto, RegisterRequest, RoleDto, SwitchBusinessRequest, UpdateRoleRequestDto, UpdateUserRequestDto, UserDto,
+  PermissionModuleDto, RegisterRequest, RoleDto, SwitchBranchRequest, SwitchBusinessRequest, UpdateRoleRequestDto, UpdateUserRequestDto, UserDto,
 } from '../dto/identity';
 
 export const authApi = {
   login: (body: LoginRequest) => anonymousApi.post<LoginResponseDto>('/auth/Login', body),
   switchBusiness: (body: SwitchBusinessRequest) => api.post<LoginResponseDto>('/auth/switch-business', body),
+  /** New tokens for another branch of this business: replace both, then reload every branch's data. */
+  switchBranch: (body: SwitchBranchRequest) => api.post<LoginResponseDto>('/auth/switch-branch', body),
   logout: (refreshToken: string) => api.post<unknown>('/auth/logout', { refreshToken }),
   me: () => api.get<MeDto>('/auth/me'),
   changePassword: (body: ChangePasswordRequest) => api.post<unknown>('/auth/change-password', body),

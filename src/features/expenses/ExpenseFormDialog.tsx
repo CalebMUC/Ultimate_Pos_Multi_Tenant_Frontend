@@ -10,6 +10,9 @@ import { ExpenseCategorySelect, SupplierPicker } from '@/components/shared/Picke
 import { expensesApi } from '@/api/endpoints/other';
 import { enumOptions, ExpensePaymentMethod, labels } from '@/api/enums';
 import { usePermission } from '@/hooks/useSessionInfo';
+import { Checkbox } from '@/components/ui/overlays';
+import { useSession } from '@/stores/session';
+import { branchLabel, useBranchLabels } from '@/features/branches/branches';
 import { todayIso } from '@/lib/format';
 import { requiredNumber, requiredText, text } from '@/lib/schemas';
 import { emptyToNull } from '@/lib/utils';
@@ -28,6 +31,10 @@ const schema = z.object({
   etimsControlNumber: text(100),
   receiptUrl: z.string().trim().max(500).refine((v) => v === '' || /^https?:\/\//i.test(v), 'Use a full link starting with https://'),
   notes: text(1000),
+  // Optional: the select is disabled (so left out) while Business-wide is ticked.
+  branchId: z.string().optional(),
+  /** A cost of no one branch (head-office rent). Branches.AccessAll only. */
+  businessWide: z.boolean(),
 });
 type Values = z.infer<typeof schema>;
 
@@ -35,6 +42,11 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: { open: boole
   const qc = useQueryClient();
   const editing = !!expense;
   const canSuppliers = usePermission('Suppliers.View');
+  // Business-wide expenses are seen only by those who see every branch, and only they may post one.
+  const accessAll = usePermission('Branches.AccessAll');
+  const activeBranchId = useSession((s) => s.activeBranchId);
+  const myBranches = useSession((s) => s.branches);
+  const branchName = useBranchLabels();
   return (
     <FormDialog<Values>
       open={open}
@@ -56,6 +68,8 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: { open: boole
         etimsControlNumber: expense?.etimsControlNumber ?? '',
         receiptUrl: expense?.receiptUrl ?? '',
         notes: expense?.notes ?? '',
+        branchId: expense ? expense.branchId ?? '' : activeBranchId ?? '',
+        businessWide: expense ? !expense.branchId : false,
       }}
       onSubmit={async (v) => {
         const common = {
@@ -70,7 +84,15 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: { open: boole
           notes: emptyToNull(v.notes),
         };
         if (editing) await expensesApi.update(expense!.expenseId, common);
-        else await expensesApi.create({ ...common, expenseDate: v.expenseDate, amount: v.amount, paymentMethod: v.paymentMethod });
+        else {
+          await expensesApi.create({
+            ...common,
+            expenseDate: v.expenseDate,
+            amount: v.amount,
+            paymentMethod: v.paymentMethod,
+            ...(v.businessWide && accessAll ? { businessWide: true } : { branchId: v.branchId || null }),
+          });
+        }
         await Promise.all(['expenses', 'dashboard'].map((r) => qc.invalidateQueries({ queryKey: [r] })));
         toast.success(editing ? 'Expense updated' : 'Expense posted');
       }}
@@ -103,6 +125,31 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: { open: boole
             <Field label="Supplier invoice no." error={e.supplierInvoiceNumber}><Input {...form.register('supplierInvoiceNumber')} /></Field>
             <Field label="eTIMS control no." error={e.etimsControlNumber} hint="From the supplier’s KRA eTIMS invoice."><Input {...form.register('etimsControlNumber')} /></Field>
             <Field label="Receipt link" error={e.receiptUrl} className="sm:col-span-2"><Input type="url" placeholder="https://…" {...form.register('receiptUrl')} /></Field>
+            {editing ? (
+              (myBranches.length > 1 || !expense!.branchId) && (
+                <Field label="Branch" hint="Fixed once posted.">
+                  <Input readOnly className="bg-muted" value={expense!.branchId ? branchName(expense!.branchId) : 'Business-wide'} />
+                </Field>
+              )
+            ) : (
+              (myBranches.length > 1 || accessAll) && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  {myBranches.length > 1 && (
+                    <Field label="Branch" error={e.branchId}>
+                      <NativeSelect {...form.register('branchId')} disabled={form.watch('businessWide')}>
+                        {myBranches.map((b) => <option key={b.branchId} value={b.branchId}>{branchLabel(b)}</option>)}
+                      </NativeSelect>
+                    </Field>
+                  )}
+                  {accessAll && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox checked={form.watch('businessWide')} onCheckedChange={(v) => form.setValue('businessWide', v === true)} />
+                      Business-wide (not one branch’s cost, e.g. head-office rent)
+                    </label>
+                  )}
+                </div>
+              )
+            )}
             <Field label="Notes" error={e.notes} className="sm:col-span-3"><Textarea {...form.register('notes')} /></Field>
           </div>
         );

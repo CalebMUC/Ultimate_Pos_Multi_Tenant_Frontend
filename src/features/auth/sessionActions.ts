@@ -43,8 +43,9 @@ export async function bootstrapSession() {
   }
 }
 
-export async function login(email: string, password: string, businessId?: Guid | null): Promise<LoginResponseDto> {
-  const data = await authApi.login({ email, password, businessId: businessId ?? null });
+/** Signs in, to the given business and branch when there is one (else the user's defaults). */
+export async function login(email: string, password: string, businessId?: Guid | null, branchId?: Guid | null): Promise<LoginResponseDto> {
+  const data = await authApi.login({ email, password, businessId: businessId ?? null, branchId: branchId ?? null });
   queryClient.clear();
   useCartStore.getState().clearAll();
   applyLoginResponse(data);
@@ -57,8 +58,16 @@ export async function login(email: string, password: string, businessId?: Guid |
  * Switches to another business: new token pair, then every cache, the cart and the profile reset so nothing from the previous
  * business can show in the next.
  */
-export async function switchBusiness(businessId: Guid) {
-  const data = await authApi.switchBusiness({ businessId, refreshToken: tokenStorage.getRefreshToken() });
+export async function switchBusiness(businessId: Guid, branchId?: Guid | null) {
+  // The branch last worked at in that business, if it can still be used; the API falls back to the default otherwise.
+  const preferred = branchId ?? tokenStorage.getLastBranchId(businessId);
+  let data: LoginResponseDto;
+  try {
+    data = await authApi.switchBusiness({ businessId, refreshToken: tokenStorage.getRefreshToken(), branchId: preferred });
+  } catch (e) {
+    if (!preferred || branchId) throw e;
+    data = await authApi.switchBusiness({ businessId, refreshToken: tokenStorage.getRefreshToken() });
+  }
   await queryClient.cancelQueries();
   queryClient.clear();
   useCartStore.getState().clearAll();
@@ -68,10 +77,29 @@ export async function switchBusiness(businessId: Guid) {
   return data;
 }
 
-/** Re-reads roles, permissions, the forced-password flag and the licence position (GET /auth/me). */
+/**
+ * Moves to another branch of this business: new tokens (both replaced), then everything from the old branch is dropped (every
+ * query cache, the POS cart) so nothing of one branch shows at another.
+ */
+export async function switchBranch(branchId: Guid) {
+  const data = await authApi.switchBranch({ branchId, refreshToken: tokenStorage.getRefreshToken() });
+  await queryClient.cancelQueries();
+  queryClient.clear();
+  useCartStore.getState().clearAll();
+  applyLoginResponse(data);
+  return data;
+}
+
+/** After a refresh moved the user to another branch: drop the old branch's data. */
+export function resetBranchData() {
+  void queryClient.cancelQueries().then(() => queryClient.invalidateQueries());
+  useCartStore.getState().clearAll();
+}
+
+/** Re-reads roles, permissions, branches, the forced-password flag and the licence position (GET /auth/me). */
 export async function refreshMe() {
   const me = await authApi.me();
-  useSession.getState().setUser(me.user, me.businesses, me.activeBusinessId, me.mustChangePassword ?? false);
+  useSession.getState().setUser(me.user, me.businesses, me.activeBusinessId, me.mustChangePassword ?? false, me.branches);
   const access = me.businessAccess;
   if (access) {
     const warns = access.allowed && (access.status === 'ExpiringSoon' || access.status === 'GracePeriod') && access.message;

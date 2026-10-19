@@ -236,7 +236,7 @@ export function PaymentDialog(props: Props) {
 /** Unmatched till payments whose amount equals the sale total. */
 function TillPayments({ total, value, onChange, enabled }: { total: number; value: string | null; onChange(id: string | null): void; enabled: boolean }) {
   const key = useQueryKey();
-  const query = useQuery({ queryKey: key('mpesa-unmatched'), queryFn: mpesaApi.unmatched, enabled, refetchInterval: enabled ? 5000 : false });
+  const query = useQuery({ queryKey: key('mpesa-unmatched'), queryFn: () => mpesaApi.unmatched(), enabled, refetchInterval: enabled ? 5000 : false });
   const all = query.data ?? [];
   const matching = all.filter((t) => round2(t.amount) === round2(total));
   return (
@@ -264,7 +264,7 @@ function TillPayments({ total, value, onChange, enabled }: { total: number; valu
               >
                 <span>
                   <span className="font-medium">{t.mpesaReceiptNumber ?? '—'}</span>
-                  <span className="block text-xs text-muted-foreground">{t.phoneNumber} · {formatDateTime(t.transactionDate)}</span>
+                  <span className="block text-xs text-muted-foreground">{t.phoneNumber} · {formatDateTime(t.transactionDate)}{t.kraBranchId ? ` · ${t.kraBranchId} till` : ''}</span>
                 </span>
                 <span className="font-semibold tabular">{formatMoney(t.amount)}</span>
               </button>

@@ -7,7 +7,8 @@ import type { UserDto } from './identity';
 /** Strings, unlike body enums. */
 export type AccessStatus = 'Active' | 'ExpiringSoon' | 'GracePeriod' | 'Expired' | 'Unlicensed' | 'Suspended' | 'Closed';
 /** The 403 codes that refuse a whole business. */
-export type AccessCode = 'BUSINESS_SUSPENDED' | 'BUSINESS_CLOSED' | 'LICENSE_EXPIRED' | 'UNLICENSED';
+/** NO_BRANCH: the user isn't assigned to any open branch of the business. */
+export type AccessCode = 'BUSINESS_SUSPENDED' | 'BUSINESS_CLOSED' | 'LICENSE_EXPIRED' | 'UNLICENSED' | 'NO_BRANCH';
 
 export interface BusinessAccessDto {
   status: AccessStatus;
@@ -56,6 +57,8 @@ export interface BusinessLicenseDto {
   createdBy: Guid | null;
   cancelledAt: DateTimeString | null;
   cancelReason: string | null;
+  /** Open branches allowed; null = unlimited. */
+  maxBranches?: number | null;
 }
 
 export interface RegisterBusinessResultDto { business: BusinessDto; owner: BusinessOwnerResultDto; trialLicense: BusinessLicenseDto | null }
@@ -72,9 +75,11 @@ export interface IssueLicenseRequestDto {
   paymentMethod?: SettlementMethod | null;
   paymentReference?: string | null;
   notes?: string | null;
+  /** 1–100 open branches, head office included. Empty = unlimited. */
+  maxBranches?: number | null;
 }
 
-export interface BusinessSummaryDto { business: BusinessDto; access: BusinessAccessDto; activeUsers: number; createdAt: DateTimeString }
+export interface BusinessSummaryDto { business: BusinessDto; access: BusinessAccessDto; activeUsers: number; createdAt: DateTimeString; activeBranches?: number }
 
 export interface BusinessPerformanceDto {
   businessId: Guid;
@@ -92,6 +97,7 @@ export interface BusinessPerformanceDto {
   lastSaleAt: DateTimeString | null;
   lastSignInAt: DateTimeString | null;
   createdAt: DateTimeString;
+  activeBranches?: number;
 }
 
 export interface PlatformDashboardDto {

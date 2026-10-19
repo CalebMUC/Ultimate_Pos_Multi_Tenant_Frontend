@@ -12,6 +12,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatPercent } from '@/lib/format';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { PriceTrendDto } from '@/api/dto/reports';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<PriceTrendDto, unknown>[] = [
   { header: 'Product', accessorKey: 'productName', cell: ({ row }) => <span><span className="font-medium">{row.original.productName}</span><span className="block text-xs text-muted-foreground">per {row.original.unitSymbol}</span></span> },
@@ -30,14 +31,16 @@ const columns: ColumnDef<PriceTrendDto, unknown>[] = [
 
 function PriceTrends() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('year'));
   const [productId, setProductId] = useState<string | null>(null);
   const [supplierId, setSupplierId] = useState<string | null>(null);
-  const q = useQuery({ queryKey: key('reports', { priceTrends: range, productId, supplierId }), queryFn: () => reportsApi.priceTrends(range.from, range.to, productId ?? undefined, supplierId ?? undefined) });
+  const q = useQuery({ queryKey: key('reports', { priceTrends: range, productId, supplierId, branchId: branch.branchId }), queryFn: () => reportsApi.priceTrends(range.from, range.to, productId ?? undefined, supplierId ?? undefined, branch.scope) });
   const r = q.data;
   const rising = r?.items.filter((i) => (i.changePercent ?? 0) > 0).length ?? 0;
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Purchase price trends"
       description="How what you pay per unit has moved, and which supplier was cheapest."
       filters={

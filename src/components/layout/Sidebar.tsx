@@ -9,6 +9,7 @@ import { useActiveBusiness, usePermissions } from '@/hooks/useSessionInfo';
 import { usePharmacyMenu } from '@/features/auth/usePharmacyMenu';
 import { cn } from '@/lib/utils';
 import { BrandMark } from './BrandMark';
+import { useTransferInbox } from '@/features/transfers/useTransferInbox';
 
 export type ShellArea = 'business' | 'platform';
 
@@ -98,11 +99,12 @@ export function Sidebar({ collapsed, onNavigate, area = 'business' }: { collapse
                       href={item.href}
                       onClick={onNavigate}
                       className={cn(
-                        'block truncate rounded-md px-2.5 py-1.5 text-[13px] transition-colors',
+                        'flex items-center gap-2 truncate rounded-md px-2.5 py-1.5 text-[13px] transition-colors',
                         active === item.href ? 'bg-white/10 font-medium text-primary' : 'text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground',
                       )}
                     >
-                      {item.label}
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {item.badge === 'transferInbox' && <TransferInboxBadge />}
                     </Link>
                   ))}
                 </div>
@@ -112,5 +114,16 @@ export function Sidebar({ collapsed, onNavigate, area = 'business' }: { collapse
         })}
       </div>
     </nav>
+  );
+}
+
+/** Transfers waiting to be received at the active branch. Hidden at 0. */
+function TransferInboxBadge() {
+  const { count } = useTransferInbox();
+  if (!count) return null;
+  return (
+    <span className="rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-4 text-primary-foreground" aria-label={`${count} transfer${count === 1 ? '' : 's'} to receive`}>
+      {count > 99 ? '99+' : count}
+    </span>
   );
 }

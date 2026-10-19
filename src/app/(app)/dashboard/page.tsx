@@ -17,6 +17,8 @@ import { quickLinks } from '@/config/navigation';
 import { useActiveBusiness, usePermission, usePermissions, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatMoney, formatPercent } from '@/lib/format';
 import { useSession } from '@/stores/session';
+import { BranchFilterSelect } from '@/features/branches/BranchFilterSelect';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const dayLabel = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number);
@@ -30,8 +32,9 @@ function Dashboard() {
   const { capabilities } = useActiveBusiness();
   const canSalesReport = usePermission('SalesReports.View');
   const [range, setRange] = useState(() => presetRange('month'));
-  const summary = useQuery({ queryKey: key('dashboard', range), queryFn: () => dashboardApi.summary(range.from, range.to) });
-  const sales = useQuery({ queryKey: key('dashboard', { sales: range }), queryFn: () => reportsApi.sales(range.from, range.to, 5), enabled: canSalesReport });
+  const branch = useBranchFilter();
+  const summary = useQuery({ queryKey: key('dashboard', { ...range, branchId: branch.branchId }), queryFn: () => dashboardApi.summary(range.from, range.to, branch.scope) });
+  const sales = useQuery({ queryKey: key('dashboard', { sales: range, branchId: branch.branchId }), queryFn: () => reportsApi.sales(range.from, range.to, 5, branch.scope), enabled: canSalesReport });
   const d = summary.data;
 
   return (
@@ -41,6 +44,7 @@ function Dashboard() {
         description={d ? `${formatDateOnly(d.from)} – ${formatDateOnly(d.to)}` : 'How the business is doing.'}
         actions={
           <>
+            <BranchFilterSelect filter={branch} />
             <DateRangeFilter value={range} onChange={setRange} />
             {quickLinks.filter((q) => can(q.permission)).map((q) => (
               <Button key={q.href} asChild variant={q.href === '/pos' ? 'default' : 'outline'}><Link href={q.href}><q.icon />{q.label}</Link></Button>

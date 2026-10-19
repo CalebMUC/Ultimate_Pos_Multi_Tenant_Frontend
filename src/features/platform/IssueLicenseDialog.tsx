@@ -24,6 +24,7 @@ const schema = z
     endsOn: z.string(),
     startsOn: z.string(),
     maxUsers: optionalNumber({ min: 1, max: 10000, label: 'Max users' }),
+    maxBranches: optionalNumber({ min: 1, max: 100, label: 'Max branches' }),
     amount: optionalNumber({ min: 0, label: 'Amount' }),
     paymentMethod: z.string(),
     paymentReference: z.string().trim().max(100),
@@ -74,6 +75,7 @@ export function IssueLicenseDialog({ open, onOpenChange, business, previous }: {
         endsOn: '',
         startsOn: '',
         maxUsers: previous?.maxUsers ?? null,
+        maxBranches: previous?.maxBranches ?? null,
         amount: null,
         paymentMethod: String(SettlementMethod.Mpesa),
         paymentReference: '',
@@ -87,6 +89,7 @@ export function IssueLicenseDialog({ open, onOpenChange, business, previous }: {
           endsOn: v.mode === 'endsOn' ? v.endsOn : null,
           startsOn: v.startsOn || null,
           maxUsers: v.maxUsers,
+          maxBranches: v.maxBranches,
           amount: v.amount ?? 0,
           paymentMethod: v.paymentMethod === '' ? null : (Number(v.paymentMethod) as SettlementMethod),
           paymentReference: emptyToNull(v.paymentReference),
@@ -148,6 +151,7 @@ export function IssueLicenseDialog({ open, onOpenChange, business, previous }: {
 
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Max users" error={e.maxUsers} hint="Empty for unlimited."><Input type="number" min={1} {...form.register('maxUsers', { valueAsNumber: true })} /></Field>
+              <Field label="Max branches" error={e.maxBranches} hint="Open branches, head office included. Empty for unlimited."><Input type="number" min={1} max={100} {...form.register('maxBranches', { valueAsNumber: true })} /></Field>
               <Field label="Amount (KES)" required={paid} error={e.amount}><Input type="number" min={0} step="0.01" {...form.register('amount', { valueAsNumber: true })} /></Field>
               <Field label="Paid by" error={e.paymentMethod}>
                 <NativeSelect {...form.register('paymentMethod')}>

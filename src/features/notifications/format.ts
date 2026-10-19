@@ -71,6 +71,8 @@ const entityRoutes: Record<string, (id: string) => string> = {
   Expense: (id) => `/expenses/${id}`,
   Role: (id) => `/roles/${id}`,
   MpesaTransaction: () => '/mpesa',
+  StockTransfer: (id) => `/stock-transfers/${id}`,
+  Branch: (id) => `/branches/${id}`,
 };
 
 /** Where an audit entry's entity lives in the app, or null when it has no page. The platform area links only to its own pages. */

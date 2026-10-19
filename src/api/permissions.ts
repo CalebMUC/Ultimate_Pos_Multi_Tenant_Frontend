@@ -17,6 +17,8 @@ export const BUSINESS_PERMISSIONS = [
   'Suppliers.Register', 'Suppliers.View', 'Suppliers.Update', 'Suppliers.Deactivate', 'Suppliers.ViewLedger', 'Suppliers.RecordPayment',
   'PurchaseOrders.Create', 'PurchaseOrders.View', 'PurchaseOrders.Receive', 'PurchaseOrders.Cancel',
   'Stock.View', 'Stock.Adjust',
+  'StockTransfers.View', 'StockTransfers.Create', 'StockTransfers.Dispatch', 'StockTransfers.Receive',
+  'Branches.Manage', 'Branches.AccessAll',
   'Formulas.Create', 'Formulas.View', 'Formulas.Deactivate', 'Production.Run', 'Production.View',
   'Sales.Create', 'Sales.View', 'Sales.Void', 'Sales.Return', 'Sales.ApplyDiscount', 'Sales.OverrideCreditLimit',
   'Prescriptions.Dispense', 'Prescriptions.View',

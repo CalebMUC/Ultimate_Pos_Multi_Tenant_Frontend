@@ -30,6 +30,7 @@ export function LicenseTable({ licenses, isLoading, error, onRetry, actions }: {
       cell: ({ row }) => <span className={row.original.state === LicenseState.Cancelled ? 'line-through opacity-60' : ''}>{formatDateOnly(row.original.startsOn)} – {formatDateOnly(row.original.endsOn)}</span>,
     },
     { header: 'Users', accessorKey: 'maxUsers', cell: ({ row }) => row.original.maxUsers ?? 'Unlimited' },
+    { header: 'Branches', accessorKey: 'maxBranches', cell: ({ row }) => row.original.maxBranches ?? 'Unlimited' },
     { header: 'Amount', accessorKey: 'amount', meta: { align: 'right' }, cell: ({ row }) => (row.original.amount ? <MoneyText value={row.original.amount} /> : <span className="text-muted-foreground">—</span>) },
     {
       header: 'Payment',

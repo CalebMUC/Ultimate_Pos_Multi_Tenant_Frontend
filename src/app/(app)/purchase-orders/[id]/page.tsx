@@ -19,9 +19,11 @@ import { formatDate } from '@/lib/format';
 import { ReceiveDialog } from '@/features/purchasing/ReceiveDialog';
 import { WithActivityTab } from '@/features/audit/WithActivityTab';
 import { orderValue } from '@/features/purchasing/orderValue';
+import { useCanSeeBranch } from '@/features/branches/branches';
 
 function PurchaseOrderDetail({ id }: { id: string }) {
   const key = useQueryKey();
+  const canSee = useCanSeeBranch();
   const order = useQuery({ queryKey: key('purchase-orders', { id }), queryFn: () => purchaseOrdersApi.get(id) });
   const [cancelling, setCancelling] = useState(false);
   const [receiving, setReceiving] = useState(false);
@@ -30,6 +32,8 @@ function PurchaseOrderDetail({ id }: { id: string }) {
   if (order.isLoading) return <LoadingState />;
   if (order.error || !order.data) return <ErrorState error={order.error} onRetry={() => order.refetch()} />;
   const po = order.data;
+  // Goods are received into the delivery branch's stock: only its staff (and managers) can receive.
+  const canReceiveHere = !po.branchId || canSee(po.branchId);
   const open = po.status === PurchaseOrderStatus.Ordered || po.status === PurchaseOrderStatus.PartiallyReceived || po.status === PurchaseOrderStatus.Draft;
   const cancellable = po.status === PurchaseOrderStatus.Ordered || po.status === PurchaseOrderStatus.Draft;
 
@@ -41,7 +45,7 @@ function PurchaseOrderDetail({ id }: { id: string }) {
         actions={
           <>
             <Button variant="ghost" asChild><Link href="/purchase-orders"><ArrowLeft />Purchase orders</Link></Button>
-            {open && <Can permission="PurchaseOrders.Receive"><Button onClick={() => setReceiving(true)}><PackageCheck />Receive</Button></Can>}
+            {open && canReceiveHere && <Can permission="PurchaseOrders.Receive"><Button onClick={() => setReceiving(true)}><PackageCheck />Receive</Button></Can>}
             {cancellable && <Can permission="PurchaseOrders.Cancel"><Button variant="destructive" onClick={() => setCancelling(true)}><Ban />Cancel order</Button></Can>}
           </>
         }
@@ -86,6 +90,7 @@ function PurchaseOrderDetail({ id }: { id: string }) {
             <DetailList
               columns={1}
               items={[
+                ...(po.kraBranchId ? [{ label: 'Deliver to', value: `${po.kraBranchId} · ${po.branchName ?? ''}` }] : []),
                 { label: 'Supplier', value: <Link className="text-primary hover:underline" href={`/suppliers/${po.supplierId}`}>{po.supplierName}</Link> },
                 { label: 'Order date', value: formatDate(po.orderDate) },
                 { label: 'Expected delivery', value: formatDate(po.expectedDeliveryDate) },

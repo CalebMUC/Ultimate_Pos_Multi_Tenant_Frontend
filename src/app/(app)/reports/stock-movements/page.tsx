@@ -12,6 +12,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatMoney, formatQty } from '@/lib/format';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { StockMovementReportRowDto } from '@/api/dto/reports';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const qty = (pick: (r: StockMovementReportRowDto) => number, bold = false) => function QuantityCell({ row }: { row: { original: StockMovementReportRowDto } }) {
   const v = pick(row.original);
@@ -32,13 +33,15 @@ const columns: ColumnDef<StockMovementReportRowDto, unknown>[] = [
 
 function StockMovements() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('month'));
   const [productId, setProductId] = useState<string | null>(null);
-  const q = useQuery({ queryKey: key('reports', { movements: range, productId }), queryFn: () => reportsApi.stockMovements(range.from, range.to, productId ?? undefined) });
+  const q = useQuery({ queryKey: key('reports', { movements: range, productId, branchId: branch.branchId }), queryFn: () => reportsApi.stockMovements(range.from, range.to, productId ?? undefined, branch.scope) });
   const r = q.data;
   const money = (v: number | null) => (v === null ? '—' : formatMoney(v));
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Stock movements"
       description="Opening to closing stock per product: what came in, went out and why. Quantities are in base units."
       filters={<><DateRangeFilter value={range} onChange={setRange} /><div className="w-64"><ProductPicker value={productId} onChange={(id) => setProductId(id)} placeholder="All products" clearable /></div></>}

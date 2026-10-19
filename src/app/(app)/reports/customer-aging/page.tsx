@@ -12,6 +12,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatMoney, todayIso } from '@/lib/format';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { CustomerAgingRowDto } from '@/api/dto/reports';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const money = (pick: (r: CustomerAgingRowDto) => number) => function MoneyCell({ row }: { row: { original: CustomerAgingRowDto } }) {
   const v = pick(row.original);
@@ -36,11 +37,13 @@ const columns: ColumnDef<CustomerAgingRowDto, unknown>[] = [
 function CustomerAging() {
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [asOf, setAsOf] = useState(todayIso());
-  const q = useQuery({ queryKey: key('reports', { aging: asOf }), queryFn: () => reportsApi.customerAging({ asOf }) });
+  const q = useQuery({ queryKey: key('reports', { aging: asOf, branchId: branch.branchId }), queryFn: () => reportsApi.customerAging({ asOf, ...branch.scope }) });
   const r = q.data;
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Customer aging"
       description="What customers owe, by how long it has been unpaid."
       filters={<><Label htmlFor="asof">As of</Label><Input id="asof" type="date" max={todayIso()} value={asOf} onChange={(e) => e.target.value && setAsOf(e.target.value)} className="w-40" /></>}

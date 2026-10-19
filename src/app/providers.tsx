@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/overlays';
-import { onAccessBlocked, onSessionExpired } from '@/api/client';
-import { bootstrapSession } from '@/features/auth/sessionActions';
+import { onAccessBlocked, onBranchChanged, onSessionExpired } from '@/api/client';
+import { toast } from 'sonner';
+import { bootstrapSession, resetBranchData } from '@/features/auth/sessionActions';
+import { branchLabel } from '@/features/branches/branches';
 import { queryClient } from '@/lib/queryClient';
 import { applyTheme, usePreferences } from '@/stores/preferences';
 
@@ -33,6 +35,11 @@ export function Providers({ children }: { children: ReactNode }) {
     // A suspended, closed or unlicensed business: one full-page screen, whichever request found out.
     onAccessBlocked((code) => {
       if (!window.location.pathname.startsWith('/blocked')) router.replace(`/blocked?code=${code}`);
+    });
+    // A refresh landed on another branch (the old one closed, or the user was moved): say where, and reload.
+    onBranchChanged((branch) => {
+      toast.info(`You’re now working at ${branchLabel(branch)}`);
+      resetBranchData();
     });
     // Strict mode runs effects twice in development; refresh tokens rotate, so restore the session only once.
     if (!bootstrapped) {

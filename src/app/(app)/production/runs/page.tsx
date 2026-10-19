@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -16,16 +16,20 @@ import { unitSymbol, useUnits } from '@/hooks/useLookups';
 import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatPercent, formatQty } from '@/lib/format';
 import type { ProductionRunDto } from '@/api/dto/production';
+import { useBranchFilter } from '@/features/branches/branches';
 
 function Runs() {
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const units = useUnits();
   const [productId, setProductId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  // Another branch is another list: start from its first page.
+  useEffect(() => setPage(1), [branch.branchId]);
   const [pageSize, setPageSize] = useState(25);
   const params = { page, pageSize, productId: productId ?? undefined };
-  const query = useQuery({ queryKey: key('production-runs', params), queryFn: () => productionApi.list(params), placeholderData: keepPreviousData });
+  const query = useQuery({ queryKey: key('production-runs', { ...params, branchId: branch.branchId }), queryFn: () => productionApi.list({ ...params, ...branch.scope }), placeholderData: keepPreviousData });
   const columns: ColumnDef<ProductionRunDto, unknown>[] = [
     { header: 'Run', accessorKey: 'runNumber', cell: ({ row }) => <span className="font-medium">{row.original.runNumber}</span> },
     { header: 'Date', accessorKey: 'createdAt', cell: ({ row }) => formatDateTime(row.original.createdAt) },
@@ -48,6 +52,7 @@ function Runs() {
         actions={<Can permission="Production.Run"><Button asChild><Link href="/production/runs/new"><Plus />New run</Link></Button></Can>}
       />
       <DataTable
+        branchFilter={branch}
         mode="server"
         columns={columns}
         data={query.data?.items}

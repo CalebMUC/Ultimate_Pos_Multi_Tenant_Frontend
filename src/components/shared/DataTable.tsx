@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input, NativeSelect, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/primitives';
 import { downloadCsv, type CsvColumn } from '@/lib/csv';
 import { cn } from '@/lib/utils';
+import { BranchFilterSelect } from '@/features/branches/BranchFilterSelect';
+import type { BranchFilter } from '@/features/branches/branches';
 import { EmptyState, ErrorState } from './States';
 
 export type { ColumnDef } from '@tanstack/react-table';
@@ -27,6 +29,8 @@ interface BaseProps<T> {
   emptyAction?: ReactNode;
   /** Filters and buttons shown above the table, next to the search box. */
   toolbar?: ReactNode;
+  /** The branch filter, first in the toolbar (hidden for single-branch users). */
+  branchFilter?: BranchFilter;
   csv?: { fileName: string; columns: CsvColumn<T>[] };
   rowClassName?: (row: T) => string | undefined;
   footer?: ReactNode;
@@ -110,7 +114,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
 
   return (
     <div className="space-y-3">
-      {(showSearch || props.toolbar || props.csv) && (
+      {(showSearch || props.toolbar || props.csv || props.branchFilter?.visible) && (
         <div className="flex flex-wrap items-center gap-2">
           {showSearch && (
             <div className="relative w-full sm:w-72">
@@ -127,6 +131,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
               />
             </div>
           )}
+          {props.branchFilter && <BranchFilterSelect filter={props.branchFilter} />}
           {props.toolbar}
           {props.csv && (
             <Button

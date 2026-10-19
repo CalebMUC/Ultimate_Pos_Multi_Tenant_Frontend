@@ -170,6 +170,7 @@ function BusinessDetail({ id }: { id: string }) {
                   { label: 'M-Pesa short code', value: b.mpesaShortCode },
                   { label: 'Discount cap', value: b.maxDiscountPercent != null ? `${b.maxDiscountPercent}%` : 'None' },
                   { label: 'User limit', value: b.licenseMaxUsers ?? 'Unlimited' },
+                  { label: 'Branches', value: `${summary.activeBranches ?? '—'} open${b.licenseMaxBranches != null ? ` of ${b.licenseMaxBranches}` : ' · unlimited'}` },
                   { label: 'Phone', value: b.phoneNumber },
                   { label: 'Email', value: b.email },
                   { label: 'County', value: b.county },

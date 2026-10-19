@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Ban, Building2, CalendarX2, Loader2, LogOut, ShieldAlert } from 'lucide-react';
+import { Ban, Building2, CalendarX2, Loader2, LogOut, ShieldAlert, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/primitives';
 import { BrandMark } from '@/components/layout/BrandMark';
@@ -15,7 +15,7 @@ import { useSession } from '@/stores/session';
 import { accessScreen, accessStatusStyle, isBlockedStatus } from './access';
 import { AccessStatusBadge, SupportContact } from './AccessComponents';
 
-const icons: Record<string, typeof Ban> = { BUSINESS_SUSPENDED: ShieldAlert, BUSINESS_CLOSED: Ban, LICENSE_EXPIRED: CalendarX2, UNLICENSED: CalendarX2 };
+const icons: Record<string, typeof Ban> = { BUSINESS_SUSPENDED: ShieldAlert, BUSINESS_CLOSED: Ban, LICENSE_EXPIRED: CalendarX2, UNLICENSED: CalendarX2, NO_BRANCH: Store };
 
 /** Full page, for a business that is suspended, closed or out of licence. Offers the user's other businesses, and sign-out. */
 export function BlockedScreen({ code }: { code: string | null }) {
@@ -62,7 +62,7 @@ export function BlockedScreen({ code }: { code: string | null }) {
         <h1 className="text-xl font-semibold">{screen.title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{screen.description}</p>
         {screen.showReason && message && <p className="mt-3 rounded-md bg-muted px-3 py-2 text-sm">{message}</p>}
-        <SupportContact className="mt-4" />
+        {effective !== 'NO_BRANCH' && <SupportContact className="mt-4" />}
 
         {others.length > 0 && (
           <div className="mt-6 space-y-2 text-left">

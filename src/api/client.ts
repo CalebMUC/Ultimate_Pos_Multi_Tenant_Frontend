@@ -4,9 +4,10 @@ import { useSession } from '@/stores/session';
 import { useAccess } from '@/stores/access';
 import { decodeLicenseWarning, isAccessCode } from '@/features/access/access';
 import type { AccessCode } from './dto/platform';
+import type { BranchMembershipDto } from './dto/branches';
 import { ApiError, normaliseError } from './errors';
 import { tokenStorage } from './tokenStorage';
-import type { ApiEnvelope, Paged } from './dto/common';
+import type { ApiEnvelope, Paged, PagingMeta } from './dto/common';
 import type { LoginResponseDto } from './dto/identity';
 
 /** Requests without interceptors: used for refresh so a failing refresh can never recurse. */
@@ -24,6 +25,15 @@ let refreshPromise: Promise<LoginResponseDto> | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let sessionExpiredHandler: (() => void) | null = null;
 let accessBlockedHandler: ((code: AccessCode, message: string | null) => void) | null = null;
+let branchChangedHandler: ((branch: BranchMembershipDto | null) => void) | null = null;
+
+/** Fired when a token refresh lands on a different branch (it was closed, or the user was moved): tell them and reload data. */
+export function onBranchChanged(handler: (branch: BranchMembershipDto | null) => void) {
+  branchChangedHandler = handler;
+}
+
+/** A GET narrowed to a branch the user can't see (403 BRANCH_FORBIDDEN): branch filters reset themselves. */
+export const BRANCH_FORBIDDEN_EVENT = 'upos:branch-forbidden';
 
 /** Called once by the app to redirect to /login when the session can't be renewed. */
 export function onSessionExpired(handler: () => void) {
@@ -63,7 +73,10 @@ export function applyLoginResponse(data: LoginResponseDto) {
     activeBusinessId: data.activeBusinessId,
     businesses: data.businesses ?? [],
     mustChangePassword: data.mustChangePassword ?? false,
+    activeBranchId: data.activeBranchId ?? null,
+    branches: data.branches ?? [],
   });
+  if (data.activeBusinessId && data.activeBranchId) tokenStorage.setLastBranchId(data.activeBusinessId, data.activeBranchId);
   useAccess.getState().setWarning(data.licenseWarning ? { message: data.licenseWarning } : null);
   scheduleRefresh(data.expiresAt);
 }
@@ -93,7 +106,12 @@ export function refreshSession(): Promise<LoginResponseDto> {
     try {
       const res = await bare.post<ApiEnvelope<LoginResponseDto>>('/auth/refresh', { refreshToken });
       const data = unwrap(res.data, res.status);
+      const before = useSession.getState();
       applyLoginResponse(data);
+      // Same business, different branch: the old one was closed or the user was unassigned from it.
+      if (before.activeBranchId && before.activeBusinessId === data.activeBusinessId && data.activeBranchId !== before.activeBranchId) {
+        branchChangedHandler?.(data.branches?.find((b) => b.branchId === data.activeBranchId) ?? null);
+      }
       return data;
     } catch (error) {
       const apiError = normaliseError(error);
@@ -168,6 +186,7 @@ http.interceptors.response.use(
     if (apiError.code === 'INVALID_TOKEN' && !isAuthPath(config?.url)) expireSession();
     // A switch to a blocked business is the user's own choice: the switcher shows the error instead.
     if (!config?.url?.startsWith('/auth')) reportAccessBlocked(apiError);
+    if (apiError.code === 'BRANCH_FORBIDDEN' && typeof window !== 'undefined') window.dispatchEvent(new Event(BRANCH_FORBIDDEN_EVENT));
     throw apiError;
   },
 );
@@ -185,16 +204,33 @@ function unwrap<T>(body: ApiEnvelope<T>, status: number): T {
 
 type Params = object | undefined;
 
+/** A paged result inside `data` (PagedResult<T>), as GET /stock-transfers returns it, instead of items in `data` and paging in `meta`. */
+interface PagedBody<T> { items: T[]; page: number; pageSize: number; totalCount: number; totalPages?: number }
+
+/**
+ * Lists come in two shapes: `data` is the items with paging in `meta` (most endpoints), or `data` is a paged object with
+ * the items inside. Both become { items, meta }; anything else is an empty page rather than a crash.
+ */
+export function toPaged<T>(data: T[] | PagedBody<T> | null | undefined, meta: PagingMeta | null): Paged<T> {
+  if (Array.isArray(data)) {
+    return { items: data, meta: meta ?? { page: 1, pageSize: data.length, totalCount: data.length, totalPages: 1 } };
+  }
+  if (data && Array.isArray(data.items)) {
+    const { items, page, pageSize, totalCount } = data;
+    const totalPages = data.totalPages ?? (pageSize > 0 ? Math.ceil(totalCount / pageSize) : 1);
+    return { items, meta: meta ?? { page, pageSize, totalCount, totalPages } };
+  }
+  return { items: [], meta: meta ?? { page: 1, pageSize: 0, totalCount: 0, totalPages: 1 } };
+}
+
 export const api = {
   async get<T>(url: string, params?: Params, config?: AxiosRequestConfig): Promise<T> {
     const res = await http.get<ApiEnvelope<T>>(url, { ...config, params });
     return unwrap(res.data, res.status);
   },
   async getPaged<T>(url: string, params?: Params, config?: AxiosRequestConfig): Promise<Paged<T>> {
-    const res = await http.get<ApiEnvelope<T[]>>(url, { ...config, params });
-    const items = unwrap(res.data, res.status) ?? [];
-    const meta = res.data.meta ?? { page: 1, pageSize: items.length, totalCount: items.length, totalPages: 1 };
-    return { items, meta };
+    const res = await http.get<ApiEnvelope<T[] | PagedBody<T>>>(url, { ...config, params });
+    return toPaged(unwrap(res.data, res.status), res.data?.meta ?? null);
   },
   async post<T>(url: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const res = await http.post<ApiEnvelope<T>>(url, body ?? {}, config);

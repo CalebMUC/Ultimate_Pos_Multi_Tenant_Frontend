@@ -28,11 +28,22 @@ export function mapExpense(dto: ExpenseApiDto): ExpenseDto {
   };
 }
 
+/** "Transfer to 02 Kisumu" / "Transfer from 01 Westlands": the API notes transfers as "TRF-000001 to 02 Kisumu". */
+export function movementName(movementType: string, notes: string | null | undefined): string {
+  const type = parseEnum(StockMovementType, movementType);
+  if (type === StockMovementType.TransferOut || type === StockMovementType.TransferIn) {
+    const out = type === StockMovementType.TransferOut;
+    const match = (out ? /\bto\s+(.+)$/i : /\bfrom\s+(.+)$/i).exec(notes ?? '');
+    return match ? `Transfer ${out ? 'to' : 'from'} ${match[1].trim()}` : `Transfer ${out ? 'out' : 'in'}`;
+  }
+  return movementType.replace(/([a-z])([A-Z])/g, '$1 $2');
+}
+
 export function mapStockMovement(dto: StockMovementApiDto): StockMovementDto {
   return {
     ...dto,
     movementType: parseEnum(StockMovementType, dto.movementType),
-    movementTypeName: dto.movementType.replace(/([a-z])([A-Z])/g, '$1 $2'),
+    movementTypeName: movementName(dto.movementType, dto.notes),
   };
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/overlays';
 import { usePreferences } from '@/stores/preferences';
+import { useSession } from '@/stores/session';
 import { cn } from '@/lib/utils';
 import { CommandPalette } from './CommandPalette';
 import { Header } from './Header';
@@ -15,6 +16,8 @@ export function AppShell({ children, area = 'business' }: { children: ReactNode;
   const setPref = usePreferences((s) => s.set);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  // Switching branch remounts the page, so open dialogs and drawers close and page state starts afresh.
+  const activeBranchId = useSession((s) => s.activeBranchId);
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
@@ -35,7 +38,7 @@ export function AppShell({ children, area = 'business' }: { children: ReactNode;
       <div className={cn('flex min-w-0 flex-1 flex-col transition-[padding]', collapsed ? 'lg:pl-16' : 'lg:pl-60')}>
         <Header area={area} onToggleSidebar={() => setPref('sidebarCollapsed', !collapsed)} onOpenMobileNav={() => setMobileOpen(true)} />
         {area === 'business' && <LicenseBanner />}
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main key={activeBranchId ?? 'none'} className="flex-1 p-4 md:p-6">{children}</main>
       </div>
       {area === 'business' && <CommandPalette />}
     </div>

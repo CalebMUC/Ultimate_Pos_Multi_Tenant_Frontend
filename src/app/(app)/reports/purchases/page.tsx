@@ -16,6 +16,7 @@ import { formatMoney } from '@/lib/format';
 import { sum } from '@/lib/utils';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { PurchaseByProductDto, PurchaseBySupplierDto } from '@/api/dto/reports';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const suppliers: ColumnDef<PurchaseBySupplierDto, unknown>[] = [
   { header: 'Supplier', accessorKey: 'supplierName', cell: ({ row }) => <span className="font-medium">{row.original.supplierName}</span> },
@@ -35,13 +36,15 @@ const products: ColumnDef<PurchaseByProductDto, unknown>[] = [
 
 function Purchases() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('month'));
   const [supplierId, setSupplierId] = useState<string | null>(null);
-  const q = useQuery({ queryKey: key('reports', { purchases: range, supplierId }), queryFn: () => reportsApi.purchaseSummary(range.from, range.to, supplierId ?? undefined) });
+  const q = useQuery({ queryKey: key('reports', { purchases: range, supplierId, branchId: branch.branchId }), queryFn: () => reportsApi.purchaseSummary(range.from, range.to, supplierId ?? undefined, branch.scope) });
   const r = q.data;
   const statusTotal = r ? sum(r.byStatus, (s) => s.orderedValue) : 0;
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Purchases"
       description="What was ordered and received, by supplier and product."
       filters={<><DateRangeFilter value={range} onChange={setRange} /><div className="w-56"><SupplierPicker value={supplierId} onChange={(id) => setSupplierId(id)} placeholder="All suppliers" clearable /></div></>}

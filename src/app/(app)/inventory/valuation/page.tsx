@@ -15,6 +15,7 @@ import { labels, type ItemType } from '@/api/enums';
 import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatMoney } from '@/lib/format';
 import type { StockValuationRowDto } from '@/api/dto/inventory';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<StockValuationRowDto, unknown>[] = [
   { header: 'Product', accessorKey: 'productName', cell: ({ row }) => <span className="font-medium">{row.original.productName}</span> },
@@ -33,8 +34,9 @@ const columns: ColumnDef<StockValuationRowDto, unknown>[] = [
 function Valuation() {
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [itemType, setItemType] = useState<ItemType | null>(null);
-  const query = useQuery({ queryKey: key('stock', { valuation: itemType }), queryFn: () => costingApi.stockValuation(itemType ?? undefined) });
+  const query = useQuery({ queryKey: key('stock', { valuation: itemType, branchId: branch.branchId }), queryFn: () => costingApi.stockValuation(itemType ?? undefined, branch.scope) });
   const d = query.data;
   return (
     <>
@@ -47,6 +49,7 @@ function Valuation() {
         {d && d.productsMissingCost > 0 && <StatCard label="Missing cost" value={d.productsMissingCost} hint="Valued at zero: revalue them." icon={<AlertTriangle />} tone="warning" />}
       </div>
       <DataTable
+        branchFilter={branch}
         columns={columns}
         data={d?.items}
         isLoading={query.isLoading}

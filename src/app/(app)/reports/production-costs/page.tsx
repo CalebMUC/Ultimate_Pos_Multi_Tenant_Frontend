@@ -16,6 +16,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatMoney, formatPercent, formatQty } from '@/lib/format';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { ProductionCostByProductDto } from '@/api/dto/reports';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<ProductionCostByProductDto, unknown>[] = [
   { header: 'Product', accessorKey: 'productName', cell: ({ row }) => <span className="font-medium">{row.original.productName}</span> },
@@ -30,12 +31,14 @@ const columns: ColumnDef<ProductionCostByProductDto, unknown>[] = [
 
 function ProductionCosts() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('month'));
   const [productId, setProductId] = useState<string | null>(null);
-  const q = useQuery({ queryKey: key('reports', { productionCosts: range, productId }), queryFn: () => reportsApi.productionCosts(range.from, range.to, productId ?? undefined) });
+  const q = useQuery({ queryKey: key('reports', { productionCosts: range, productId, branchId: branch.branchId }), queryFn: () => reportsApi.productionCosts(range.from, range.to, productId ?? undefined, branch.scope) });
   const r = q.data;
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Production costs"
       description="What each product cost to make, and where the money went."
       filters={<><DateRangeFilter value={range} onChange={setRange} /><div className="w-64"><ProductPicker value={productId} filter={{ itemType: ItemType.FinishedGood }} onChange={(id) => setProductId(id)} placeholder="All products" clearable /></div></>}

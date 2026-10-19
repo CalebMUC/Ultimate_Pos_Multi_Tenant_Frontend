@@ -40,6 +40,7 @@ const columns: ColumnDef<BusinessSummaryDto, unknown>[] = [
       : '—',
   },
   { header: 'Users', accessorKey: 'activeUsers', meta: { align: 'right' } },
+  { header: 'Branches', accessorKey: 'activeBranches', meta: { align: 'right' }, cell: ({ row }) => row.original.activeBranches ?? '—' },
   { header: 'Registered', accessorKey: 'createdAt', cell: ({ row }) => formatDate(row.original.createdAt) },
 ];
 
@@ -83,6 +84,7 @@ function Businesses() {
             { header: 'Access', value: (s) => s.access.status },
             { header: 'Licence ends', value: (s) => s.access.licenseEndsOn },
             { header: 'Active users', value: (s) => s.activeUsers },
+            { header: 'Open branches', value: (s) => s.activeBranches },
             { header: 'Registered', value: (s) => s.createdAt },
           ],
         }}

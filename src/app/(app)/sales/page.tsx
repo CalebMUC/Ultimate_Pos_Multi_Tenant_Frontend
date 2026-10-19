@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -17,6 +17,8 @@ import { useDebouncedValue } from '@/hooks/useDebounce';
 import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import type { SaleDto } from '@/api/dto/sales';
+import { branchLabel, useBranchFilter } from '@/features/branches/branches';
+import { withBranchColumn } from '@/features/branches/branchColumn';
 
 const columns: ColumnDef<SaleDto, unknown>[] = [
   { header: 'Sale', accessorKey: 'saleNumber', cell: ({ row }) => <span className="font-medium">{row.original.saleNumber}</span> },
@@ -41,17 +43,20 @@ const columns: ColumnDef<SaleDto, unknown>[] = [
 function SalesList() {
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('today'));
   const [status, setStatus] = useState<SaleStatus | null>(null);
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  // Another branch is another list: start from its first page.
+  useEffect(() => setPage(1), [branch.branchId]);
   const [pageSize, setPageSize] = useState(25);
   const debounced = useDebouncedValue(search.trim(), 300);
   const params = { ...range, status: status ?? undefined, paymentMethod: method ?? undefined, customerId: customerId ?? undefined, search: debounced || undefined, page, pageSize };
 
-  const query = useQuery({ queryKey: key('sales', params), queryFn: () => salesApi.list(params), placeholderData: keepPreviousData });
+  const query = useQuery({ queryKey: key('sales', { ...params, branchId: branch.branchId }), queryFn: () => salesApi.list({ ...params, ...branch.scope }), placeholderData: keepPreviousData });
   const reset = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); setPage(1); };
 
   return (
@@ -62,8 +67,9 @@ function SalesList() {
         actions={<Can permission="Sales.Create"><Button asChild><Link href="/pos"><Plus />New sale</Link></Button></Can>}
       />
       <DataTable
+        branchFilter={branch}
         mode="server"
-        columns={columns}
+        columns={withBranchColumn(columns, branch.visible)}
         data={query.data?.items}
         isLoading={query.isLoading}
         error={query.error}
@@ -91,6 +97,7 @@ function SalesList() {
           fileName: `sales-${range.from}-to-${range.to}`,
           columns: [
             { header: 'Sale', value: (s) => s.saleNumber },
+            { header: 'Branch', value: (s) => branchLabel(s) },
             { header: 'Date', value: (s) => s.createdAt },
             { header: 'Customer', value: (s) => s.customerName ?? 'Walk-in' },
             { header: 'Payment', value: (s) => labels.paymentMethod[s.paymentMethod] },

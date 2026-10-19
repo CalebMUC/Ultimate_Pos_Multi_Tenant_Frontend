@@ -14,6 +14,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatMoney } from '@/lib/format';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { SalesByCustomerDto, SalesByDayDto, SalesByProductDto } from '@/api/dto/reports';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const products: ColumnDef<SalesByProductDto, unknown>[] = [
   { header: 'Product', accessorKey: 'productName', cell: ({ row }) => <span className="font-medium">{row.original.productName}</span> },
@@ -35,11 +36,13 @@ const days: ColumnDef<SalesByDayDto, unknown>[] = [
 
 function SalesReport() {
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('month'));
-  const q = useQuery({ queryKey: key('reports', { sales: range }), queryFn: () => reportsApi.sales(range.from, range.to, 20) });
+  const q = useQuery({ queryKey: key('reports', { sales: range, branchId: branch.branchId }), queryFn: () => reportsApi.sales(range.from, range.to, 20, branch.scope) });
   const r = q.data;
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Sales report"
       description="Completed sales, by day, payment method, customer and product."
       filters={<DateRangeFilter value={range} onChange={setRange} />}

@@ -32,6 +32,7 @@ export function Receipt({ sale, paper }: { sale: SaleDto; paper: ReceiptPaper })
       <p className="text-center font-bold">{business?.isVatRegistered ? 'TAX INVOICE' : 'SALES RECEIPT'}</p>
       <div className="mt-1 space-y-0.5">
         <Row label="Receipt" value={sale.saleNumber} />
+        {sale.kraBranchId && <Row label="Branch" value={`${sale.kraBranchId} · ${sale.branchName ?? ''}`} />}
         <Row label="Date" value={formatDateTime(sale.createdAt)} />
         {sale.customerName && <Row label="Customer" value={sale.customerName} />}
         {sale.createdByName && <Row label="Served by" value={sale.createdByName} />}

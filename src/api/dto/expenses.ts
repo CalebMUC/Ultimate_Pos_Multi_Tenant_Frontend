@@ -19,9 +19,13 @@ export interface CreateExpenseRequestDto {
   etimsControlNumber: string | null;
   receiptUrl: string | null;
   notes: string | null;
+  /** Defaults to the active branch. */
+  branchId?: Guid | null;
+  /** A cost of no one branch (head-office rent). Needs Branches.AccessAll; leave branchId out. */
+  businessWide?: boolean;
 }
-/** Date, amount and payment method are locked after posting. */
-export type UpdateExpenseRequestDto = Omit<CreateExpenseRequestDto, 'expenseDate' | 'amount' | 'paymentMethod'>;
+/** Date, amount, payment method and branch are locked after posting. */
+export type UpdateExpenseRequestDto = Omit<CreateExpenseRequestDto, 'expenseDate' | 'amount' | 'paymentMethod' | 'branchId' | 'businessWide'>;
 
 /** Raw shape: paymentMethod and status are pre-formatted strings. */
 export interface ExpenseApiDto {
@@ -46,6 +50,8 @@ export interface ExpenseApiDto {
   createdAt: DateTimeString;
   voidedAt: DateTimeString | null;
   voidReason: string | null;
+  /** Null = business-wide. */
+  branchId?: Guid | null;
 }
 export interface ExpenseDto extends Omit<ExpenseApiDto, 'paymentMethod' | 'status'> {
   paymentMethod: ExpensePaymentMethod;

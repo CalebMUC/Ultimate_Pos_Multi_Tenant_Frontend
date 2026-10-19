@@ -18,7 +18,8 @@ import { parseUtc, resolveNotificationLink, toSeverity } from './format';
 export const POLL_MS = 30_000;
 export const BELL_PAGE_SIZE = 10;
 const MAX_CRITICAL_TOASTS = 3;
-const ACCESS_CHANGED = 'User.RolesChanged';
+/** "Your access changed" and "Your branches changed": the token is out of date, so it is renewed. */
+const SESSION_CHANGES = new Set(['User.RolesChanged', 'User.BranchesChanged']);
 
 /** Every notifications key starts with [notifications, businessId] so a business switch never shows another business's. */
 export const notificationKeys = {
@@ -165,7 +166,7 @@ export function useNotifications(area: 'business' | 'platform' = 'business') {
     }
     // "Your access changed": the access token still carries the old permissions, so renew it and the menus follow.
     const baseline = state.newest;
-    if (items.some((n) => n.eventType === ACCESS_CHANGED && parseUtc(n.createdAt).getTime() > baseline)) {
+    if (items.some((n) => SESSION_CHANGES.has(n.eventType) && parseUtc(n.createdAt).getTime() > baseline)) {
       void refreshSession().catch(() => undefined);
     }
     if (newestNow !== null && newestNow > state.newest) state.newest = newestNow;

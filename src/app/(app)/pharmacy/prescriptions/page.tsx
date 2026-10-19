@@ -15,6 +15,7 @@ import { formatDateOnly, formatDateTime, formatQty } from '@/lib/format';
 import { Input } from '@/components/ui/primitives';
 import { ReportLayout } from '@/features/reports/ReportLayout';
 import type { PrescriptionRegisterEntryDto } from '@/api/dto/sales';
+import { useBranchFilter } from '@/features/branches/branches';
 
 const columns: ColumnDef<PrescriptionRegisterEntryDto, unknown>[] = [
   { header: 'Dispensed', accessorKey: 'dispensedAt', cell: ({ row }) => <span>{formatDateTime(row.original.dispensedAt)}<span className="block text-xs text-muted-foreground">{row.original.saleNumber}</span></span> },
@@ -55,13 +56,15 @@ const columns: ColumnDef<PrescriptionRegisterEntryDto, unknown>[] = [
 function PrescriptionRegister() {
   const router = useRouter();
   const key = useQueryKey();
+  const branch = useBranchFilter();
   const [range, setRange] = useState(() => presetRange('month'));
   const [search, setSearch] = useState('');
   const debounced = useDebouncedValue(search.trim(), 300);
   const params = { ...range, search: debounced || undefined };
-  const q = useQuery({ queryKey: key('sales', { prescriptions: params }), queryFn: () => salesApi.prescriptions(params) });
+  const q = useQuery({ queryKey: key('sales', { prescriptions: params, branchId: branch.branchId }), queryFn: () => salesApi.prescriptions({ ...params, ...branch.scope }) });
   return (
     <ReportLayout
+      branchFilter={branch}
       title="Prescription register"
       description="Every prescription-only sale, with patient, prescriber and batches dispensed."
       filters={<><DateRangeFilter value={range} onChange={setRange} /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Patient, prescriber or Rx no.…" className="w-64" /></>}

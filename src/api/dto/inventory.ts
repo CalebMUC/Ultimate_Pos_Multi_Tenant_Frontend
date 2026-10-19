@@ -14,6 +14,10 @@ export interface StockLevelDto {
   /** Batch-tracked: only unexpired lots. Otherwise the quantity on hand. */
   sellableQuantity: number | null;
   baseUnitSymbol: string | null;
+  /** The branch, for labels ("01 · Westlands"). */
+  branchId?: Guid;
+  kraBranchId?: string | null;
+  branchName?: string | null;
 }
 
 /** Raw shape: movementType is a pre-formatted string. */
@@ -29,6 +33,7 @@ export interface StockMovementApiDto {
   createdAt: DateTimeString;
   stockBatchId: Guid | null;
   batchNumber: string | null;
+  branchId?: Guid;
 }
 export interface StockMovementDto extends Omit<StockMovementApiDto, 'movementType'> {
   movementType: StockMovementType | null;
@@ -64,6 +69,10 @@ export interface StockBatchApiDto {
   supplierId: Guid | null;
   purchaseOrderId: Guid | null;
   createdAt: DateTimeString;
+  /** The branch, for labels ("01 · Westlands"). */
+  branchId?: Guid;
+  kraBranchId?: string | null;
+  branchName?: string | null;
 }
 export interface StockBatchDto extends Omit<StockBatchApiDto, 'expiryStatus'> { expiryStatus: ExpiryStatus }
 
@@ -81,6 +90,10 @@ export interface ExpiryReportItemDto {
   quantityOnHand: number;
   baseUnitSymbol: string | null;
   value: number | null;
+  /** The branch, for labels ("01 · Westlands"). */
+  branchId?: Guid;
+  kraBranchId?: string | null;
+  branchName?: string | null;
 }
 export interface ExpiryReportDto {
   asOf: DateOnly;
@@ -110,6 +123,8 @@ export interface CreatePurchaseOrderRequestDto {
   expectedDeliveryDate: DateTimeString | null;
   notes: string | null;
   lines: CreatePurchaseOrderLineRequestDto[];
+  /** Delivery branch, where the goods are received. Defaults to the active branch. */
+  branchId?: Guid | null;
 }
 export interface PurchaseOrderLineDto {
   purchaseOrderLineId: Guid;
@@ -134,6 +149,10 @@ export interface PurchaseOrderDto {
   isActive: boolean;
   lines: PurchaseOrderLineDto[];
   supplierName: string | null;
+  /** The delivery branch. */
+  branchId?: Guid;
+  kraBranchId?: string | null;
+  branchName?: string | null;
 }
 export interface ReceiveLineRequestDto {
   purchaseOrderLineId: Guid;

@@ -9,6 +9,8 @@ import type { Capability } from './businessCapabilities';
 export interface NavItem {
   label: string;
   href: string;
+  /** A live count beside the item (transfers waiting to be received here). */
+  badge?: 'transferInbox';
   permission?: PermissionRequirement;
   requires?: Capability;
 }
@@ -71,6 +73,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Stock Levels', href: '/inventory/stock', permission: 'Stock.View' },
       { label: 'Stock Adjustments', href: '/inventory/adjustments', permission: 'Stock.Adjust' },
+      { label: 'Transfers', href: '/stock-transfers', permission: 'StockTransfers.View', badge: 'transferInbox' },
       { label: 'Stock Valuation', href: '/inventory/valuation', permission: 'Costing.View' },
       { label: 'Revaluations', href: '/inventory/revaluations', permission: 'Costing.Revalue' },
     ],
@@ -129,6 +132,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Business Profile', href: '/admin/business', permission: 'Businesses.Update' },
       { label: 'Licence', href: '/settings/license', permission: 'Businesses.View' },
+      { label: 'Branches', href: '/settings/branches', permission: 'Branches.Manage' },
       { label: 'Users', href: '/admin/users', permission: 'Users.View' },
       { label: 'Roles & Permissions', href: '/admin/roles', permission: 'Roles.View' },
       { label: 'M-Pesa Setup', href: '/admin/mpesa', permission: 'Mpesa.Configure' },

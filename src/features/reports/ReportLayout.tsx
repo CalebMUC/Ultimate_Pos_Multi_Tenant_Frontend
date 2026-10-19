@@ -7,13 +7,17 @@ import { Skeleton } from '@/components/ui/primitives';
 import { PageHeader } from '@/components/shared/Display';
 import { ErrorState } from '@/components/shared/States';
 import { useSession } from '@/stores/session';
+import { BranchFilterSelect } from '@/features/branches/BranchFilterSelect';
+import type { BranchFilter } from '@/features/branches/branches';
 import { formatDateTime } from '@/lib/format';
 
 /** Title, filters in one row, a KPI strip and the body. Prints with the business name and run time. */
-export function ReportLayout({ title, description, filters, kpis, children, isLoading, error, onRetry }: {
+export function ReportLayout({ title, description, filters, branchFilter, kpis, children, isLoading, error, onRetry }: {
   title: string;
   description?: ReactNode;
   filters?: ReactNode;
+  /** Shown first in the filter row, for users who see more than one branch. */
+  branchFilter?: BranchFilter;
   kpis?: ReactNode;
   children?: ReactNode;
   isLoading?: boolean;
@@ -25,7 +29,13 @@ export function ReportLayout({ title, description, filters, kpis, children, isLo
     <div className="report">
       <PageHeader title={title} description={description} actions={<Button variant="outline" className="no-print" onClick={() => window.print()}><Printer />Print</Button>} />
       <p className="mb-3 hidden text-xs text-muted-foreground print:block">{business?.businessName} · printed {formatDateTime(new Date().toISOString())}</p>
-      {filters && <div className="no-print mb-4 flex flex-wrap items-center gap-2">{filters}</div>}
+      {(filters || branchFilter?.visible) && (
+        <div className="no-print mb-4 flex flex-wrap items-center gap-2">
+          {branchFilter && <BranchFilterSelect filter={branchFilter} />}
+          {filters}
+        </div>
+      )}
+      {branchFilter?.branchId && <p className="mb-3 hidden text-xs text-muted-foreground print:block">Branch: {branchFilter.branches.find((b) => b.branchId === branchFilter.branchId)?.name}</p>}
       {error ? (
         <ErrorState error={error} onRetry={onRetry} />
       ) : isLoading ? (
