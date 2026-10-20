@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useSession } from '@/stores/session';
-import { capabilitiesFor } from '@/config/businessCapabilities';
+import { moduleEnabled, type ModuleKey } from '@/config/businessCapabilities';
 import type { Permission, PermissionRequirement } from '@/api/permissions';
 
 export function useBusinessId() {
@@ -33,12 +33,27 @@ export function usePermissions() {
   return useCallback((required?: PermissionRequirement) => hasPermission(permissions ?? [], required), [permissions]);
 }
 
-/** The signed-in business's membership (always available) and profile (once loaded). */
+/**
+ * The signed-in business's membership (always available) and profile (once loaded), with the modules it uses. The membership is
+ * replaced on every refresh, switch and /auth/me, the profile on every GET /businesses/current: the newer of the two wins, so a
+ * super user's reclassification shows as soon as either is re-read.
+ */
 export function useActiveBusiness() {
   const activeBusinessId = useSession((s) => s.activeBusinessId);
   const businesses = useSession((s) => s.businesses);
   const business = useSession((s) => s.business);
+  const businessLoadedAt = useSession((s) => s.businessLoadedAt);
+  const membershipsAt = useSession((s) => s.membershipsAt);
   const membership = businesses.find((b) => b.businessId === activeBusinessId) ?? null;
   const kind = business?.kind ?? membership?.kind ?? null;
-  return { activeBusinessId, membership, business, kind, capabilities: capabilitiesFor(kind) };
+  const profileNewer = !!business?.modules && businessLoadedAt >= membershipsAt;
+  const modules = (profileNewer ? business?.modules : membership?.modules ?? business?.modules) ?? null;
+  const sector = (profileNewer ? business?.sector : membership?.sector ?? business?.sector) ?? null;
+  const hasModule = useCallback((key: ModuleKey) => moduleEnabled(modules, kind, key), [modules, kind]);
+  return { activeBusinessId, membership, business, kind, sector, modules, hasModule };
+}
+
+/** Whether the active business uses a module (presentation only: permissions are still checked separately). */
+export function useHasModule(key: ModuleKey): boolean {
+  return useActiveBusiness().hasModule(key);
 }

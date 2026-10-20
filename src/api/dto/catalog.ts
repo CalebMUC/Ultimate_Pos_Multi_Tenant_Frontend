@@ -48,6 +48,13 @@ export interface ProductUnitConversionDto {
   conversionFactor: number;
   isActive: boolean;
   packUnitSymbol: string | null;
+  /** Sold with one of this pack when the customer has no container (an empty 20L container with a 20L refill), in its base unit. */
+  containerProductId?: Guid | null;
+  containerProductName?: string | null;
+  containerSku?: string | null;
+  containerUnitOfMeasureId?: Guid | null;
+  containerUnitSymbol?: string | null;
+  containerIsActive?: boolean | null;
 }
 
 export interface ProductPriceTierDto {
@@ -65,7 +72,7 @@ export interface ProductDetailDto extends ProductDto {
   priceTiers: ProductPriceTierDto[];
 }
 
-export interface CreateProductUnitConversionRequestDto { packUnitOfMeasureId: Guid; conversionFactor: number }
+export interface CreateProductUnitConversionRequestDto { packUnitOfMeasureId: Guid; conversionFactor: number; containerProductId?: Guid | null }
 export interface UpdateProductUnitConversionRequestDto { conversionFactor: number }
 
 export type ProductSortBy = 'name' | 'sku' | 'createdAt' | 'category';

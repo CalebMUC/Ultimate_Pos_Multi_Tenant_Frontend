@@ -158,5 +158,5 @@ function NewFormula() {
 }
 
 export default function Page() {
-  return <PermissionRoute permission="Formulas.Create" requires="production"><Suspense><NewFormula /></Suspense></PermissionRoute>;
+  return <PermissionRoute permission="Formulas.Create" module="production"><Suspense><NewFormula /></Suspense></PermissionRoute>;
 }

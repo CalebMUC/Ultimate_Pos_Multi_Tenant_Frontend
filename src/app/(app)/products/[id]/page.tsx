@@ -6,22 +6,22 @@ import { useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { ArrowLeft, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, Package, Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge, Card, CardContent, CardHeader, CardTitle, Input, NativeSelect } from '@/components/ui/primitives';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
 import { ActivationButton } from '@/components/shared/ActivationButton';
 import { Can, PermissionRoute } from '@/components/shared/Can';
 import { DataTable, type ColumnDef } from '@/components/shared/DataTable';
 import { DetailList, MoneyText, PageHeader, ProductFlags, QuantityText, StatCard, StatusBadge } from '@/components/shared/Display';
 import { Field } from '@/components/shared/Field';
 import { FormDialog } from '@/components/shared/FormDialog';
-import { UnitSelect } from '@/components/shared/Pickers';
-import { ErrorState, LoadingState } from '@/components/shared/States';
+import { ProductPicker, UnitSelect } from '@/components/shared/Pickers';
+import { ErrorState, FormAlert, LoadingState } from '@/components/shared/States';
 import { productsApi } from '@/api/endpoints/catalog';
 import { stockApi } from '@/api/endpoints/inventory';
-import { enumOptions, labels, PriceType } from '@/api/enums';
-import { usePermission, usePermissions, useQueryKey } from '@/hooks/useSessionInfo';
+import { enumOptions, ItemType, labels, PriceType } from '@/api/enums';
+import { useActiveBusiness, usePermission, usePermissions, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDate, formatDateOnly, formatDateTime, formatQty, toIsoDate } from '@/lib/format';
 import { requiredId, requiredNumber } from '@/lib/schemas';
 import { ProductFormDialog } from '@/features/products/ProductFormDialog';
@@ -61,6 +61,7 @@ function ProductDetail({ id }: { id: string }) {
   const key = useQueryKey();
   const qc = useQueryClient();
   const can = usePermissions();
+  const containers = useActiveBusiness().hasModule('containers');
   const canStock = usePermission('Stock.View');
   const activeBranch = useActiveBranch();
   const atBranch = activeBranch ? `At ${branchLabel(activeBranch)}` : undefined;
@@ -77,6 +78,7 @@ function ProductDetail({ id }: { id: string }) {
   const [addingTier, setAddingTier] = useState(false);
   const [addingConversion, setAddingConversion] = useState(false);
   const [editingConversion, setEditingConversion] = useState<ProductUnitConversionDto | null>(null);
+  const [containerFor, setContainerFor] = useState<ProductUnitConversionDto | null>(null);
 
   if (product.isLoading) return <LoadingState />;
   if (product.error || !product.data) return <ErrorState error={product.error} onRetry={() => product.refetch()} />;
@@ -100,9 +102,23 @@ function ProductDetail({ id }: { id: string }) {
     },
   ];
 
+  const showContainers = containers || p.unitConversions.some((c) => c.containerProductId);
   const conversionColumns: ColumnDef<ProductUnitConversionDto, unknown>[] = [
     { header: 'Pack unit', accessorKey: 'packUnitSymbol', cell: ({ row }) => <span className="font-medium">{row.original.packUnitSymbol}</span> },
     { header: 'Contains', accessorKey: 'conversionFactor', cell: ({ row }) => `${formatQty(row.original.conversionFactor)} ${p.baseUnitSymbol ?? ''}` },
+  ];
+  if (showContainers) conversionColumns.push({
+      header: 'Sold with',
+      id: 'container',
+      cell: ({ row }) =>
+        row.original.containerProductId ? (
+          <span className="flex items-center gap-1.5">
+            <Link href={`/products/${row.original.containerProductId}`} className="hover:underline">{row.original.containerProductName}</Link>
+            {row.original.containerIsActive === false && <Badge variant="secondary">Inactive: not added</Badge>}
+          </span>
+        ) : <span className="text-muted-foreground">—</span>,
+  });
+  conversionColumns.push(
     { header: 'Status', accessorKey: 'isActive', cell: ({ row }) => <StatusBadge kind="active" value={row.original.isActive} /> },
     {
       id: 'actions',
@@ -112,6 +128,7 @@ function ProductDetail({ id }: { id: string }) {
         can('Products.ManageUnitConversions') && (
           <div className="flex justify-end gap-1">
             <Button variant="ghost" size="sm" onClick={() => setEditingConversion(row.original)}><Pencil />Factor</Button>
+            {containers && <Button variant="ghost" size="sm" onClick={() => setContainerFor(row.original)}><Package />Container</Button>}
             <ActivationButton
               isActive={row.original.isActive}
               name={row.original.packUnitSymbol ?? 'pack unit'}
@@ -122,7 +139,7 @@ function ProductDetail({ id }: { id: string }) {
           </div>
         ),
     },
-  ];
+  );
 
   const movementColumns: ColumnDef<StockMovementDto, unknown>[] = [
     { header: 'Date', accessorKey: 'createdAt', cell: ({ row }) => formatDateTime(row.original.createdAt) },
@@ -165,7 +182,13 @@ function ProductDetail({ id }: { id: string }) {
       {canStock && level.data && (
         <div className="mb-4 grid gap-3 sm:grid-cols-3">
           <StatCard label="On hand" value={formatQty(level.data.quantityOnHand, level.data.baseUnitSymbol)} tone={level.data.belowReorderLevel ? 'warning' : 'default'} hint={[atBranch, level.data.belowReorderLevel ? 'below reorder level' : null].filter(Boolean).join(' · ') || undefined} />
-          {p.isBatchTracked && <StatCard label="Sellable (unexpired)" value={formatQty(level.data.sellableQuantity, level.data.baseUnitSymbol)} />}
+          {(p.isBatchTracked || !!level.data.reservedQuantity) && (
+            <StatCard
+              label="Available to sell"
+              value={formatQty(level.data.sellableQuantity, level.data.baseUnitSymbol)}
+              hint={[p.isBatchTracked ? 'unexpired' : null, level.data.reservedQuantity ? `${formatQty(level.data.reservedQuantity, level.data.baseUnitSymbol)} on delivery orders` : null].filter(Boolean).join(' · ')}
+            />
+          )}
           <StatCard label="Reorder level" value={formatQty(level.data.reorderLevel, level.data.baseUnitSymbol)} />
         </div>
       )}
@@ -310,6 +333,15 @@ function ProductDetail({ id }: { id: string }) {
           </Field>
         )}
       </FormDialog>
+      {containerFor && (
+        <ContainerDialog
+          productId={id}
+          productName={p.name}
+          conversion={containerFor}
+          onOpenChange={(o) => !o && setContainerFor(null)}
+          onSaved={refresh}
+        />
+      )}
     </>
   );
 }
@@ -317,4 +349,59 @@ function ProductDetail({ id }: { id: string }) {
 export default function Page() {
   const { id } = useParams<{ id: string }>();
   return <PermissionRoute permission="Products.View"><ProductDetail id={id} /></PermissionRoute>;
+}
+
+/**
+ * The container sold with one of this pack when the customer has none (an empty 20L container with a 20L refill). The till adds it as a
+ * line of its own when the cashier says the customer has no container; it does not change this pack's price or stock.
+ */
+function ContainerDialog({ productId, productName, conversion, onOpenChange, onSaved }: {
+  productId: string;
+  productName: string;
+  conversion: ProductUnitConversionDto;
+  onOpenChange(open: boolean): void;
+  onSaved(): Promise<unknown>;
+}) {
+  const [picked, setPicked] = useState<{ id: string | null; name: string | null }>({ id: conversion.containerProductId ?? null, name: conversion.containerProductName ?? null });
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  async function save() {
+    setPending(true);
+    setError(null);
+    try {
+      await productsApi.setUnitConversionContainer(productId, conversion.productUnitConversionId, picked.id);
+      await onSaved();
+      toast.success(picked.id ? `${conversion.packUnitSymbol} is sold with ${picked.name} when needed` : `No container for ${conversion.packUnitSymbol}`);
+      onOpenChange(false);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setPending(false);
+    }
+  }
+  return (
+    <Dialog open onOpenChange={(o) => !pending && onOpenChange(o)}>
+      <DialogContent size="sm">
+        <DialogHeader>
+          <DialogTitle>Container for {conversion.packUnitSymbol} {productName}</DialogTitle>
+          <DialogDescription>
+            Sold with each {conversion.packUnitSymbol} when the customer has no container of their own. Leave empty if none.
+          </DialogDescription>
+        </DialogHeader>
+        <ProductPicker
+          value={picked.id}
+          selectedLabel={picked.name}
+          filter={{ itemType: ItemType.FinishedGood }}
+          placeholder="No container"
+          clearable
+          onChange={(id, item) => setPicked({ id, name: item?.name ?? null })}
+        />
+        <FormAlert error={error} />
+        <DialogFooter>
+          <Button variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button loading={pending} onClick={save}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }

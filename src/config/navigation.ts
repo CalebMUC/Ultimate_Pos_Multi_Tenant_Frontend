@@ -4,7 +4,7 @@ import {
   Users, Wallet,
 } from 'lucide-react';
 import type { PermissionRequirement } from '@/api/permissions';
-import type { Capability } from './businessCapabilities';
+import type { ModuleKey } from './businessCapabilities';
 
 export interface NavItem {
   label: string;
@@ -12,7 +12,8 @@ export interface NavItem {
   /** A live count beside the item (transfers waiting to be received here). */
   badge?: 'transferInbox';
   permission?: PermissionRequirement;
-  requires?: Capability;
+  /** Shown only when the business uses this module (from the API). The permission is still needed. */
+  module?: ModuleKey;
 }
 
 export interface NavGroup {
@@ -21,7 +22,7 @@ export interface NavGroup {
   /** A single link (no children). */
   href?: string;
   permission?: PermissionRequirement;
-  requires?: Capability;
+  module?: ModuleKey;
   /** Shown only when the pharmacy menu is on (§6). */
   pharmacy?: boolean;
   items?: NavItem[];
@@ -37,6 +38,8 @@ export const navigation: NavGroup[] = [
       { label: 'New Sale', href: '/pos', permission: 'Sales.Create' },
       { label: 'Sales', href: '/sales', permission: 'Sales.View' },
       { label: 'Returns', href: '/sales/returns', permission: 'Sales.View' },
+      { label: 'Deliveries', href: '/deliveries', permission: 'DeliveryOrders.View', module: 'deliveries' },
+      { label: 'Rider Cash-up', href: '/deliveries/cash-up', permission: 'DeliveryOrders.View', module: 'deliveries' },
       { label: 'M-Pesa Payments', href: '/mpesa', permission: 'Mpesa.View' },
     ],
   },
@@ -45,8 +48,8 @@ export const navigation: NavGroup[] = [
     icon: Pill,
     pharmacy: true,
     items: [
-      { label: 'Prescription Register', href: '/pharmacy/prescriptions', permission: 'Prescriptions.View' },
-      { label: 'Batches & Expiry', href: '/inventory/batches', permission: 'Stock.View' },
+      { label: 'Prescription Register', href: '/pharmacy/prescriptions', permission: 'Prescriptions.View', module: 'prescriptions' },
+      { label: 'Batches & Expiry', href: '/inventory/batches', permission: 'Stock.View', module: 'batches' },
     ],
   },
   {
@@ -90,7 +93,7 @@ export const navigation: NavGroup[] = [
   {
     label: 'Production',
     icon: Factory,
-    requires: 'production',
+    module: 'production',
     items: [
       { label: 'Formulas', href: '/production/formulas', permission: 'Formulas.View' },
       { label: 'Production Runs', href: '/production/runs', permission: 'Production.View' },
@@ -116,13 +119,13 @@ export const navigation: NavGroup[] = [
       { label: 'Stock Status', href: '/reports/stock-status', permission: 'InventoryReports.View' },
       { label: 'Stock Movements', href: '/reports/stock-movements', permission: 'InventoryReports.View' },
       { label: 'Stock Adjustments', href: '/reports/stock-adjustments', permission: 'InventoryReports.View' },
-      { label: 'Expiry', href: '/reports/expiry', permission: 'InventoryReports.View' },
-      { label: 'Prescription Register', href: '/pharmacy/prescriptions', permission: 'Prescriptions.View' },
+      { label: 'Expiry', href: '/reports/expiry', permission: 'InventoryReports.View', module: 'batches' },
+      { label: 'Prescription Register', href: '/pharmacy/prescriptions', permission: 'Prescriptions.View', module: 'prescriptions' },
       { label: 'Purchases', href: '/reports/purchases', permission: 'PurchaseReports.View' },
       { label: 'Open Orders', href: '/reports/open-orders', permission: 'PurchaseReports.View' },
       { label: 'Price Trends', href: '/reports/price-trends', permission: 'PurchaseReports.View' },
       { label: 'Payables', href: '/payables', permission: 'Suppliers.ViewLedger' },
-      { label: 'Production Costs', href: '/reports/production-costs', permission: 'ProductionReports.View', requires: 'production' },
+      { label: 'Production Costs', href: '/reports/production-costs', permission: 'ProductionReports.View', module: 'production' },
       { label: 'Expense Summary', href: '/reports/expenses', permission: 'Expenses.View' },
     ],
   },

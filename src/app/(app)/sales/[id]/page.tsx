@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { ArrowLeft, Ban, Printer, RefreshCw, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/primitives';
@@ -173,7 +174,19 @@ function SaleDetail({ id }: { id: string }) {
         description="Stock goes back on hand and, for a credit sale, the customer’s balance is reversed. This cannot be undone."
         confirmLabel="Void sale"
         destructive
-        onConfirm={() => voidSale.mutateAsync(undefined)}
+        onConfirm={async () => {
+          try {
+            await voidSale.mutateAsync(undefined);
+          } catch (e) {
+            // Someone else may have voided it a moment ago: reload, and if so there is nothing left to do.
+            const fresh = await sale.refetch();
+            if (fresh.data?.status === SaleStatus.Voided) {
+              toast.info(`Sale ${s.saleNumber} was already voided.`);
+              return;
+            }
+            throw e;
+          }
+        }}
       />
       <ReturnDialog sale={s} open={returning} onOpenChange={setReturning} />
       <ReceiptDialog sale={s} open={printing} onOpenChange={setPrinting} />

@@ -24,11 +24,13 @@ const schema = z.object({
 });
 type Values = z.infer<typeof schema>;
 
-export function CustomerFormDialog({ open, onOpenChange, customer, onSaved }: {
+/** `quick`: name and phone only, for registering a customer at the counter. The API picks the business's default price list. */
+export function CustomerFormDialog({ open, onOpenChange, customer, onSaved, quick = false }: {
   open: boolean;
   onOpenChange(o: boolean): void;
   customer?: CustomerDto | null;
   onSaved?(c: CustomerDto): void;
+  quick?: boolean;
 }) {
   const qc = useQueryClient();
   const editing = !!customer;
@@ -37,8 +39,10 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSaved }: {
       open={open}
       onOpenChange={onOpenChange}
       title={editing ? `Edit ${customer!.customerName}` : 'New customer'}
+      description={quick ? 'Name and phone are enough. More details can be added later from Customers.' : undefined}
+      submitLabel={quick ? 'Add and use' : undefined}
       schema={schema}
-      size="lg"
+      size={quick ? 'sm' : 'lg'}
       defaultValues={{
         customerName: customer?.customerName ?? '',
         kraPin: customer?.kraPin ?? '',
@@ -57,7 +61,7 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSaved }: {
           phoneNumber: emptyToNull(v.phoneNumber),
           email: emptyToNull(v.email),
           physicalAddress: emptyToNull(v.physicalAddress),
-          priceType: v.priceType,
+          priceType: quick ? null : v.priceType,
           creditLimit: v.creditLimit,
         };
         // Never send businessId: the token decides the business.
@@ -69,6 +73,14 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSaved }: {
     >
       {(form) => {
         const e = form.formState.errors;
+        if (quick) {
+          return (
+            <div className="grid gap-3">
+              <Field label="Name" required error={e.customerName}><Input autoFocus {...form.register('customerName')} /></Field>
+              <Field label="Phone" error={e.phoneNumber}><Input type="tel" inputMode="tel" placeholder="07XX XXX XXX" {...form.register('phoneNumber')} /></Field>
+            </div>
+          );
+        }
         return (
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Name" required error={e.customerName} className="sm:col-span-2"><Input autoFocus {...form.register('customerName')} /></Field>

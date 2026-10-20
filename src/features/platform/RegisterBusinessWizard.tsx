@@ -13,7 +13,8 @@ import { DetailList } from '@/components/shared/Display';
 import { FormAlert } from '@/components/shared/States';
 import { businessesApi } from '@/api/endpoints/business';
 import { normaliseError } from '@/api/errors';
-import { labels } from '@/api/enums';
+import { labels, sectorLabel } from '@/api/enums';
+import { sectorProfile } from '@/config/sectors';
 import { formatDateOnly } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { BusinessFields, businessDefaults, businessSchema, toBusinessRequest, type BusinessValues } from '@/features/admin/BusinessForm';
@@ -47,8 +48,9 @@ export function RegisterBusinessWizard() {
     setMessages([]);
     setSubmitting(true);
     try {
-      const b = business.getValues();
-      const created = await businessesApi.register({ ...toBusinessRequest(b), kind: b.kind, owner: toOwnerRequest(owner.getValues()) });
+      // getValues() gives the raw inputs (select values are strings); the schema turns them into the numbers the API expects.
+      const b = businessSchema.parse(business.getValues());
+      const created = await businessesApi.register({ ...toBusinessRequest(b), kind: b.kind, sector: b.sector, owner: toOwnerRequest(owner.getValues()) });
       setResult(created);
       await qc.invalidateQueries({ queryKey: ['platform'] });
       toast.success(`${created.business.businessName} registered`);
@@ -107,12 +109,14 @@ export function RegisterBusinessWizard() {
                   columns={3}
                   items={[
                     { label: 'Name', value: b.tradingName ? `${b.tradingName} (${b.businessName})` : b.businessName },
+                    { label: 'Sector', value: sectorLabel(Number(b.sector)) },
                     { label: 'Kind', value: <span>{labels.businessKind[Number(b.kind) as 0 | 1]} <span className="text-xs text-muted-foreground">(fixed once created)</span></span> },
                     { label: 'Sells as', value: labels.businessType[Number(b.businessType) as 0 | 1] },
                     { label: 'KRA PIN', value: b.kraPin },
                     { label: 'VAT registered', value: b.isVatRegistered ? 'Yes' : 'No' },
                     { label: 'M-Pesa short code', value: b.mpesaShortCode || '—' },
                     { label: 'Discount cap', value: b.maxDiscountPercent != null && !Number.isNaN(b.maxDiscountPercent) ? `${b.maxDiscountPercent}%` : 'None' },
+                    { label: 'Selling below zero stock', value: b.allowNegativeStock ? 'Allowed' : 'Refused' },
                     { label: 'Phone', value: b.phoneNumber || '—' },
                     { label: 'Email', value: b.email || '—' },
                   ]}
@@ -155,8 +159,12 @@ function RegisteredPanel({ result, onAnother }: { result: RegisterBusinessResult
           items={[
             { label: 'Owner', value: `${owner.fullName} · ${owner.email}` },
             { label: 'Trial ends', value: trialLicense ? formatDateOnly(trialLicense.endsOn) : 'No trial: issue a licence' },
+            { label: 'Sector', value: `${sectorLabel(business.sector)} · ${labels.businessKind[business.kind]}` },
           ]}
         />
+        <p className="text-sm text-muted-foreground">
+          Starts with the standard units and expense categories{sectorProfile(business.sector).startsWith ? `, plus ${lowerFirst(sectorProfile(business.sector).startsWith!)}` : '.'}
+        </p>
         {owner.created ? (
           owner.temporaryPassword
             ? <OneTimePasswordPanel email={owner.email} password={owner.temporaryPassword} />
@@ -172,3 +180,5 @@ function RegisteredPanel({ result, onAnother }: { result: RegisterBusinessResult
     </Card>
   );
 }
+
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);

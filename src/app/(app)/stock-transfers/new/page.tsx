@@ -63,7 +63,7 @@ function UnitCell({ form, index }: { form: UseFormReturn<Values>; index: number 
 /** What the source branch has of a product, in its base unit (the unexpired quantity for batch-tracked products). */
 function Available({ level }: { level: StockLevelDto | undefined }) {
   if (!level) return <span className="text-xs text-muted-foreground">None</span>;
-  const qty = level.isBatchTracked ? level.sellableQuantity ?? level.quantityOnHand : level.quantityOnHand;
+  const qty = level.sellableQuantity ?? level.quantityOnHand;
   return <span className={`text-xs tabular ${qty <= 0 ? 'text-destructive' : 'text-muted-foreground'}`}>{formatQty(qty, level.baseUnitSymbol)}{level.isBatchTracked ? ' unexpired' : ''}</span>;
 }
 

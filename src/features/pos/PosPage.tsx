@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  AlertTriangle, Banknote, ClipboardList, CreditCard, Minus, PauseCircle, Pill, Plus, ScanBarcode, Search, ShoppingCart, Smartphone, Trash2, X,
+  AlertTriangle, Banknote, ClipboardList, CornerDownRight, CreditCard, Minus, PauseCircle, Pill, Plus, ScanBarcode, Search, ShoppingCart, Smartphone,
+  Trash2, UserPlus, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle, Badge, Card, Input, Label, NativeSelect, Skeleton, Textarea } from '@/components/ui/primitives';
@@ -20,7 +21,9 @@ import { useActiveBusiness, usePermission, useQueryKey } from '@/hooks/useSessio
 import { formatDateTime, formatMoney, formatQty, todayIso } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useCartStore } from '@/stores/cart';
-import { usePreferences } from '@/stores/preferences';
+import { usePreferences, type QuickKey } from '@/stores/preferences';
+import { ContainerToggle, QuickKeys, QuickKeyToggle } from './QuickKeys';
+import { CustomerFormDialog } from '@/features/customers/CustomerFormDialog';
 import type { ProductDetailDto, ProductDto } from '@/api/dto/catalog';
 import type { SaleDto } from '@/api/dto/sales';
 import { ReceiptDialog } from '@/features/sales/Receipt';
@@ -38,7 +41,7 @@ const METHODS = [
 const NO_HELD: never[] = [];
 
 export function PosPage() {
-  const { activeBusinessId, business } = useActiveBusiness();
+  const { activeBusinessId, business, hasModule } = useActiveBusiness();
   const businessId = activeBusinessId!;
   const cart = useCart(businessId);
   const held = useCartStore((s) => s.held[businessId]) ?? NO_HELD;
@@ -49,7 +52,10 @@ export function PosPage() {
   const preview = useSalePreview(cart);
   const canDiscount = usePermission('Sales.ApplyDiscount');
   const canDispense = usePermission('Prescriptions.Dispense');
+  const canRegisterCustomer = usePermission('Customers.Register');
+  const quickSale = hasModule('containers');
   const [paying, setPaying] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const [receipt, setReceipt] = useState<SaleDto | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -62,15 +68,20 @@ export function PosPage() {
   const rxComplete = !!(rx.prescriberName?.trim() && rx.patientName?.trim() && rx.prescriptionDate);
   const creditNeedsCustomer = cart.paymentMethod === PaymentMethod.Credit && !cart.customerId;
 
+  // Batch-tracked stock is never sold beyond unexpired lots; other stock only where the business allows selling below zero.
+  // The API enforces both (409 INSUFFICIENT_STOCK); this stops the cashier before charging.
+  const strictStock = business?.allowNegativeStock === false;
+  const stockBlocks = !!p && p.lines.some((l) => !l.stockSufficient && (l.isBatchTracked || strictStock));
+
   const blockers: string[] = [];
   if (cart.lines.length === 0) blockers.push('Add at least one item.');
-  if (p && !p.allStockSufficient) blockers.push('Some items are short of stock.');
+  if (stockBlocks) blockers.push('Some items are short of stock.');
   if (creditNeedsCustomer) blockers.push('A credit sale needs a customer.');
   if (needsRx && !canDispense) blockers.push('Only staff allowed to dispense can sell prescription-only items.');
   if (needsRx && canDispense && !rxComplete) blockers.push('Fill in the prescription: prescriber, patient and date.');
   const canCharge = previewCurrent && !previewError && blockers.length === 0;
 
-  async function addProduct(product: ProductDto | ProductDetailDto) {
+  async function addProduct(product: ProductDto | ProductDetailDto, unitId?: string) {
     if (!product.isActive) {
       toast.error(`${product.name} is inactive.`);
       return;
@@ -83,7 +94,16 @@ export function PosPage() {
       const detail = 'priceTiers' in product
         ? product
         : await qc.fetchQuery({ queryKey: key('products', { detail: product.productId }), queryFn: () => productsApi.get(product.productId), staleTime: 60_000 });
-      addProductToCart(businessId, detail, 1, p?.priceType ?? null);
+      addProductToCart(businessId, detail, 1, p?.priceType ?? null, unitId);
+    } catch (e) {
+      toast.error(normaliseError(e).message);
+    }
+  }
+
+  async function addQuickKey(k: QuickKey) {
+    try {
+      const detail = await qc.fetchQuery({ queryKey: key('products', { detail: k.productId }), queryFn: () => productsApi.get(k.productId), staleTime: 60_000 });
+      await addProduct(detail, k.unitOfMeasureId);
     } catch (e) {
       toast.error(normaliseError(e).message);
     }
@@ -132,6 +152,7 @@ export function PosPage() {
     <div className="-m-4 grid min-h-[calc(100vh-3.5rem)] md:-m-6 lg:grid-cols-[1fr_28rem]">
       {/* Products */}
       <section className="flex min-w-0 flex-col gap-3 p-4 md:p-5">
+        {quickSale && <QuickKeys businessId={businessId} onAdd={addQuickKey} />}
         <ProductSearch inputRef={searchRef} onAdd={addProduct} />
       </section>
 
@@ -146,6 +167,11 @@ export function PosPage() {
               onChange={(id, c) => patchCart(businessId, { customerId: id, customerName: c?.customerName ?? null, overrideCreditLimit: false })}
             />
           </div>
+          {canRegisterCustomer && (
+            <Button variant="outline" size="icon" onClick={() => setRegistering(true)} aria-label="Register new customer" title="Register new customer">
+              <UserPlus />
+            </Button>
+          )}
           <HeldCarts
             held={held}
             onHold={() => {
@@ -168,6 +194,18 @@ export function PosPage() {
             <ul className={cn('divide-y transition-opacity', !previewCurrent && p && 'opacity-80')}>
               {cart.lines.map((line, index) => {
                 const pl = p?.lines[index]?.productId === line.productId ? p.lines[index] : undefined;
+                if (line.containerFor) {
+                  return (
+                    <li key={line.key} className="flex items-center gap-2 px-3 py-2 pl-6 text-sm">
+                      <CornerDownRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="min-w-0 flex-1 truncate">
+                        {formatQty(line.quantity)} × {line.productName}
+                        <span className="block text-xs text-muted-foreground">Container for the refill above</span>
+                      </span>
+                      {pl ? <MoneyText value={pl.lineTotal} className="text-sm font-semibold" /> : <Skeleton className="h-4 w-16" />}
+                    </li>
+                  );
+                }
                 return (
                   <li key={line.key} className="space-y-2 p-3">
                     <div className="flex items-start gap-2">
@@ -218,6 +256,7 @@ export function PosPage() {
                       ) : (
                         <span className="text-xs text-muted-foreground">{line.units[0]?.symbol}</span>
                       )}
+                      {quickSale && <QuickKeyToggle businessId={businessId} line={line} />}
                       {canDiscount && (
                         <div className="ml-auto flex items-center gap-1">
                           <Input
@@ -244,9 +283,10 @@ export function PosPage() {
                       )}
                     </div>
                     {pl && !pl.stockSufficient && (
-                      <p className="flex items-center gap-1 text-xs text-destructive">
-                        <AlertTriangle className="size-3.5" />
-                        Only {formatQty(pl.availableInBaseUnits)} in stock{line.isBatchTracked ? ' (unexpired)' : ''}; needs {formatQty(pl.requiredInBaseUnits)}.
+                      <p className={cn('flex items-center gap-1 text-xs', line.isBatchTracked || strictStock ? 'text-destructive' : 'text-warning-foreground dark:text-warning')}>
+                        <AlertTriangle className="size-3.5 shrink-0" />
+                        Only {formatQty(Math.max(0, pl.availableInBaseUnits), line.units[0]?.symbol)} in stock{line.isBatchTracked ? ' (unexpired)' : ''}; needs {formatQty(pl.requiredInBaseUnits, line.units[0]?.symbol)}.
+                        {!line.isBatchTracked && !strictStock && ' Stock will show below zero.'}
                       </p>
                     )}
                   </li>
@@ -262,6 +302,11 @@ export function PosPage() {
 
         {/* Totals and payment */}
         <div className="space-y-3 border-t p-3">
+          <ContainerToggle
+            lines={cart.lines}
+            needsContainer={!!cart.needsContainer}
+            onChange={(needsContainer) => patchCart(businessId, { needsContainer })}
+          />
           {previewError && (
             <Alert variant="destructive">
               <AlertTriangle />
@@ -343,6 +388,12 @@ export function PosPage() {
           onAbandoned={abandoned}
         />
       )}
+      <CustomerFormDialog
+        open={registering}
+        onOpenChange={setRegistering}
+        quick
+        onSaved={(c) => patchCart(businessId, { customerId: c.customerId, customerName: c.customerName, overrideCreditLimit: false })}
+      />
       <ReceiptDialog
         sale={receipt}
         open={!!receipt}

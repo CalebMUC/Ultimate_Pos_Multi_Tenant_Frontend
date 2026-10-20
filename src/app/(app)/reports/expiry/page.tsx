@@ -77,5 +77,5 @@ function Expiry() {
 }
 
 export default function Page() {
-  return <PermissionRoute permission="InventoryReports.View"><Expiry /></PermissionRoute>;
+  return <PermissionRoute permission="InventoryReports.View" module="batches"><Expiry /></PermissionRoute>;
 }

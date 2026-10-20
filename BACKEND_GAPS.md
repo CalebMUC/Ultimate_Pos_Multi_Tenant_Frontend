@@ -14,6 +14,41 @@ API is missing something a screen needs. The API code wins; this file records th
 | 5 | Login | A remembered `businessId` the user no longer belongs to returns `403 FORBIDDEN` instead of falling back to the default business. | Login retries once without `businessId`. |
 | 6 | Validation paths | Model-binding errors key fields as `lines[0].quantity`. | The client converts them to `lines.0.quantity` for react-hook-form. |
 
+## Water refilling station onboarding (2026-10-19)
+
+The API side is in `F:\Ultimate_Multi_Tenant_V2_POS\docs\WATER_REFILL_STATION_ONBOARDING.md` (§12 lists what the frontend needed) and
+`docs/BACKEND_API_GAPS.md`. Done here:
+
+| §12 item | Frontend change |
+|---|---|
+| 1. Allow negative stock | *Allow selling below zero stock* switch on Business settings and the registration wizard (sent as `allowNegativeStock`); shown on the platform business page. A missing value is read as `true`, the API default. |
+| 2. Checkout stock rules | A short line blocks *Charge* only when it is batch-tracked or the business refuses negative stock; otherwise it is a warning ("stock will show below zero"). Before this, every short line blocked. A 409 `INSUFFICIENT_STOCK` keeps the cart and re-prices it so the short lines show. |
+| 2. Quick keys | Pin a cart line (product + unit) as a POS quick key, e.g. 1L / 10L / 20L of one water product. Saved per device and business (`preferences.quickKeys`). |
+| 3. Till payment taken | On 400 `INVALID_ASSIGNMENT` for a till sale the choice is cleared and the unmatched list reloads. |
+| 4. Receive conflict | On 400 `INVALID_ASSIGNMENT` the order reloads and the rows show what is still outstanding; nothing left disables *Receive*. |
+| 5. Double void | A failed void reloads the sale; if it is already voided the dialog closes with a note. |
+| 6. Sales report | *By cashier* and *Sales by size* (`byCashier`, `topProductUnits`), with CSV. |
+| 7. New customer at checkout | *Register new customer* button beside the POS customer picker (`Customers.Register`): name and phone, then the sale uses the new customer. No client-side phone workaround existed. |
+| 8. Dashboard | A *Today* row: sales, supplies received, expenses, owed to suppliers, and for the day's best sellers the quantity sold against stock left (litres for water). Each card needs the permission of its endpoint. |
+
+Delivery orders and containers (onboarding §12 items 9–13, 2026-10-20):
+
+| § | Frontend change |
+|---|---|
+| 9. Container toggle | The container for each refill size is set on the product page (*Container* on a pack unit; API `PUT /products/{id}/unit-conversions/{id}/container`) and read from `unitConversions[]`. *Customer has a container* on the cart and the delivery form: off adds a container line under each such refill, kept at the refill's quantity. Inactive containers are never added. Pack units only (not the base unit). |
+| 10. Delivery orders | *Deliveries* board (Pending / Out for delivery / Delivered today, plus an all-orders table), *New delivery order* (customer picker with register, address, phone, quick keys, container toggle, estimated total from `/sales/preview`), *Dispatch* (rider name), *Cancel* (reason), *Record delivery* (edit lines, Cash with change, M-Pesa till, or *Pay later*), *Rider cash-up*. |
+| 10, 12, 13. Pay later | As agreed with the owner, kept simple: **pay later is an ordinary credit sale on the customer's ledger account**. No promise date is asked for, so there is no date picker at the counter and no promise column in ageing. The API was changed to make `paymentDueDate` optional on a credit delivery; *Pay later* still needs `DeliveryOrders.AcceptCredit` (managers). |
+| 11. Stock | Stock levels show *On delivery orders* and *Available*; product and adjustment pages and the dashboard show held stock; transfers offer only available stock. |
+
+Still open on the API (from `docs/BACKEND_API_GAPS.md`), so no screen exists for them:
+
+- **R1** cancel of a purchase order is not locked against a receipt; **R2** no unique index on `MpesaReceiptNumber`. Both marked "fix soon".
+- **G7** close a purchase order short, **G10** daily cash-up report: recommended for the station.
+- G1 bank transfer at the counter (deferred by the owner), G2 split payments, the rest of G4 (delivery fee, time slots, proof of delivery),
+  G6 maintenance log, G11 approvals, G15 customer prices: need owner decisions. G3/G4 delivery orders are built; G5 deposits are not
+  used (containers are sold).
+- G8, G9, G12, G13, G14, G16: optional.
+
 ## Not supported by the API yet (from the build prompt §17)
 
 - KRA eTIMS submission and control numbers (an empty `<EtimsBlock />` slot stays on the receipt).

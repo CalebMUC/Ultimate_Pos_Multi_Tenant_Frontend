@@ -12,6 +12,7 @@ import { productsApi } from '@/api/endpoints/catalog';
 import { enumOptions, ItemType, labels, TaxClassification } from '@/api/enums';
 import { requiredId, requiredNumber, requiredText, text } from '@/lib/schemas';
 import { emptyToNull } from '@/lib/utils';
+import { useActiveBusiness } from '@/hooks/useSessionInfo';
 import type { ProductDto } from '@/api/dto/catalog';
 
 const schema = z.object({
@@ -35,6 +36,15 @@ type Values = z.infer<typeof schema>;
 export function ProductFormDialog({ open, onOpenChange, product, onSaved }: { open: boolean; onOpenChange(o: boolean): void; product?: ProductDto | null; onSaved?(p: ProductDto): void }) {
   const qc = useQueryClient();
   const editing = !!product;
+  const { hasModule } = useActiveBusiness();
+  // Module options are offered only where the business uses them; a product that already has one keeps showing it (read-only),
+  // because the API still needs batches and prescriptions for such products.
+  const production = hasModule('production');
+  const batches = hasModule('batches');
+  const prescriptions = hasModule('prescriptions');
+  const itemTypes = enumOptions(labels.itemType).filter((o) => production || o.value === ItemType.FinishedGood || o.value === product?.itemType);
+  const hasRxDetails = !!(product?.requiresPrescription || product?.genericName || product?.strength || product?.dosageForm);
+  const showRx = prescriptions || hasRxDetails;
   return (
     <FormDialog<Values>
       open={open}
@@ -83,9 +93,9 @@ export function ProductFormDialog({ open, onOpenChange, product, onSaved }: { op
               <Field label="Name" required error={e.name} className="sm:col-span-2"><Input autoFocus {...form.register('name')} /></Field>
               <Field label="Barcode" error={e.barcode}><Input {...form.register('barcode')} placeholder="Scan or type" /></Field>
               <Field label="Category" required error={e.categoryId}><CategorySelect {...form.register('categoryId')} /></Field>
-              <Field label="Item type" error={e.itemType} hint={editing ? undefined : 'Only finished goods can be sold.'}>
+              <Field label="Item type" error={e.itemType} hint={!production ? 'Raw materials and packaging are for businesses that make their own products.' : editing ? undefined : 'Only finished goods can be sold.'}>
                 <NativeSelect {...form.register('itemType')}>
-                  {enumOptions(labels.itemType).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {itemTypes.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </NativeSelect>
               </Field>
               <Field label="VAT" error={e.taxClassification}>
@@ -101,24 +111,42 @@ export function ProductFormDialog({ open, onOpenChange, product, onSaved }: { op
             </div>
             <Separator />
             <div className="space-y-3">
-              <p className="text-sm font-semibold">Medicine details</p>
-              <div className="flex flex-wrap gap-6">
-                <label className="flex items-center gap-2 text-sm">
-                  <Switch checked={form.watch('isBatchTracked')} onCheckedChange={(v) => form.setValue('isBatchTracked', v, { shouldDirty: true })} />
-                  Batch-tracked (batch numbers and expiry dates)
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Switch checked={form.watch('requiresPrescription')} onCheckedChange={(v) => form.setValue('requiresPrescription', v, { shouldDirty: true })} />
-                  Prescription only (Rx)
-                </label>
-              </div>
+              <p className="text-sm font-semibold">{showRx ? 'Medicine details' : 'More details'}</p>
+              {(batches || product?.isBatchTracked || showRx) && (
+                <div className="flex flex-wrap gap-6">
+                  {(batches || product?.isBatchTracked) && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={form.watch('isBatchTracked')}
+                        disabled={!batches}
+                        onCheckedChange={(v) => form.setValue('isBatchTracked', v, { shouldDirty: true })}
+                      />
+                      Batch-tracked (batch numbers and expiry dates)
+                    </label>
+                  )}
+                  {showRx && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={form.watch('requiresPrescription')}
+                        disabled={!prescriptions}
+                        onCheckedChange={(v) => form.setValue('requiresPrescription', v, { shouldDirty: true })}
+                      />
+                      Prescription only (Rx)
+                    </label>
+                  )}
+                </div>
+              )}
               {editing && form.watch('isBatchTracked') !== product!.isBatchTracked && (
                 <p className="text-xs text-warning-foreground dark:text-warning">Batch tracking can only change while the product has no stock.</p>
               )}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Field label="Generic name" error={e.genericName}><Input {...form.register('genericName')} placeholder="Amoxicillin" /></Field>
-                <Field label="Strength" error={e.strength}><Input {...form.register('strength')} placeholder="500mg" /></Field>
-                <Field label="Dosage form" error={e.dosageForm}><Input {...form.register('dosageForm')} placeholder="Capsule" /></Field>
+                {showRx && (
+                  <>
+                    <Field label="Generic name" error={e.genericName}><Input readOnly={!prescriptions} {...form.register('genericName')} placeholder="Amoxicillin" /></Field>
+                    <Field label="Strength" error={e.strength}><Input readOnly={!prescriptions} {...form.register('strength')} placeholder="500mg" /></Field>
+                    <Field label="Dosage form" error={e.dosageForm}><Input readOnly={!prescriptions} {...form.register('dosageForm')} placeholder="Capsule" /></Field>
+                  </>
+                )}
                 <Field label="Manufacturer" error={e.manufacturer}><Input {...form.register('manufacturer')} /></Field>
               </div>
             </div>

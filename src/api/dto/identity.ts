@@ -1,5 +1,5 @@
 // Application/Identity/Dtos/AuthDtos.cs
-import type { BusinessKind, BusinessType } from '../enums';
+import type { BusinessKind, BusinessSector, BusinessType } from '../enums';
 import type { DateTimeString, Guid } from './common';
 import type { AccessStatus, BusinessAccessDto } from './platform';
 import type { BranchMembershipDto } from './branches';
@@ -32,6 +32,9 @@ export interface BusinessMembershipDto {
   isDefault: boolean;
   /** Active, ExpiringSoon, GracePeriod, Expired, Unlicensed, Suspended or Closed: for the business picker. */
   accessStatus?: AccessStatus | null;
+  sector?: BusinessSector;
+  /** The app areas it uses (module keys), worked out by the API from sector and kind. Missing on older APIs. */
+  modules?: string[] | null;
 }
 
 export interface LoginResponseDto {

@@ -5,7 +5,7 @@ import { Pill, Layers } from 'lucide-react';
 import { Badge, type BadgeVariant } from '@/components/ui/primitives';
 import { formatMoney, formatQty } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { PurchaseOrderStatus, SaleStatus, labels, type ExpiryStatus, ExpenseStatus } from '@/api/enums';
+import { DeliveryOrderStatus, PurchaseOrderStatus, SaleStatus, labels, type ExpiryStatus, ExpenseStatus } from '@/api/enums';
 
 export function MoneyText({ value, className, currency = true }: { value: number | null | undefined; className?: string; currency?: boolean }) {
   return <span className={cn('tabular whitespace-nowrap', value !== null && value !== undefined && value < 0 && 'text-destructive', className)}>{formatMoney(value, { currency })}</span>;
@@ -22,11 +22,16 @@ const poVariant: Record<PurchaseOrderStatus, BadgeVariant> = {
   [PurchaseOrderStatus.Draft]: 'secondary', [PurchaseOrderStatus.Ordered]: 'info', [PurchaseOrderStatus.PartiallyReceived]: 'warning',
   [PurchaseOrderStatus.Received]: 'success', [PurchaseOrderStatus.Cancelled]: 'secondary',
 };
+const deliveryVariant: Record<DeliveryOrderStatus, BadgeVariant> = {
+  [DeliveryOrderStatus.Pending]: 'secondary', [DeliveryOrderStatus.OutForDelivery]: 'info',
+  [DeliveryOrderStatus.Delivered]: 'success', [DeliveryOrderStatus.Cancelled]: 'secondary',
+};
 const expiryVariant: Record<ExpiryStatus, BadgeVariant> = { Expired: 'destructive', NearExpiry: 'warning', Ok: 'success', NoExpiry: 'secondary' };
 
 export type StatusBadgeProps =
   | { kind: 'sale'; value: SaleStatus }
   | { kind: 'purchaseOrder'; value: PurchaseOrderStatus }
+  | { kind: 'delivery'; value: DeliveryOrderStatus }
   | { kind: 'expiry'; value: ExpiryStatus }
   | { kind: 'expense'; value: ExpenseStatus }
   | { kind: 'active'; value: boolean }
@@ -38,6 +43,8 @@ export function StatusBadge(props: StatusBadgeProps) {
       return <Badge variant={saleVariant[props.value]}>{labels.saleStatus[props.value]}</Badge>;
     case 'purchaseOrder':
       return <Badge variant={poVariant[props.value]}>{labels.purchaseOrderStatus[props.value]}</Badge>;
+    case 'delivery':
+      return <Badge variant={deliveryVariant[props.value]}>{labels.deliveryOrderStatus[props.value]}</Badge>;
     case 'expiry':
       return <Badge variant={expiryVariant[props.value]}>{labels.expiryStatus[props.value]}</Badge>;
     case 'expense':

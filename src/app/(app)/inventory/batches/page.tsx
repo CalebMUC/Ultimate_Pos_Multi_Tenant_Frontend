@@ -103,5 +103,5 @@ function Batches() {
 }
 
 export default function Page() {
-  return <PermissionRoute permission="Stock.View"><Suspense><Batches /></Suspense></PermissionRoute>;
+  return <PermissionRoute permission="Stock.View" module="batches"><Suspense><Batches /></Suspense></PermissionRoute>;
 }

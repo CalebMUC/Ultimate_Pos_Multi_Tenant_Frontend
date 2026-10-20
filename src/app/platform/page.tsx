@@ -13,7 +13,7 @@ import { DateRangeFilter, presetRange } from '@/components/shared/DateRange';
 import { MoneyText, PageHeader, StatCard } from '@/components/shared/Display';
 import { ErrorState } from '@/components/shared/States';
 import { platformApi } from '@/api/endpoints/platform';
-import { labels } from '@/api/enums';
+import { labels, sectorLabel } from '@/api/enums';
 import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatDateTime, formatMoney } from '@/lib/format';
 import { daysUntil } from '@/features/access/access';
@@ -21,10 +21,18 @@ import { AccessStatusBadge } from '@/features/access/AccessComponents';
 import { relativeTime } from '@/features/notifications/format';
 import { daysLeftText, ExpiringLicensesTable } from '@/features/platform/ExpiringLicensesTable';
 import { useExpiringLicenses, usePlatformBusinesses } from '@/features/platform/usePlatform';
-import type { BusinessPerformanceDto } from '@/api/dto/platform';
+import type { BusinessPerformanceDto, SectorPerformanceDto } from '@/api/dto/platform';
+
+const sectorColumns: ColumnDef<SectorPerformanceDto, unknown>[] = [
+  { header: 'Sector', id: 'sector', accessorFn: (r) => sectorLabel(r.sector), cell: ({ row }) => <span className="font-medium">{sectorLabel(row.original.sector)}</span> },
+  { header: 'Businesses', accessorKey: 'businessCount', meta: { align: 'right' } },
+  { header: 'Sales', accessorKey: 'saleCount', meta: { align: 'right' } },
+  { header: 'Revenue', accessorKey: 'revenue', meta: { align: 'right' }, cell: ({ row }) => <MoneyText value={row.original.revenue} currency={false} className="font-medium" /> },
+];
 
 const columns: ColumnDef<BusinessPerformanceDto, unknown>[] = [
   { header: 'Business', accessorKey: 'businessName', cell: ({ row }) => <span className="font-medium">{row.original.businessName}</span> },
+  { header: 'Sector', id: 'sector', accessorFn: (r) => sectorLabel(r.sector), cell: ({ row }) => <span className="whitespace-nowrap text-xs">{sectorLabel(row.original.sector)}</span> },
   { header: 'Kind / type', id: 'kind', accessorFn: (r) => `${labels.businessKind[r.kind]} ${labels.businessType[r.businessType]}`, cell: ({ row }) => <span className="whitespace-nowrap text-xs">{labels.businessKind[row.original.kind]} · {labels.businessType[row.original.businessType]}</span> },
   { header: 'Access', accessorKey: 'accessStatus', cell: ({ row }) => <AccessStatusBadge status={row.original.accessStatus} /> },
   {
@@ -94,6 +102,27 @@ function PlatformDashboard() {
             </CardContent>
           </Card>
 
+          {!!d.bySector?.length && (
+            <section className="space-y-2">
+              <h2 className="font-semibold">By sector</h2>
+              <DataTable
+                columns={sectorColumns}
+                data={d.bySector}
+                getRowId={(r) => String(r.sector)}
+                emptyTitle="No businesses yet"
+                csv={{
+                  fileName: `platform-sectors-${d.from}-to-${d.to}`,
+                  columns: [
+                    { header: 'Sector', value: (r) => sectorLabel(r.sector) },
+                    { header: 'Businesses', value: (r) => r.businessCount },
+                    { header: 'Sales', value: (r) => r.saleCount },
+                    { header: 'Revenue', value: (r) => r.revenue },
+                  ],
+                }}
+              />
+            </section>
+          )}
+
           <section className="space-y-2">
             <h2 className="font-semibold">Businesses</h2>
             <DataTable
@@ -108,6 +137,7 @@ function PlatformDashboard() {
                 fileName: `platform-businesses-${d.from}-to-${d.to}`,
                 columns: [
                   { header: 'Business', value: (b) => b.businessName },
+                  { header: 'Sector', value: (b) => sectorLabel(b.sector) },
                   { header: 'Kind', value: (b) => labels.businessKind[b.kind] },
                   { header: 'Type', value: (b) => labels.businessType[b.businessType] },
                   { header: 'Access', value: (b) => b.accessStatus },

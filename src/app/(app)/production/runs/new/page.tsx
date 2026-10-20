@@ -231,5 +231,5 @@ function NewRun() {
 }
 
 export default function Page() {
-  return <PermissionRoute permission="Production.Run" requires="production"><Suspense><NewRun /></Suspense></PermissionRoute>;
+  return <PermissionRoute permission="Production.Run" module="production"><Suspense><NewRun /></Suspense></PermissionRoute>;
 }

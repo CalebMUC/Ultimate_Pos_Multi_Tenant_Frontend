@@ -181,7 +181,9 @@ function Adjustments() {
                 items={[
                   { label: 'Product', value: <span className="flex items-center gap-2">{p.name} <ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} /></span> },
                   { label: 'On hand', value: level.data ? formatQty((last ?? level.data).quantityOnHand, p.baseUnitSymbol) : level.error ? 'No stock yet' : '…' },
-                  ...(p.isBatchTracked ? [{ label: 'Sellable (unexpired)', value: level.data ? formatQty((last ?? level.data).sellableQuantity, p.baseUnitSymbol) : '—' }] : []),
+                  ...(p.isBatchTracked || level.data?.reservedQuantity
+                    ? [{ label: p.isBatchTracked ? 'Available (unexpired, not on delivery orders)' : 'Available (not on delivery orders)', value: level.data ? formatQty((last ?? level.data).sellableQuantity, p.baseUnitSymbol) : '—' }]
+                    : []),
                   { label: 'Pack units', value: p.unitConversions.filter((c) => c.isActive).map((c) => `1 ${c.packUnitSymbol} = ${c.conversionFactor} ${p.baseUnitSymbol}`).join(', ') || 'None' },
                 ]}
               />

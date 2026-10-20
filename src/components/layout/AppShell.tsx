@@ -10,6 +10,7 @@ import { CommandPalette } from './CommandPalette';
 import { Header } from './Header';
 import { Sidebar, type ShellArea } from './Sidebar';
 import { LicenseBanner } from '@/features/access/LicenseBanner';
+import { useBusinessFreshness } from '@/features/auth/useBusinessFreshness';
 
 export function AppShell({ children, area = 'business' }: { children: ReactNode; area?: ShellArea }) {
   const collapsed = usePreferences((s) => s.sidebarCollapsed);
@@ -18,6 +19,7 @@ export function AppShell({ children, area = 'business' }: { children: ReactNode;
   const pathname = usePathname();
   // Switching branch remounts the page, so open dialogs and drawers close and page state starts afresh.
   const activeBranchId = useSession((s) => s.activeBranchId);
+  useBusinessFreshness(area === 'business');
 
   useEffect(() => setMobileOpen(false), [pathname]);
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Banknote, CheckCircle2, CreditCard, Loader2, RefreshCw, Smartphone, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle, Badge, Input, Label } from '@/components/ui/primitives';
@@ -46,6 +46,7 @@ export function PaymentDialog(props: Props) {
   const [pendingSale, setPendingSale] = useState<SaleDto | null>(null);
   const quickAmounts = usePreferences((s) => s.quickCashAmounts);
   const canOverride = usePermission('Sales.OverrideCreditLimit');
+  const qc = useQueryClient();
 
   useEffect(() => {
     if (open) {
@@ -93,6 +94,16 @@ export function PaymentDialog(props: Props) {
     } catch (e) {
       const apiError = normaliseError(e);
       if (apiError.code === 'NETWORK_ERROR' || apiError.status >= 500) setUncertain(true);
+      // Stock ran short since the preview (another counter sold it): re-price so the cart shows which lines are short. Cart kept.
+      if (apiError.code === 'INSUFFICIENT_STOCK') {
+        void qc.invalidateQueries({ queryKey: ['sale-preview'] });
+        void qc.invalidateQueries({ queryKey: ['stock'] });
+      }
+      // The till payment was matched to another sale a moment ago: drop the choice and reload the list to pick again.
+      if (apiError.code === 'INVALID_ASSIGNMENT' && cart.paymentMethod === PaymentMethod.MpesaTill) {
+        setTillTxId(null);
+        void qc.invalidateQueries({ queryKey: ['mpesa-unmatched'] });
+      }
       setError(apiError);
     } finally {
       setSubmitting(false);
@@ -234,7 +245,7 @@ export function PaymentDialog(props: Props) {
 }
 
 /** Unmatched till payments whose amount equals the sale total. */
-function TillPayments({ total, value, onChange, enabled }: { total: number; value: string | null; onChange(id: string | null): void; enabled: boolean }) {
+export function TillPayments({ total, value, onChange, enabled }: { total: number; value: string | null; onChange(id: string | null): void; enabled: boolean }) {
   const key = useQueryKey();
   const query = useQuery({ queryKey: key('mpesa-unmatched'), queryFn: () => mpesaApi.unmatched(), enabled, refetchInterval: enabled ? 5000 : false });
   const all = query.data ?? [];

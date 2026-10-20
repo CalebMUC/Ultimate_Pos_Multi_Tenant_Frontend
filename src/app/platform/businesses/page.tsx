@@ -9,7 +9,7 @@ import { NativeSelect } from '@/components/ui/primitives';
 import { Can, PermissionRoute } from '@/components/shared/Can';
 import { DataTable, type ColumnDef } from '@/components/shared/DataTable';
 import { PageHeader } from '@/components/shared/Display';
-import { labels } from '@/api/enums';
+import { enumOptions, labels, sectorLabel, type BusinessSector } from '@/api/enums';
 import { formatDate, formatDateOnly } from '@/lib/format';
 import { ACCESS_STATUSES, accessStatusStyle, daysUntil } from '@/features/access/access';
 import { AccessStatusBadge } from '@/features/access/AccessComponents';
@@ -29,6 +29,7 @@ const columns: ColumnDef<BusinessSummaryDto, unknown>[] = [
       </span>
     ),
   },
+  { header: 'Sector', id: 'sector', accessorFn: (s) => sectorLabel(s.business.sector), cell: ({ row }) => <span className="text-xs">{sectorLabel(row.original.business.sector)}</span> },
   { header: 'Kind / type', id: 'kind', accessorFn: (s) => labels.businessKind[s.business.kind], cell: ({ row }) => <span className="text-xs">{labels.businessKind[row.original.business.kind]} · {labels.businessType[row.original.business.businessType]}</span> },
   { header: 'Access', id: 'status', accessorFn: (s) => s.access.status, cell: ({ row }) => <AccessStatusBadge status={row.original.access.status} /> },
   {
@@ -46,7 +47,8 @@ const columns: ColumnDef<BusinessSummaryDto, unknown>[] = [
 
 function Businesses() {
   const router = useRouter();
-  const businesses = usePlatformBusinesses();
+  const [sector, setSector] = useState<BusinessSector | null>(null);
+  const businesses = usePlatformBusinesses(sector);
   const [status, setStatus] = useState('');
   const rows = businesses.data?.filter((b) => !status || b.access.status === status);
   return (
@@ -66,12 +68,18 @@ function Businesses() {
         onRowClick={(b) => router.push(`/platform/businesses/${b.business.businessId}`)}
         searchable
         searchPlaceholder="Name or KRA PIN…"
-        emptyTitle={status ? 'No businesses with this status' : 'No businesses yet'}
+        emptyTitle={status || sector !== null ? 'No businesses match these filters' : 'No businesses yet'}
         toolbar={
-          <NativeSelect value={status} onChange={(e) => setStatus(e.target.value)} className="w-44" aria-label="Access status">
-            <option value="">Any status</option>
-            {ACCESS_STATUSES.map((s) => <option key={s} value={s}>{accessStatusStyle(s).label}</option>)}
-          </NativeSelect>
+          <>
+            <NativeSelect value={sector ?? ''} onChange={(e) => setSector(e.target.value === '' ? null : (Number(e.target.value) as BusinessSector))} className="w-52" aria-label="Sector">
+              <option value="">Any sector</option>
+              {enumOptions(labels.businessSector).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </NativeSelect>
+            <NativeSelect value={status} onChange={(e) => setStatus(e.target.value)} className="w-44" aria-label="Access status">
+              <option value="">Any status</option>
+              {ACCESS_STATUSES.map((s) => <option key={s} value={s}>{accessStatusStyle(s).label}</option>)}
+            </NativeSelect>
+          </>
         }
         csv={{
           fileName: 'businesses',
@@ -79,6 +87,7 @@ function Businesses() {
             { header: 'Business', value: (s) => s.business.businessName },
             { header: 'Trading name', value: (s) => s.business.tradingName },
             { header: 'KRA PIN', value: (s) => s.business.kraPin },
+            { header: 'Sector', value: (s) => sectorLabel(s.business.sector) },
             { header: 'Kind', value: (s) => labels.businessKind[s.business.kind] },
             { header: 'Type', value: (s) => labels.businessType[s.business.businessType] },
             { header: 'Access', value: (s) => s.access.status },

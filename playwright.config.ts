@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// End-to-end tests run against a real dev API (default http://localhost:5062, via the Next proxy) with seeded data.
+// End-to-end tests run against a real dev API (default http://localhost:5200, via the Next proxy) with seeded data.
 // See e2e/README.md for the accounts and data they expect.
 export default defineConfig({
   testDir: './e2e',

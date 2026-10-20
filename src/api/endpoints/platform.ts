@@ -1,3 +1,4 @@
+import type { BusinessSector } from '../enums';
 import { utcOffsetMinutes } from '@/lib/format';
 import { cleanParams } from '@/lib/utils';
 import { api } from '../client';
@@ -24,7 +25,10 @@ export const platformApi = {
   dashboard: (from?: DateOnly, to?: DateOnly) =>
     api.get<PlatformDashboardDto>('/platform/dashboard', cleanParams({ from, to, utcOffsetMinutes: utcOffsetMinutes() })),
 
-  businesses: () => api.get<BusinessSummaryDto[]>('/platform/businesses'),
+  /** sector narrows to one line of business. */
+  businesses: (sector?: BusinessSector | null) => api.get<BusinessSummaryDto[]>('/platform/businesses', cleanParams({ sector })),
+  /** Reclassifies a business (Businesses.Register). Only the classification and its menus change. 400 if it is already that sector. */
+  changeSector: (id: Guid, sector: BusinessSector) => api.put<BusinessSummaryDto>(`/platform/businesses/${id}/sector`, { sector }),
   business: (id: Guid) => api.get<BusinessDetailDto>(`/platform/businesses/${id}`),
   suspend: (id: Guid, reason: string) => api.post<BusinessSummaryDto>(`/platform/businesses/${id}/suspend`, { reason }),
   reactivate: (id: Guid) => api.post<BusinessSummaryDto>(`/platform/businesses/${id}/reactivate`),

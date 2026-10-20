@@ -89,5 +89,5 @@ function Runs() {
 }
 
 export default function Page() {
-  return <PermissionRoute permission="Production.View" requires="production"><Runs /></PermissionRoute>;
+  return <PermissionRoute permission="Production.View" module="production"><Runs /></PermissionRoute>;
 }

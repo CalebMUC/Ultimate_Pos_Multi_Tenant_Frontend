@@ -54,5 +54,5 @@ function Formulas() {
 }
 
 export default function Page() {
-  return <PermissionRoute permission="Formulas.View" requires="production"><Formulas /></PermissionRoute>;
+  return <PermissionRoute permission="Formulas.View" module="production"><Formulas /></PermissionRoute>;
 }

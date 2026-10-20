@@ -4,6 +4,7 @@ export enum TaxClassification { Standard = 0, ZeroRated = 1, Exempt = 2 }
 export enum PriceType { Wholesale = 0, Retail = 1 }
 export enum PurchaseOrderStatus { Draft = 0, Ordered = 1, PartiallyReceived = 2, Received = 3, Cancelled = 4 }
 export enum SaleStatus { Pending = 0, Completed = 1, Voided = 2, Failed = 3 }
+export enum DeliveryOrderStatus { Pending = 0, OutForDelivery = 1, Delivered = 2, Cancelled = 3 }
 export enum CustomerLedgerEntryType { Invoice = 0, Payment = 1, Reversal = 2, Return = 3 }
 export enum PaymentMethod { Cash = 0, Credit = 1, MpesaTill = 2, MpesaStkPush = 3 }
 export enum MpesaTransactionType { C2B = 0, StkPush = 1 }
@@ -20,6 +21,8 @@ export enum SupplierLedgerEntryType { Bill = 0, Payment = 1, Reversal = 2 }
 export enum RefundMethod { Cash = 0, Mpesa = 1, CreditNote = 2 }
 export enum BusinessType { Wholesaler = 0, Retailer = 1 }
 export enum BusinessKind { Manufacturer = 0, Trader = 1 }
+/** What line of business it is in. General = not classified yet (every business from before sectors). */
+export enum BusinessSector { General = 0, Pharmacy = 1, Agrovet = 2, WaterRefill = 3, Minimart = 4, Supermarket = 5, Hardware = 6 }
 /** Draft → Dispatched (in transit) → Received; a draft can be cancelled. Numbers in JSON. */
 export enum StockTransferStatus { Draft = 0, Dispatched = 1, Received = 2, Cancelled = 3 }
 export enum LicenseKind { Trial = 0, Paid = 1, Complimentary = 2 }
@@ -42,6 +45,10 @@ export const labels = {
     [PurchaseOrderStatus.Received]: 'Received', [PurchaseOrderStatus.Cancelled]: 'Cancelled',
   },
   saleStatus: { [SaleStatus.Pending]: 'Pending', [SaleStatus.Completed]: 'Completed', [SaleStatus.Voided]: 'Voided', [SaleStatus.Failed]: 'Failed' },
+  deliveryOrderStatus: {
+    [DeliveryOrderStatus.Pending]: 'Pending', [DeliveryOrderStatus.OutForDelivery]: 'Out for delivery',
+    [DeliveryOrderStatus.Delivered]: 'Delivered', [DeliveryOrderStatus.Cancelled]: 'Cancelled',
+  },
   customerLedgerEntryType: {
     [CustomerLedgerEntryType.Invoice]: 'Invoice', [CustomerLedgerEntryType.Payment]: 'Payment',
     [CustomerLedgerEntryType.Reversal]: 'Reversal', [CustomerLedgerEntryType.Return]: 'Credit note',
@@ -73,6 +80,11 @@ export const labels = {
   refundMethod: { [RefundMethod.Cash]: 'Cash', [RefundMethod.Mpesa]: 'M-Pesa', [RefundMethod.CreditNote]: 'Credit note' },
   businessType: { [BusinessType.Wholesaler]: 'Wholesaler', [BusinessType.Retailer]: 'Retailer' },
   businessKind: { [BusinessKind.Manufacturer]: 'Manufacturer', [BusinessKind.Trader]: 'Trader' },
+  businessSector: {
+    [BusinessSector.General]: 'General / unclassified', [BusinessSector.Pharmacy]: 'Pharmacy', [BusinessSector.Agrovet]: 'Agrovet',
+    [BusinessSector.WaterRefill]: 'Water refill station', [BusinessSector.Minimart]: 'Minimart', [BusinessSector.Supermarket]: 'Supermarket',
+    [BusinessSector.Hardware]: 'Hardware',
+  },
   licenseKind: { [LicenseKind.Trial]: 'Trial', [LicenseKind.Paid]: 'Paid', [LicenseKind.Complimentary]: 'Complimentary' },
   licenseState: { [LicenseState.Active]: 'Active', [LicenseState.Cancelled]: 'Cancelled' },
   stockTransferStatus: {
@@ -86,4 +98,9 @@ export const labels = {
 /** Options for a select built from a numeric enum's label map. */
 export function enumOptions<T extends number>(map: Record<T, string>): { value: T; label: string }[] {
   return Object.keys(map).map((k) => ({ value: Number(k) as T, label: map[Number(k) as T] }));
+}
+
+/** A sector's label; a number this app doesn't know yet shows as "Other". */
+export function sectorLabel(sector: number | null | undefined): string {
+  return sector === null || sector === undefined ? labels.businessSector[BusinessSector.General] : labels.businessSector[sector as BusinessSector] ?? 'Other';
 }

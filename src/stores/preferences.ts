@@ -5,6 +5,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 export type Theme = 'light' | 'dark' | 'system';
 export type ReceiptPaper = '80mm' | 'a4';
 export type ScannerSuffix = 'Enter' | 'Tab';
+/** A POS button that adds one product in one unit (a 20L refill, a crate). Saved per device and business. */
+export interface QuickKey { productId: string; unitOfMeasureId: string; productName: string; unitSymbol: string }
 
 interface PreferencesState {
   theme: Theme;
@@ -15,6 +17,8 @@ interface PreferencesState {
   /** null = automatic (shown when the business has batch-tracked or prescription products). */
   showPharmacyMenu: boolean | null;
   sidebarCollapsed: boolean;
+  /** POS quick keys by business id. */
+  quickKeys: Record<string, QuickKey[]>;
   set<K extends keyof Omit<PreferencesState, 'set'>>(key: K, value: PreferencesState[K]): void;
 }
 
@@ -28,6 +32,7 @@ export const usePreferences = create<PreferencesState>()(
       scannerSuffix: 'Enter',
       showPharmacyMenu: null,
       sidebarCollapsed: false,
+      quickKeys: {},
       set: (key, value) => set({ [key]: value } as Partial<PreferencesState>),
     }),
     { name: 'upos.preferences', storage: createJSONStorage(() => localStorage) },

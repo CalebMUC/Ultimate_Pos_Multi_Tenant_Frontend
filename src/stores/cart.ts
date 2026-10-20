@@ -4,6 +4,10 @@ import { PaymentMethod } from '@/api/enums';
 import type { Guid } from '@/api/dto/common';
 import type { SalePrescriptionRequestDto } from '@/api/dto/sales';
 
+/** A product sold in its base unit alongside a refill (an empty 20L container), when the customer has none of their own. */
+export interface ContainerProduct { productId: Guid; unitOfMeasureId: Guid; productName: string; sku: string; unitSymbol: string }
+export interface SellableUnit { unitOfMeasureId: Guid; symbol: string; container?: ContainerProduct | null }
+
 // The POS cart. Never stores prices: the API prices every line through /sales/preview.
 export interface CartLine {
   key: string;
@@ -16,8 +20,10 @@ export interface CartLine {
   discountPercent: number | null;
   isBatchTracked: boolean;
   requiresPrescription: boolean;
-  /** Base unit plus active pack units: the units this line may be sold in. */
-  units: { unitOfMeasureId: Guid; symbol: string }[];
+  /** Base unit plus active pack units: the units this line may be sold in, each with the container sold with it (if any). */
+  units: SellableUnit[];
+  /** A container sold with the refill line of this key. Added and kept in step by cartActions; not edited on its own. */
+  containerFor?: string;
 }
 
 export type PrescriptionDraft = Partial<Omit<SalePrescriptionRequestDto, 'patientAgeYears'>> & { patientAgeYears?: number | null };
@@ -31,6 +37,8 @@ export interface Cart {
   overrideCreditLimit: boolean;
   notes: string;
   prescription: PrescriptionDraft;
+  /** The customer has no container: refills whose size names a container (on the product's unit conversion) are sold with one. */
+  needsContainer?: boolean;
 }
 
 export interface HeldCart { id: string; heldAt: string; label: string; cart: Cart }

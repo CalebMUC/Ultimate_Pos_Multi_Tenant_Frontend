@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { AlertTriangle, FileQuestion, Inbox, Loader2, ShieldOff } from 'lucide-react';
+import { AlertTriangle, FileQuestion, Inbox, Loader2, PackageX, ShieldOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/primitives';
 import { normaliseError } from '@/api/errors';
@@ -34,6 +34,11 @@ export function LoadingState({ label = 'Loading…', className }: { label?: stri
 
 export function ForbiddenState({ title = "You don't have permission", message = 'Ask an administrator of this business for access.' }: { title?: string; message?: string }) {
   return <StateFrame icon={<ShieldOff />} title={title} message={message} />;
+}
+
+/** A module the business doesn't use. */
+export function NotUsedState({ title, message, action }: { title: string; message: string; action?: ReactNode }) {
+  return <StateFrame icon={<PackageX />} title={title} message={message} action={action} />;
 }
 
 export function NotFoundState({ title = 'Not found', message = 'It may have been removed, or it belongs to another business.', action }: { title?: string; message?: string; action?: ReactNode }) {

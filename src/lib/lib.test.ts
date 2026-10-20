@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { hasPermission } from '@/hooks/useSessionInfo';
 import { flattenCategories } from '@/hooks/useLookups';
-import { capabilitiesFor } from '@/config/businessCapabilities';
+import { moduleEnabled } from '@/config/businessCapabilities';
 import { BusinessKind } from '@/api/enums';
 import { dayBounds } from '@/features/reports/ReportLayout';
 import { toCsv } from './csv';
@@ -17,11 +17,18 @@ describe('hasPermission', () => {
   });
 });
 
-describe('capabilities', () => {
-  it('gives production to manufacturers only', () => {
-    expect(capabilitiesFor(BusinessKind.Manufacturer).production).toBe(true);
-    expect(capabilitiesFor(BusinessKind.Trader).production).toBe(false);
-    expect(capabilitiesFor(null).production).toBe(false);
+describe('modules', () => {
+  it('reads the list the API sends, whatever the kind, and ignores keys it does not know', () => {
+    const refill = ['dashboard', 'sales', 'deliveries', 'containers', 'loyalty'];
+    expect(moduleEnabled(refill, BusinessKind.Manufacturer, 'production')).toBe(false);
+    expect(moduleEnabled(refill, BusinessKind.Trader, 'deliveries')).toBe(true);
+    expect(moduleEnabled(refill, BusinessKind.Trader, 'batches')).toBe(false);
+  });
+
+  it('keeps today’s menus when the API sends no list: production for manufacturers only, the rest shown', () => {
+    expect(moduleEnabled(null, BusinessKind.Manufacturer, 'production')).toBe(true);
+    expect(moduleEnabled(undefined, BusinessKind.Trader, 'production')).toBe(false);
+    expect(moduleEnabled(null, BusinessKind.Trader, 'deliveries')).toBe(true);
   });
 });
 

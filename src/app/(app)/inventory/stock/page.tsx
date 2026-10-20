@@ -18,15 +18,26 @@ import type { StockLevelDto } from '@/api/dto/inventory';
 import { branchLabel, useBranchFilter } from '@/features/branches/branches';
 import { withBranchColumn } from '@/features/branches/branchColumn';
 
+/** What the counter can sell: unexpired (batch-tracked) and not held for delivery orders. */
+const available = (s: StockLevelDto) => s.sellableQuantity ?? s.quantityOnHand;
+
+const RESERVED = 'On delivery orders';
+
 const columns: ColumnDef<StockLevelDto, unknown>[] = [
   { header: 'Product', accessorKey: 'productName', cell: ({ row }) => <span className="font-medium">{row.original.productName}</span> },
   { header: 'SKU', accessorKey: 'sku', cell: ({ row }) => <code className="text-xs">{row.original.sku}</code> },
   { header: 'On hand', accessorKey: 'quantityOnHand', meta: { align: 'right' }, cell: ({ row }) => <QuantityText value={row.original.quantityOnHand} unit={row.original.baseUnitSymbol} className="font-medium" /> },
   {
-    header: 'Sellable',
+    header: RESERVED,
+    accessorKey: 'reservedQuantity',
+    meta: { align: 'right' },
+    cell: ({ row }) => (row.original.reservedQuantity ? <QuantityText value={row.original.reservedQuantity} unit={row.original.baseUnitSymbol} /> : <span className="text-muted-foreground">—</span>),
+  },
+  {
+    header: 'Available',
     accessorKey: 'sellableQuantity',
     meta: { align: 'right' },
-    cell: ({ row }) => (row.original.isBatchTracked ? <QuantityText value={row.original.sellableQuantity} unit={row.original.baseUnitSymbol} /> : <span className="text-muted-foreground">—</span>),
+    cell: ({ row }) => <QuantityText value={available(row.original)} unit={row.original.baseUnitSymbol} />,
   },
   { header: 'Reorder at', accessorKey: 'reorderLevel', meta: { align: 'right' }, cell: ({ row }) => <QuantityText value={row.original.reorderLevel} unit={row.original.baseUnitSymbol} /> },
   {
@@ -50,11 +61,13 @@ function StockLevels() {
   const query = useQuery({ queryKey: key('stock', { levels: true, lowOnly, branchId: branch.branchId }), queryFn: () => stockApi.levels(lowOnly, branch.scope) });
   const focused = productId ? query.data?.filter((s) => s.productId === productId) : undefined;
   const rows = productId ? focused : query.data;
+  // Held for delivery orders: only shown while something is held, whatever modules the business uses.
+  const anyReserved = !!query.data?.some((s) => (s.reservedQuantity ?? 0) !== 0);
   return (
     <>
       <PageHeader
         title="Stock levels"
-        description="Quantity on hand per product, in its base unit. Batch-tracked products also show what is unexpired."
+        description="Quantity on hand per product, in its base unit. Available leaves out expired lots and stock held for delivery orders."
         actions={<Can permission="Stock.Adjust"><Button asChild><Link href="/inventory/adjustments"><SlidersHorizontal />Adjust stock</Link></Button></Can>}
       />
       {productId && (
@@ -65,7 +78,7 @@ function StockLevels() {
       )}
       <DataTable
         branchFilter={branch}
-        columns={withBranchColumn(columns, branch.visible && !branch.branchId)}
+        columns={withBranchColumn(anyReserved ? columns : columns.filter((c) => c.header !== RESERVED), branch.visible && !branch.branchId)}
         data={rows}
         isLoading={query.isLoading}
         error={query.error}
@@ -88,7 +101,8 @@ function StockLevels() {
             { header: 'SKU', value: (s) => s.sku },
             { header: 'Product', value: (s) => s.productName },
             { header: 'On hand', value: (s) => s.quantityOnHand },
-            { header: 'Sellable', value: (s) => s.sellableQuantity },
+            { header: 'On delivery orders', value: (s) => s.reservedQuantity ?? 0 },
+            { header: 'Available', value: (s) => available(s) },
             { header: 'Unit', value: (s) => s.baseUnitSymbol },
             { header: 'Reorder level', value: (s) => s.reorderLevel },
             { header: 'Below reorder', value: (s) => s.belowReorderLevel },

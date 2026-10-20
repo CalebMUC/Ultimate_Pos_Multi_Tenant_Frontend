@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Ban, KeyRound, Lock, Plus, Power, RefreshCw, ShieldAlert, ShieldCheck, Unlock, UserPlus, XCircle } from 'lucide-react';
+import { ArrowLeft, Ban, KeyRound, Layers, Lock, Plus, Power, RefreshCw, ShieldAlert, ShieldCheck, Unlock, UserPlus, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle, Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/ui/primitives';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
@@ -16,7 +16,9 @@ import { DetailList, PageHeader, StatCard } from '@/components/shared/Display';
 import { FormDialog } from '@/components/shared/FormDialog';
 import { ErrorState, LoadingState } from '@/components/shared/States';
 import { platformApi } from '@/api/endpoints/platform';
-import { labels, LicenseState } from '@/api/enums';
+import { BusinessSector, enumOptions, labels, LicenseState, sectorLabel } from '@/api/enums';
+import { Label, NativeSelect } from '@/components/ui/primitives';
+import { FormAlert } from '@/components/shared/States';
 import { usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatDateTime, formatMoney } from '@/lib/format';
 import { daysUntil } from '@/features/access/access';
@@ -52,6 +54,7 @@ function BusinessDetail({ id }: { id: string }) {
   const [addingAdmin, setAddingAdmin] = useState(false);
   const [resetting, setResetting] = useState<UserDto | null>(null);
   const [oneTime, setOneTime] = useState<OneTime | null>(null);
+  const [changingSector, setChangingSector] = useState(false);
 
   const requested = params.get('tab');
   const tab = TABS.includes(requested as (typeof TABS)[number]) ? requested! : 'overview';
@@ -112,12 +115,13 @@ function BusinessDetail({ id }: { id: string }) {
         title={<span className="flex flex-wrap items-center gap-2">{name} <AccessStatusBadge status={summary.access.status} /></span>}
         description={
           <span>
-            {labels.businessKind[b.kind]} · {labels.businessType[b.businessType]} · {b.kraPin} · Licence {b.licenseEndsOn ? `to ${formatDateOnly(b.licenseEndsOn)} (${daysLeftText(daysUntil(b.licenseEndsOn))})` : 'none'}
+            {sectorLabel(b.sector)} · {labels.businessKind[b.kind]} · {labels.businessType[b.businessType]} · {b.kraPin} · Licence {b.licenseEndsOn ? `to ${formatDateOnly(b.licenseEndsOn)} (${daysLeftText(daysUntil(b.licenseEndsOn))})` : 'none'}
           </span>
         }
         actions={
           <>
             <Button variant="ghost" asChild><Link href="/platform/businesses"><ArrowLeft />Businesses</Link></Button>
+            <Can permission="Businesses.Register"><Button variant="outline" onClick={() => setChangingSector(true)}><Layers />Change sector</Button></Can>
             <Can permission="Licenses.Manage"><Button variant="outline" onClick={() => setIssuing(true)}><RefreshCw />{b.licenseEndsOn ? 'Renew licence' : 'Issue licence'}</Button></Can>
             {b.isActive && (
               <Can permission="Businesses.Suspend">
@@ -163,12 +167,14 @@ function BusinessDetail({ id }: { id: string }) {
                 columns={3}
                 items={[
                   { label: 'Registered name', value: b.businessName },
+                  { label: 'Sector', value: sectorLabel(b.sector) },
                   { label: 'Trading name', value: b.tradingName },
                   { label: 'KRA PIN', value: b.kraPin },
                   { label: 'Registration no.', value: b.registrationNumber },
                   { label: 'VAT registered', value: b.isVatRegistered ? 'Yes' : 'No' },
                   { label: 'M-Pesa short code', value: b.mpesaShortCode },
                   { label: 'Discount cap', value: b.maxDiscountPercent != null ? `${b.maxDiscountPercent}%` : 'None' },
+                  { label: 'Selling below zero stock', value: b.allowNegativeStock === false ? 'Refused' : 'Allowed' },
                   { label: 'User limit', value: b.licenseMaxUsers ?? 'Unlimited' },
                   { label: 'Branches', value: `${summary.activeBranches ?? '—'} open${b.licenseMaxBranches != null ? ` of ${b.licenseMaxBranches}` : ' · unlimited'}` },
                   { label: 'Phone', value: b.phoneNumber },
@@ -250,6 +256,15 @@ function BusinessDetail({ id }: { id: string }) {
         confirmLabel="Cancel licence"
         onConfirm={async (reason) => { await platformApi.cancelLicense(cancelling!.businessLicenseId, reason); await refresh(); toast.success('Licence cancelled'); }}
       />
+      {changingSector && (
+        <ChangeSectorDialog
+          businessId={id}
+          name={name}
+          current={b.sector ?? BusinessSector.General}
+          onOpenChange={setChangingSector}
+          onChanged={refresh}
+        />
+      )}
       <IssueLicenseDialog
         open={issuing}
         onOpenChange={setIssuing}
@@ -310,5 +325,54 @@ export default function Page() {
     <PermissionRoute permission="Businesses.ViewAll">
       <Suspense><BusinessDetail id={id} /></Suspense>
     </PermissionRoute>
+  );
+}
+
+/** Reclassifies a business. Its menus follow on its users' next refresh; what it started with stays. */
+function ChangeSectorDialog({ businessId, name, current, onOpenChange, onChanged }: {
+  businessId: string;
+  name: string;
+  current: BusinessSector;
+  onOpenChange(open: boolean): void;
+  onChanged(): Promise<unknown>;
+}) {
+  const [sector, setSector] = useState<BusinessSector>(current);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  async function save() {
+    setPending(true);
+    setError(null);
+    try {
+      await platformApi.changeSector(businessId, sector);
+      await onChanged();
+      toast.success(`${name} is now ${sectorLabel(sector)}`);
+      onOpenChange(false);
+    } catch (e) {
+      setError(e); // 400: the same sector as now, or one the API doesn't know.
+    } finally {
+      setPending(false);
+    }
+  }
+  return (
+    <Dialog open onOpenChange={(o) => !pending && onOpenChange(o)}>
+      <DialogContent size="sm">
+        <DialogHeader><DialogTitle>Change sector of {name}</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Only the classification and its menus change. Units, expense categories and settings it already has stay as they are. Its users
+          see the new menus when their session next refreshes.
+        </p>
+        <div className="space-y-1.5">
+          <Label htmlFor="sector">Sector</Label>
+          <NativeSelect id="sector" value={sector} onChange={(e) => setSector(Number(e.target.value) as BusinessSector)}>
+            {enumOptions(labels.businessSector).map((o) => <option key={o.value} value={o.value}>{o.label}{o.value === current ? ' (now)' : ''}</option>)}
+          </NativeSelect>
+        </div>
+        <FormAlert error={error} />
+        <DialogFooter>
+          <Button variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button loading={pending} disabled={sector === current} onClick={save}>Change sector</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

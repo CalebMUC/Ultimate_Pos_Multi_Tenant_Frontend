@@ -6,10 +6,20 @@ export interface SalesByDayDto { date: DateOnly; saleCount: number; revenue: num
 export interface SalesByPaymentMethodDto { paymentMethod: string; saleCount: number; total: number; percentOfRevenue: number }
 export interface SalesByCustomerDto { customerId: Guid | null; customerName: string; saleCount: number; total: number }
 export interface SalesByProductDto { productId: Guid; productName: string; sku: string; quantitySoldInBaseUnits: number; revenue: number; percentOfRevenue: number }
+/** One row per product and the unit it was sold in (a 20L and a 1L refill of the same water). Revenue net of VAT and returns. */
+export interface SalesByProductUnitDto {
+  productId: Guid; productName: string; sku: string; unitOfMeasureId: Guid; unitSymbol: string;
+  quantitySold: number; quantitySoldInBaseUnits: number; revenue: number; percentOfRevenue: number;
+}
+/** Sale totals (VAT included, like byPaymentMethod). cashierName is null for sales with no user. */
+export interface SalesByCashierDto { userId: Guid | null; cashierName: string | null; saleCount: number; total: number; percentOfRevenue: number }
 export interface SalesReportDto {
   from: DateOnly; to: DateOnly; saleCount: number; revenue: number; averageSaleValue: number;
   voidedCount: number; voidedAmount: number; pendingCount: number; pendingAmount: number;
   byDay: SalesByDayDto[]; byPaymentMethod: SalesByPaymentMethodDto[]; topCustomers: SalesByCustomerDto[]; topProducts: SalesByProductDto[];
+  /** Older APIs leave these out. */
+  topProductUnits?: SalesByProductUnitDto[] | null;
+  byCashier?: SalesByCashierDto[] | null;
 }
 
 export interface ProductionCostByProductDto {

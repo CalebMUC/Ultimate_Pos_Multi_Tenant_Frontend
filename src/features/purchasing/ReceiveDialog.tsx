@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Copy, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/overlays';
@@ -8,6 +9,7 @@ import { Input, Label, Table, TableBody, TableCell, TableHead, TableHeader, Tabl
 import { ProductFlags } from '@/components/shared/Display';
 import { FormAlert } from '@/components/shared/States';
 import { purchaseOrdersApi } from '@/api/endpoints/inventory';
+import { isApiError } from '@/api/errors';
 import { PurchaseOrderStatus } from '@/api/enums';
 import { useApiMutation } from '@/hooks/useApiMutation';
 import { formatQty } from '@/lib/format';
@@ -25,14 +27,20 @@ export function ReceiveDialog({ order, open, onOpenChange }: { order: PurchaseOr
   const [invoice, setInvoice] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<unknown>(null);
+  const qc = useQueryClient();
 
   useEffect(() => {
     if (!open) return;
-    // Pre-fill the outstanding quantity on every open line.
-    setRows(order.lines.filter((l) => l.quantityReceived < l.quantityOrdered).map((l) => row(l.purchaseOrderLineId, String(l.quantityOrdered - l.quantityReceived))));
     setInvoice('');
     setNotes('');
     setError(null);
+  }, [open]);
+
+  // Pre-fill the outstanding quantity on every open line. Runs again when the order reloads after someone else received against
+  // it, so the rows show what is still to come; the error explaining why stays.
+  useEffect(() => {
+    if (!open) return;
+    setRows(order.lines.filter((l) => l.quantityReceived < l.quantityOrdered).map((l) => row(l.purchaseOrderLineId, String(l.quantityOrdered - l.quantityReceived))));
   }, [open, order]);
 
   const mutation = useApiMutation(() => purchaseOrdersApi.receive(order.purchaseOrderId, {
@@ -53,6 +61,7 @@ export function ReceiveDialog({ order, open, onOpenChange }: { order: PurchaseOr
     onSuccess: () => onOpenChange(false),
   });
 
+  const nothingLeft = open && rows.length === 0;
   const set = (key: string, patch: Partial<Row>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
   function submit() {
@@ -66,7 +75,13 @@ export function ReceiveDialog({ order, open, onOpenChange }: { order: PurchaseOr
         return setError(new Error(`${l.productName} is batch-tracked: give each batch a number and expiry date.`));
       }
     }
-    mutation.mutate(undefined, { onError: setError });
+    mutation.mutate(undefined, {
+      onError: (e) => {
+        setError(e);
+        // Received against or cancelled by someone else just now: reload the order to show what is still outstanding.
+        if (isApiError(e, 'INVALID_ASSIGNMENT')) void qc.invalidateQueries({ queryKey: ['purchase-orders'] });
+      },
+    });
   }
 
   return (
@@ -123,10 +138,11 @@ export function ReceiveDialog({ order, open, onOpenChange }: { order: PurchaseOr
           <div className="space-y-1.5"><Label>Supplier invoice no.</Label><Input value={invoice} onChange={(e) => setInvoice(e.target.value)} /></div>
           <div className="space-y-1.5"><Label>Notes</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-9" /></div>
         </div>
+        {nothingLeft && <p className="text-sm text-muted-foreground">Nothing is left to receive on this order.</p>}
         <FormAlert error={error} />
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>Cancel</Button>
-          <Button loading={mutation.isPending} onClick={submit}>Receive stock</Button>
+          <Button loading={mutation.isPending} disabled={nothingLeft} onClick={submit}>Receive stock</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

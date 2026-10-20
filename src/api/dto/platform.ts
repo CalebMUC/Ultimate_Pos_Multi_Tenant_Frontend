@@ -1,5 +1,5 @@
 // Application/Platform/PlatformDtos.cs and Application/Licensing/LicensePolicy.cs
-import type { BusinessKind, BusinessType, LicenseKind, LicenseState, SettlementMethod } from '../enums';
+import type { BusinessKind, BusinessSector, BusinessType, LicenseKind, LicenseState, SettlementMethod } from '../enums';
 import type { BusinessDto } from './business';
 import type { DateOnly, DateTimeString, Guid } from './common';
 import type { UserDto } from './identity';
@@ -98,7 +98,11 @@ export interface BusinessPerformanceDto {
   lastSignInAt: DateTimeString | null;
   createdAt: DateTimeString;
   activeBranches?: number;
+  sector?: BusinessSector;
 }
+
+/** Businesses of one sector in the dashboard period. */
+export interface SectorPerformanceDto { sector: BusinessSector; businessCount: number; saleCount: number; revenue: number }
 
 export interface PlatformDashboardDto {
   from: DateOnly;
@@ -115,6 +119,7 @@ export interface PlatformDashboardDto {
   revenue: number;
   licenseIncome: number;
   businesses: BusinessPerformanceDto[];
+  bySector?: SectorPerformanceDto[] | null;
 }
 
 export interface BusinessDetailDto {

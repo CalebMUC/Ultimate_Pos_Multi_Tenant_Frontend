@@ -43,6 +43,9 @@ export const productsApi = {
     api.post<ProductUnitConversionDto>(`/products/${id}/unit-conversions`, body),
   updateUnitConversion: (id: Guid, conversionId: Guid, conversionFactor: number) =>
     api.put<ProductUnitConversionDto>(`/products/${id}/unit-conversions/${conversionId}`, { conversionFactor }),
+  /** Null clears it. */
+  setUnitConversionContainer: (id: Guid, conversionId: Guid, containerProductId: Guid | null) =>
+    api.put<ProductUnitConversionDto>(`/products/${id}/unit-conversions/${conversionId}/container`, { containerProductId }),
   activateUnitConversion: (id: Guid, conversionId: Guid) =>
     api.post<ProductUnitConversionDto>(`/products/${id}/unit-conversions/${conversionId}/activate`),
   deactivateUnitConversion: (id: Guid, conversionId: Guid) =>

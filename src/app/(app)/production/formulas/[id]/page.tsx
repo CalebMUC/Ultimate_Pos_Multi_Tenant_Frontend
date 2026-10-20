@@ -80,5 +80,5 @@ function FormulaDetail({ id }: { id: string }) {
 
 export default function Page() {
   const { id } = useParams<{ id: string }>();
-  return <PermissionRoute permission="Formulas.View" requires="production"><FormulaDetail id={id} /></PermissionRoute>;
+  return <PermissionRoute permission="Formulas.View"><FormulaDetail id={id} /></PermissionRoute>;
 }

@@ -81,5 +81,5 @@ function RunDetail({ id }: { id: string }) {
 
 export default function Page() {
   const { id } = useParams<{ id: string }>();
-  return <PermissionRoute permission="Production.View" requires="production"><RunDetail id={id} /></PermissionRoute>;
+  return <PermissionRoute permission="Production.View"><RunDetail id={id} /></PermissionRoute>;
 }

@@ -11,8 +11,10 @@ export interface StockLevelDto {
   reorderLevel: number;
   belowReorderLevel: boolean;
   isBatchTracked: boolean;
-  /** Batch-tracked: only unexpired lots. Otherwise the quantity on hand. */
+  /** What can be sold now: unexpired lots for batch-tracked products, else on hand; less what open delivery orders hold. */
   sellableQuantity: number | null;
+  /** Held for open delivery orders. Still in quantityOnHand until delivered. Older APIs leave it out. */
+  reservedQuantity?: number;
   baseUnitSymbol: string | null;
   /** The branch, for labels ("01 · Westlands"). */
   branchId?: Guid;

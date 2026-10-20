@@ -95,5 +95,5 @@ function PrescriptionRegister() {
 }
 
 export default function Page() {
-  return <PermissionRoute permission="Prescriptions.View"><PrescriptionRegister /></PermissionRoute>;
+  return <PermissionRoute permission="Prescriptions.View" module="prescriptions"><PrescriptionRegister /></PermissionRoute>;
 }

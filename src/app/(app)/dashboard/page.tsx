@@ -19,6 +19,7 @@ import { formatDateOnly, formatMoney, formatPercent } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { BranchFilterSelect } from '@/features/branches/BranchFilterSelect';
 import { useBranchFilter } from '@/features/branches/branches';
+import { TodayPanel } from '@/features/dashboard/TodayPanel';
 
 const dayLabel = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number);
@@ -29,7 +30,7 @@ function Dashboard() {
   const key = useQueryKey();
   const can = usePermissions();
   const user = useSession((s) => s.user);
-  const { capabilities } = useActiveBusiness();
+  const { hasModule } = useActiveBusiness();
   const canSalesReport = usePermission('SalesReports.View');
   const [range, setRange] = useState(() => presetRange('month'));
   const branch = useBranchFilter();
@@ -58,6 +59,7 @@ function Dashboard() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[88px]" />)}</div>
       ) : (
         <div className="space-y-6">
+          <TodayPanel branch={branch} />
           {d.sales && (
             <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard label="Revenue" value={formatMoney(d.sales.revenue)} hint={`${d.sales.saleCount} sale(s)`} icon={<TrendingUp />} />
@@ -101,7 +103,7 @@ function Dashboard() {
                 {d.stock.totalStockValue !== null && <StatCard label="Stock value" value={formatMoney(d.stock.totalStockValue)} hint={d.stock.productsMissingCost ? `${d.stock.productsMissingCost} product(s) missing cost` : undefined} icon={<Boxes />} />}
               </>
             )}
-            {d.production && capabilities.production && (
+            {d.production && hasModule('production') && (
               <StatCard label="Production" value={`${d.production.runCount} run(s)`} hint={formatMoney(d.production.totalCost)} icon={<Factory />} />
             )}
           </section>

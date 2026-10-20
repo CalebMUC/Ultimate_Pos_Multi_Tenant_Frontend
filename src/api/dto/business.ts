@@ -1,5 +1,5 @@
 // Application/Business/Dtos/BusinessDtos.cs and Application/Accounting/Dtos/AccountingDtos.cs
-import type { BusinessKind, BusinessType, CustomerLedgerEntryType, PriceType, SettlementMethod, SupplierLedgerEntryType } from '../enums';
+import type { BusinessKind, BusinessSector, BusinessType, CustomerLedgerEntryType, PriceType, SettlementMethod, SupplierLedgerEntryType } from '../enums';
 import type { DateOnly, DateTimeString, Guid } from './common';
 import type { BusinessAccessDto, BusinessLicenseDto, BusinessOwnerRequestDto } from './platform';
 
@@ -18,10 +18,15 @@ interface BusinessProfileFields {
   isVatRegistered: boolean;
   mpesaShortCode: string | null;
   maxDiscountPercent: number | null;
+  /** False: a sale needing more stock than is held is refused (409 INSUFFICIENT_STOCK). Null on update keeps the current value. */
+  allowNegativeStock?: boolean | null;
 }
 
 export interface RegisterBusinessRequestDto extends BusinessProfileFields {
-  kind: BusinessKind;
+  /** Null when the sector suggests one (BusinessDefaults.Sectors); required for General and Agrovet. */
+  kind: BusinessKind | null;
+  /** Defaults to General. */
+  sector?: BusinessSector | null;
   /** The person who will run it: becomes its first Admin. Super users only. */
   owner?: BusinessOwnerRequestDto | null;
 }
@@ -38,6 +43,11 @@ export interface BusinessDto extends BusinessProfileFields {
   licenseEndsOn?: DateOnly | null;
   licenseMaxUsers?: number | null;
   licenseMaxBranches?: number | null;
+  /** Older APIs leave it out: treat missing as true (the API's default). */
+  allowNegativeStock?: boolean;
+  sector?: BusinessSector;
+  /** The app areas it uses (module keys), from sector and kind. Missing on older APIs. */
+  modules?: string[] | null;
 }
 
 /** maxBranches: open branches allowed (head office included), null = unlimited. openBranches: every open branch, whoever asks. */

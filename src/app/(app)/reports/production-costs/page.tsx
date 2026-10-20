@@ -90,5 +90,5 @@ function ProductionCosts() {
 }
 
 export default function Page() {
-  return <PermissionRoute permission="ProductionReports.View" requires="production"><ProductionCosts /></PermissionRoute>;
+  return <PermissionRoute permission="ProductionReports.View" module="production"><ProductionCosts /></PermissionRoute>;
 }

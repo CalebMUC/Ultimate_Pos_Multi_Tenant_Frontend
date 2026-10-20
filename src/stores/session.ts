@@ -17,6 +17,9 @@ interface SessionState {
   businesses: BusinessMembershipDto[];
   /** GET /businesses/current, loaded after sign-in and after every switch. */
   business: BusinessDto | null;
+  /** When `business` and `businesses` were last replaced (a sequence, not a clock): the newer one's modules win. */
+  businessLoadedAt: number;
+  membershipsAt: number;
   /** Someone else set the password: nothing else is usable until it is changed. */
   mustChangePassword: boolean;
   /** The branch the token is for: every write happens here. */
@@ -39,6 +42,9 @@ interface SessionState {
   clear(): void;
 }
 
+let seq = 0;
+const next = () => ++seq;
+
 export const useSession = create<SessionState>((set) => ({
   status: 'booting',
   accessToken: null,
@@ -47,6 +53,8 @@ export const useSession = create<SessionState>((set) => ({
   activeBusinessId: null,
   businesses: [],
   business: null,
+  businessLoadedAt: 0,
+  membershipsAt: 0,
   mustChangePassword: false,
   activeBranchId: null,
   branches: [],
@@ -59,15 +67,16 @@ export const useSession = create<SessionState>((set) => ({
       user,
       activeBusinessId,
       businesses,
+      membershipsAt: next(),
       mustChangePassword: !!mustChangePassword,
       activeBranchId: activeBranchId ?? null,
       branches: branches ?? [],
       // Keep the loaded profile only if the business did not change.
       business: state.business && state.business.businessId === activeBusinessId ? state.business : null,
     })),
-  setBusiness: (business) => set({ business }),
+  setBusiness: (business) => set({ business, businessLoadedAt: next() }),
   setUser: (user, businesses, activeBusinessId, mustChangePassword, branches) =>
-    set((s) => ({ user, businesses, activeBusinessId, mustChangePassword: mustChangePassword ?? s.mustChangePassword, branches: branches ?? s.branches })),
+    set((s) => ({ user, businesses, membershipsAt: next(), activeBusinessId, mustChangePassword: mustChangePassword ?? s.mustChangePassword, branches: branches ?? s.branches })),
   clear: () =>
     set({ status: 'anonymous', accessToken: null, expiresAt: null, user: null, activeBusinessId: null, businesses: [], business: null, mustChangePassword: false, activeBranchId: null, branches: [] }),
 }));

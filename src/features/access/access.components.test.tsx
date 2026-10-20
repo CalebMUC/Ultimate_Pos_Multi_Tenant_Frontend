@@ -1,3 +1,4 @@
+import { BusinessKind, BusinessSector } from '@/api/enums';
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useQuery } from '@tanstack/react-query';
@@ -135,6 +136,13 @@ describe('register wizard', () => {
     renderWithProviders(<RegisterBusinessWizard />);
     await user.type(screen.getByLabelText(/Registered name/), 'Mama Mboga Ltd');
     await user.type(screen.getByLabelText(/KRA PIN/), 'P051234567X');
+    // General suggests no kind: it must be chosen.
+    await user.click(screen.getByRole('button', { name: /Next/ }));
+    expect(await screen.findByText('Choose Manufacturer or Trader.')).toBeInTheDocument();
+
+    // A refill station suggests Trader, and starts with selling below zero stock off.
+    await user.selectOptions(screen.getByLabelText(/^Sector/), String(BusinessSector.WaterRefill));
+    expect(screen.getByLabelText(/^Kind/)).toHaveValue(String(BusinessKind.Trader));
     await user.click(screen.getByRole('button', { name: /Next/ }));
 
     await user.type(await screen.findByLabelText(/Full name/), 'Wanjiku Kamau');
@@ -146,7 +154,10 @@ describe('register wizard', () => {
 
     expect(await screen.findByTestId('temporary-password')).toHaveTextContent('Tmp-7Kq9-xP2');
     expect(screen.getByText(/won’t be shown again/)).toBeInTheDocument();
-    expect(registerBody).toMatchObject({ businessName: 'Mama Mboga Ltd', kraPin: 'P051234567X', owner: { fullName: 'Wanjiku Kamau', email: 'wanjiku@example.co.ke', password: null } });
+    expect(registerBody).toMatchObject({
+      businessName: 'Mama Mboga Ltd', kraPin: 'P051234567X', sector: BusinessSector.WaterRefill, kind: BusinessKind.Trader, allowNegativeStock: false,
+      owner: { fullName: 'Wanjiku Kamau', email: 'wanjiku@example.co.ke', password: null },
+    });
 
     // Leaving the panel discards it: it can't be shown again.
     await user.click(screen.getByRole('button', { name: 'Register another' }));

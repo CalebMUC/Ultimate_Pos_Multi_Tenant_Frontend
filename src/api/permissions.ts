@@ -21,6 +21,8 @@ export const BUSINESS_PERMISSIONS = [
   'Branches.Manage', 'Branches.AccessAll',
   'Formulas.Create', 'Formulas.View', 'Formulas.Deactivate', 'Production.Run', 'Production.View',
   'Sales.Create', 'Sales.View', 'Sales.Void', 'Sales.Return', 'Sales.ApplyDiscount', 'Sales.OverrideCreditLimit',
+  'DeliveryOrders.View', 'DeliveryOrders.Create', 'DeliveryOrders.Dispatch', 'DeliveryOrders.Deliver', 'DeliveryOrders.Cancel',
+  'DeliveryOrders.AcceptCredit',
   'Prescriptions.Dispense', 'Prescriptions.View',
   'Mpesa.Configure', 'Mpesa.View',
   'Costing.View', 'Costing.Revalue',
