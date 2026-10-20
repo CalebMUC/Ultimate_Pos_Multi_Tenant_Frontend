@@ -48,7 +48,8 @@ export function Receipt({ sale, paper }: { sale: SaleDto; paper: ReceiptPaper })
           </tr>
         </thead>
         <tbody>
-          {sale.lines.map((l) => (
+          {/* Bundle parts are not printed: each bundle is one row below. */}
+          {sale.lines.filter((l) => !l.productBundleId).map((l) => (
             <tr key={l.saleLineId} className="align-top">
               <td className="pr-1">
                 {l.productName}
@@ -61,6 +62,17 @@ export function Receipt({ sale, paper }: { sale: SaleDto; paper: ReceiptPaper })
               <td className="whitespace-nowrap text-right">{formatQty(l.quantity, l.unitSymbol)}</td>
               {!narrow && <td className="text-right">{formatMoney(l.unitPrice, { currency: false })}</td>}
               <td className="text-right">{formatMoney(l.lineTotal, { currency: false })}</td>
+            </tr>
+          ))}
+          {sale.bundles?.map((b) => (
+            <tr key={b.productBundleId} className="align-top">
+              <td className="pr-1">
+                {b.name}
+                {b.discountAmount > 0 && <div className="text-[10px]">Disc −{formatMoney(b.discountAmount, { currency: false })}</div>}
+              </td>
+              <td className="whitespace-nowrap text-right">{formatQty(b.quantity)}</td>
+              {!narrow && <td />}
+              <td className="text-right">{formatMoney(b.total, { currency: false })}</td>
             </tr>
           ))}
         </tbody>

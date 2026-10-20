@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/overlays';
 import { Input, Label, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Textarea } from '@/components/ui/primitives';
@@ -9,9 +9,9 @@ import { FormAlert } from '@/components/shared/States';
 import { salesApi } from '@/api/endpoints/sales';
 import { labels, PaymentMethod, RefundMethod } from '@/api/enums';
 import { useApiMutation } from '@/hooks/useApiMutation';
-import { formatMoney } from '@/lib/format';
+import { formatMoney, formatQty } from '@/lib/format';
 import { emptyToNull } from '@/lib/utils';
-import type { SaleDto } from '@/api/dto/sales';
+import type { SaleDto, SaleLineDto } from '@/api/dto/sales';
 
 interface LineState { quantity: string; restock: boolean }
 
@@ -45,6 +45,38 @@ export function ReturnDialog({ sale, open, onOpenChange }: { sale: SaleDto; open
     onSuccess: () => onOpenChange(false),
   });
 
+  /** A line to return; a bundle's part is indented under its bundle. */
+  const lineRow = (l: SaleLineDto, part = false) => {
+              const left = l.quantity - l.quantityReturned;
+              const state = lines[l.saleLineId] ?? { quantity: '', restock: true };
+              return (
+                <TableRow key={l.saleLineId}>
+                  <TableCell className={part ? 'pl-8' : 'font-medium'}>{l.productName}</TableCell>
+                  <TableCell className="text-right tabular">{l.quantity} {l.unitSymbol}</TableCell>
+                  <TableCell className="text-right tabular">{left}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={left}
+                        step="any"
+                        disabled={left <= 0}
+                        value={state.quantity}
+                        onChange={(e) => setLines((s) => ({ ...s, [l.saleLineId]: { ...state, quantity: e.target.value } }))}
+                        className="h-8 w-20"
+                        aria-label={`Return quantity for ${l.productName}`}
+                      />
+                      <Button variant="ghost" size="sm" disabled={left <= 0} onClick={() => setLines((s) => ({ ...s, [l.saleLineId]: { ...state, quantity: String(left) } }))}>All</Button>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Checkbox checked={state.restock} onCheckedChange={(v) => setLines((s) => ({ ...s, [l.saleLineId]: { ...state, restock: v === true } }))} aria-label="Restock" />
+                  </TableCell>
+                </TableRow>
+              );
+  };
+
   function submit() {
     setError(null);
     const chosen = Object.values(lines).filter((v) => Number(v.quantity) > 0);
@@ -69,34 +101,33 @@ export function ReturnDialog({ sale, open, onOpenChange }: { sale: SaleDto; open
             <TableRow><TableHead>Product</TableHead><TableHead className="text-right">Sold</TableHead><TableHead className="text-right">Left</TableHead><TableHead>Return</TableHead><TableHead>Restock</TableHead></TableRow>
           </TableHeader>
           <TableBody>
-            {sale.lines.map((l) => {
-              const left = l.quantity - l.quantityReturned;
-              const state = lines[l.saleLineId] ?? { quantity: '', restock: true };
+            {sale.lines.filter((l) => !l.productBundleId).map((l) => lineRow(l))}
+            {sale.bundles?.map((b) => {
+              const parts = sale.lines.filter((l) => l.productBundleId === b.productBundleId);
+              const anyLeft = parts.some((l) => l.quantity - l.quantityReturned > 0);
               return (
-                <TableRow key={l.saleLineId}>
-                  <TableCell className="font-medium">{l.productName}</TableCell>
-                  <TableCell className="text-right tabular">{l.quantity} {l.unitSymbol}</TableCell>
-                  <TableCell className="text-right tabular">{left}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={left}
-                        step="any"
-                        disabled={left <= 0}
-                        value={state.quantity}
-                        onChange={(e) => setLines((s) => ({ ...s, [l.saleLineId]: { ...state, quantity: e.target.value } }))}
-                        className="h-8 w-20"
-                        aria-label={`Return quantity for ${l.productName}`}
-                      />
-                      <Button variant="ghost" size="sm" disabled={left <= 0} onClick={() => setLines((s) => ({ ...s, [l.saleLineId]: { ...state, quantity: String(left) } }))}>All</Button>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Checkbox checked={state.restock} onCheckedChange={(v) => setLines((s) => ({ ...s, [l.saleLineId]: { ...state, restock: v === true } }))} aria-label="Restock" />
-                  </TableCell>
-                </TableRow>
+                <Fragment key={b.productBundleId}>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableCell colSpan={3} className="font-medium">
+                      {formatQty(b.quantity)} × {b.name}
+                      <span className="block text-xs font-normal text-muted-foreground">Return a part on its own (a cracked bottle) or the whole bundle. Each part refunds its own share.</span>
+                    </TableCell>
+                    <TableCell colSpan={2}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!anyLeft}
+                        onClick={() => setLines((s) => ({
+                          ...s,
+                          ...Object.fromEntries(parts.map((l) => [l.saleLineId, { ...(s[l.saleLineId] ?? { restock: true }), quantity: String(l.quantity - l.quantityReturned) }])),
+                        }))}
+                      >
+                        Return whole bundle
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  {parts.map((l) => lineRow(l, true))}
+                </Fragment>
               );
             })}
           </TableBody>

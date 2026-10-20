@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ItemType, PaymentMethod, PriceType, TaxClassification } from '@/api/enums';
 import { emptyCart, useCartStore, type Cart } from '@/stores/cart';
 import type { ProductDetailDto } from '@/api/dto/catalog';
-import { addProductToCart, patchCart, removeLine, sellableUnits, toSaleRequest, updateLine } from './cartActions';
+import { addBundleToCart, addProductToCart, patchCart, removeLine, sellableUnits, toSaleRequest, updateBundle, updateLine } from './cartActions';
 
 const product = (over: Partial<ProductDetailDto> = {}): ProductDetailDto => ({
   productId: 'p1', sku: 'MED-FG-000001', name: 'Amoxil', strength: '500mg', description: null, categoryId: 'c1', categoryName: 'Antibiotics',
@@ -137,5 +137,32 @@ describe('toSaleRequest', () => {
     expect(rx.patientName).toBe('Jane');
     expect(rx.prescriberFacility).toBeNull();
     expect(rx.patientAgeYears).toBeNull();
+  });
+});
+
+describe('bundles in the cart', () => {
+  const hd20 = { productBundleId: 'hd20', name: '20L Heavy-duty bottle + water', code: 'HD20' };
+  const bundles = () => useCartStore.getState().carts.b1.bundles ?? [];
+
+  it('tapping the same bundle again adds to it, never a second entry', () => {
+    addBundleToCart('b1', hd20);
+    addBundleToCart('b1', hd20);
+    expect(bundles()).toEqual([expect.objectContaining({ productBundleId: 'hd20', quantity: 2 })]);
+  });
+
+  it('sends bundles next to lines, with one kind of discount, and no bundles key content when there are none', () => {
+    addBundleToCart('b1', hd20);
+    updateBundle('b1', 'hd20', { discountAmount: 100, discountPercent: 5 });
+    const body = toSaleRequest(useCartStore.getState().carts.b1);
+    expect(body.bundles).toEqual([{ productBundleId: 'hd20', quantity: 1, discountAmount: 100, discountPercent: null }]);
+    expect(toSaleRequest(cart()).bundles).toBeNull();
+  });
+
+  it('keeps quantities whole and drops a bundle set to zero', () => {
+    addBundleToCart('b1', hd20);
+    updateBundle('b1', 'hd20', { quantity: 2.7 });
+    expect(bundles()[0].quantity).toBe(2);
+    updateBundle('b1', 'hd20', { quantity: 0 });
+    expect(bundles()).toEqual([]);
   });
 });

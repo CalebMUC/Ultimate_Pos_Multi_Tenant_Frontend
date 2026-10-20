@@ -1,6 +1,7 @@
 import { PaymentMethod, PriceType } from '@/api/enums';
 import { emptyToNull } from '@/lib/utils';
-import { emptyCart, newLineKey, useCartStore, type Cart, type CartLine } from '@/stores/cart';
+import { emptyCart, newLineKey, useCartStore, type Cart, type CartBundle, type CartLine } from '@/stores/cart';
+import type { ProductBundleDto } from '@/api/dto/bundles';
 import type { ProductDetailDto } from '@/api/dto/catalog';
 import type { Guid } from '@/api/dto/common';
 import type { CreateSaleRequestDto } from '@/api/dto/sales';
@@ -98,6 +99,34 @@ export function addProductToCart(businessId: Guid, product: ProductDetailDto, qu
   updateCart(businessId, (cart) => ({ ...cart, lines: addLine(cart.lines, product, quantity, priceType, unitId) }));
 }
 
+/** Adds a bundle, or adds to the one already in the cart: the API refuses the same bundle twice. */
+export function addBundleToCart(businessId: Guid, bundle: Pick<ProductBundleDto, 'productBundleId' | 'name' | 'code'>, quantity = 1) {
+  updateCart(businessId, (cart) => {
+    const bundles = cart.bundles ?? [];
+    const existing = bundles.find((b) => b.productBundleId === bundle.productBundleId);
+    return {
+      ...cart,
+      bundles: existing
+        ? bundles.map((b) => (b === existing ? { ...b, quantity: b.quantity + quantity } : b))
+        : [...bundles, { productBundleId: bundle.productBundleId, name: bundle.name, code: bundle.code, quantity, discountAmount: null, discountPercent: null }],
+    };
+  });
+}
+
+/** Whole bundles only: the quantity is rounded down; zero or less removes it. */
+export function updateBundle(businessId: Guid, productBundleId: Guid, patch: Partial<Omit<CartBundle, 'productBundleId'>>) {
+  updateCart(businessId, (cart) => ({
+    ...cart,
+    bundles: (cart.bundles ?? [])
+      .map((b) => (b.productBundleId === productBundleId ? { ...b, ...patch, quantity: Math.floor(patch.quantity ?? b.quantity) } : b))
+      .filter((b) => b.quantity > 0),
+  }));
+}
+
+export function removeBundle(businessId: Guid, productBundleId: Guid) {
+  updateCart(businessId, (cart) => ({ ...cart, bundles: (cart.bundles ?? []).filter((b) => b.productBundleId !== productBundleId) }));
+}
+
 export function updateLine(businessId: Guid, key: string, patch: Partial<CartLine>) {
   updateCart(businessId, (cart) => ({ ...cart, lines: cart.lines.map((l) => (l.key === key ? { ...l, ...patch } : l)) }));
 }
@@ -138,6 +167,14 @@ export function toSaleRequest(cart: Cart, payment: PaymentDetails = {}, includeP
     amountTendered: cart.paymentMethod === PaymentMethod.Cash ? payment.amountTendered ?? null : null,
     mpesaPhoneNumber: cart.paymentMethod === PaymentMethod.MpesaStkPush ? emptyToNull(payment.mpesaPhoneNumber) : null,
     mpesaTransactionId: cart.paymentMethod === PaymentMethod.MpesaTill ? payment.mpesaTransactionId ?? null : null,
+    bundles: cart.bundles?.length
+      ? cart.bundles.map((b) => ({
+          productBundleId: b.productBundleId,
+          quantity: b.quantity,
+          discountAmount: b.discountAmount || null,
+          discountPercent: b.discountAmount ? null : b.discountPercent || null,
+        }))
+      : null,
     discountAmount: cart.saleDiscountAmount || null,
     overrideCreditLimit: cart.paymentMethod === PaymentMethod.Credit ? cart.overrideCreditLimit : false,
     prescription: includePrescription

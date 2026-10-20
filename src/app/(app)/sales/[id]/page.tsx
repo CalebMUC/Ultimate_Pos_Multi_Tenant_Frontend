@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Ban, Printer, RefreshCw, Undo2 } from 'lucide-react';
+import { ArrowLeft, Ban, Boxes, Printer, RefreshCw, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/primitives';
 import { Can, PermissionRoute } from '@/components/shared/Can';
@@ -20,6 +20,7 @@ import { formatDateOnly, formatDateTime, formatMoney } from '@/lib/format';
 import { ReceiptDialog } from '@/features/sales/Receipt';
 import { ReturnDialog } from '@/features/sales/ReturnDialog';
 import { WithActivityTab } from '@/features/audit/WithActivityTab';
+import type { SaleLineDto } from '@/api/dto/sales';
 
 function SaleDetail({ id }: { id: string }) {
   const key = useQueryKey();
@@ -38,6 +39,26 @@ function SaleDetail({ id }: { id: string }) {
   if (sale.error || !sale.data) return <ErrorState error={sale.error} onRetry={() => sale.refetch()} />;
   const s = sale.data;
   const returnable = s.status === SaleStatus.Completed && s.lines.some((l) => l.quantity - l.quantityReturned > 0);
+  /** A sale line; a bundle's part is indented under its bundle row. */
+  const lineRow = (l: SaleLineDto, part = false) => (
+                  <TableRow key={l.saleLineId} className={part ? 'text-muted-foreground' : undefined}>
+                    <TableCell className={part ? 'pl-8' : undefined}>
+                      <span className={part ? undefined : 'font-medium'}>{l.productName}</span>
+                      {l.sku && <span className="block text-xs text-muted-foreground">{l.sku}</span>}
+                      {l.batches?.map((b) => (
+                        <span key={b.stockBatchId} className="block text-xs text-muted-foreground">
+                          Batch {b.batchNumber}{b.expiryDate ? ` · exp ${formatDateOnly(b.expiryDate)}` : ''} · {b.quantityInBaseUnits}
+                        </span>
+                      ))}
+                      {l.quantityReturned > 0 && <span className="block text-xs text-warning">{l.quantityReturned} returned</span>}
+                    </TableCell>
+                    <TableCell className="text-right"><QuantityText value={l.quantity} unit={l.unitSymbol} /></TableCell>
+                    <TableCell className="text-right"><MoneyText value={l.unitPrice} currency={false} /></TableCell>
+                    <TableCell className="text-right"><MoneyText value={l.discountAmount} currency={false} /></TableCell>
+                    <TableCell className="text-right"><MoneyText value={l.taxAmount} currency={false} /></TableCell>
+                    <TableCell className="text-right font-medium"><MoneyText value={l.lineTotal} currency={false} /></TableCell>
+                  </TableRow>
+  );
 
   return (
     <>
@@ -77,24 +98,22 @@ function SaleDetail({ id }: { id: string }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {s.lines.map((l) => (
-                  <TableRow key={l.saleLineId}>
-                    <TableCell>
-                      <span className="font-medium">{l.productName}</span>
-                      {l.sku && <span className="block text-xs text-muted-foreground">{l.sku}</span>}
-                      {l.batches?.map((b) => (
-                        <span key={b.stockBatchId} className="block text-xs text-muted-foreground">
-                          Batch {b.batchNumber}{b.expiryDate ? ` · exp ${formatDateOnly(b.expiryDate)}` : ''} · {b.quantityInBaseUnits}
-                        </span>
-                      ))}
-                      {l.quantityReturned > 0 && <span className="block text-xs text-warning">{l.quantityReturned} returned</span>}
-                    </TableCell>
-                    <TableCell className="text-right"><QuantityText value={l.quantity} unit={l.unitSymbol} /></TableCell>
-                    <TableCell className="text-right"><MoneyText value={l.unitPrice} currency={false} /></TableCell>
-                    <TableCell className="text-right"><MoneyText value={l.discountAmount} currency={false} /></TableCell>
-                    <TableCell className="text-right"><MoneyText value={l.taxAmount} currency={false} /></TableCell>
-                    <TableCell className="text-right font-medium"><MoneyText value={l.lineTotal} currency={false} /></TableCell>
-                  </TableRow>
+                {s.lines.filter((l) => !l.productBundleId).map((l) => lineRow(l))}
+                {s.bundles?.map((b) => (
+                  <Fragment key={b.productBundleId}>
+                    <TableRow>
+                      <TableCell><span className="flex items-center gap-1.5 font-medium"><Boxes className="size-3.5 text-muted-foreground" aria-hidden />{b.name}</span></TableCell>
+                      <TableCell className="text-right"><QuantityText value={b.quantity} /></TableCell>
+                      <TableCell />
+                      <TableCell className="text-right"><MoneyText value={b.discountAmount} currency={false} /></TableCell>
+                      <TableCell />
+                      <TableCell className="text-right font-medium"><MoneyText value={b.total} currency={false} /></TableCell>
+                    </TableRow>
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={6} className="py-1 pl-8 text-xs font-medium uppercase tracking-wide text-muted-foreground">Parts</TableCell>
+                    </TableRow>
+                    {s.lines.filter((l) => l.productBundleId === b.productBundleId).map((l) => lineRow(l, true))}
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>

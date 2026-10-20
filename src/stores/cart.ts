@@ -26,6 +26,16 @@ export interface CartLine {
   containerFor?: string;
 }
 
+/** A bundle rung up as one item. Never priced here: the preview gives its total. Each bundle once; the quantity is whole. */
+export interface CartBundle {
+  productBundleId: Guid;
+  name: string;
+  code: string | null;
+  quantity: number;
+  discountAmount: number | null;
+  discountPercent: number | null;
+}
+
 export type PrescriptionDraft = Partial<Omit<SalePrescriptionRequestDto, 'patientAgeYears'>> & { patientAgeYears?: number | null };
 
 export interface Cart {
@@ -39,7 +49,12 @@ export interface Cart {
   prescription: PrescriptionDraft;
   /** The customer has no container: refills whose size names a container (on the product's unit conversion) are sold with one. */
   needsContainer?: boolean;
+  /** Missing on carts saved before bundles. */
+  bundles?: CartBundle[];
 }
+
+/** Nothing to sell yet: no line and no bundle. */
+export const isCartEmpty = (cart: Pick<Cart, 'lines' | 'bundles'>) => cart.lines.length === 0 && !cart.bundles?.length;
 
 export interface HeldCart { id: string; heldAt: string; label: string; cart: Cart }
 
@@ -47,6 +62,7 @@ export const emptyCart = (): Cart => ({
   customerId: null,
   customerName: null,
   lines: [],
+  bundles: [],
   paymentMethod: PaymentMethod.Cash,
   saleDiscountAmount: null,
   overrideCreditLimit: false,

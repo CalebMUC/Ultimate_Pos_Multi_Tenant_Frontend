@@ -10,7 +10,7 @@ npm run dev          # http://localhost:3000
 ```
 
 The browser calls `/api/v1` on the same origin, and `next.config.mjs` proxies it to the API (`API_PROXY_TARGET`, default
-`http://localhost:5200`), so CORS isn't needed in development. To call the API directly instead, set
+`http://localhost:5062`), so CORS isn't needed in development. To call the API directly instead, set
 `NEXT_PUBLIC_API_BASE_URL` to its full URL and add this origin to the API's `Cors:AllowedOrigins`. See `.env.example`.
 
 | Script | |

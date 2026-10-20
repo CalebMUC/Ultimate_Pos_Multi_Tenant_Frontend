@@ -98,6 +98,12 @@ export function PaymentDialog(props: Props) {
       if (apiError.code === 'INSUFFICIENT_STOCK') {
         void qc.invalidateQueries({ queryKey: ['sale-preview'] });
         void qc.invalidateQueries({ queryKey: ['stock'] });
+        void qc.invalidateQueries({ queryKey: ['product-bundles'] });
+      }
+      // A bundle deactivated or removed meanwhile: refresh the tiles so it disappears.
+      if (cart.bundles?.length && (apiError.code === 'INVALID_ASSIGNMENT' || apiError.code === 'NOT_FOUND')) {
+        void qc.invalidateQueries({ queryKey: ['product-bundles'] });
+        void qc.invalidateQueries({ queryKey: ['sale-preview'] });
       }
       // The till payment was matched to another sale a moment ago: drop the choice and reload the list to pick again.
       if (apiError.code === 'INVALID_ASSIGNMENT' && cart.paymentMethod === PaymentMethod.MpesaTill) {

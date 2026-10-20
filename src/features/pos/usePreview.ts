@@ -12,11 +12,11 @@ export function useSalePreview(cart: Cart) {
   const key = useQueryKey();
   // The prescription doesn't change pricing, so it is left out of the key and the body.
   const body = toSaleRequest(cart);
-  const debounced = useDebouncedValue(body, 300);
+  const debounced = useDebouncedValue(body, 250);
   return useQuery({
     queryKey: key('sale-preview', debounced),
     queryFn: ({ signal }) => salesApi.preview(debounced, signal),
-    enabled: debounced.lines.length > 0 && debounced.lines.every((l) => l.quantity > 0),
+    enabled: (debounced.lines.length > 0 || !!debounced.bundles?.length) && debounced.lines.every((l) => l.quantity > 0),
     placeholderData: keepPreviousData,
     staleTime: 0,
     retry: false,

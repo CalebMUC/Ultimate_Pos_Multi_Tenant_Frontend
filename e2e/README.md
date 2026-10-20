@@ -4,7 +4,7 @@ They run in a real browser against the dev API, so they need the API, its databa
 
 ```bash
 npx playwright install chromium        # once
-# with the API running on http://localhost:5200:
+# with the API running on http://localhost:5062:
 E2E_EMAIL=… E2E_PASSWORD=… E2E_SKU=… E2E_OTHER_BUSINESS="…" npm run e2e
 ```
 

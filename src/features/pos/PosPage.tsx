@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  AlertTriangle, Banknote, ClipboardList, CornerDownRight, CreditCard, Minus, PauseCircle, Pill, Plus, ScanBarcode, Search, ShoppingCart, Smartphone,
-  Trash2, UserPlus, X,
+  AlertTriangle, Banknote, Boxes, ClipboardList, CornerDownRight, CreditCard, Minus, PauseCircle, Pill, Plus, ScanBarcode, Search, ShoppingCart,
+  Smartphone, Trash2, UserPlus, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle, Badge, Card, Input, Label, NativeSelect, Skeleton, Textarea } from '@/components/ui/primitives';
@@ -14,20 +14,24 @@ import { CustomerPicker } from '@/components/shared/Pickers';
 import { MoneyText, ProductFlags } from '@/components/shared/Display';
 import { EmptyState, FormAlert } from '@/components/shared/States';
 import { productsApi } from '@/api/endpoints/catalog';
+import { productBundlesApi } from '@/api/endpoints/bundles';
 import { isApiError, normaliseError } from '@/api/errors';
-import { ItemType, PaymentMethod, SaleStatus, labels } from '@/api/enums';
+import { ItemType, PaymentMethod, PriceType, SaleStatus, labels } from '@/api/enums';
 import { useDebouncedValue } from '@/hooks/useDebounce';
 import { useActiveBusiness, usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney, formatQty, todayIso } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { useCartStore } from '@/stores/cart';
+import { isCartEmpty, useCartStore, type CartBundle } from '@/stores/cart';
 import { usePreferences, type QuickKey } from '@/stores/preferences';
 import { ContainerToggle, QuickKeys, QuickKeyToggle } from './QuickKeys';
 import { CustomerFormDialog } from '@/features/customers/CustomerFormDialog';
 import type { ProductDetailDto, ProductDto } from '@/api/dto/catalog';
-import type { SaleDto } from '@/api/dto/sales';
+import type { SaleDto, SalePreviewDto } from '@/api/dto/sales';
+import type { ProductBundleDto } from '@/api/dto/bundles';
 import { ReceiptDialog } from '@/features/sales/Receipt';
-import { addProductToCart, patchCart, removeLine, updateLine, useCart } from './cartActions';
+import { addBundleToCart, addProductToCart, patchCart, removeBundle, removeLine, updateBundle, updateLine, useCart } from './cartActions';
+import { bundlePreview, bundlePrice, useActiveBundles } from './bundles';
+import { RefillCounter, type CounterTile } from './RefillCounter';
 import { PaymentDialog } from './PaymentDialog';
 import { useSalePreview } from './usePreview';
 
@@ -54,14 +58,22 @@ export function PosPage() {
   const canDispense = usePermission('Prescriptions.Dispense');
   const canRegisterCustomer = usePermission('Customers.Register');
   const quickSale = hasModule('containers');
+  const bundlesOn = hasModule('bundles');
+  // A refill station (bundles and containers): the counter's tiles replace the quick keys and the container toggle.
+  const counterLayout = bundlesOn && quickSale;
+  const activeBundles = useActiveBundles();
   const [paying, setPaying] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [receipt, setReceipt] = useState<SaleDto | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const p = preview.data;
+  const empty = isCartEmpty(cart);
+  // The preview lists the cart's lines in order, then one line per bundle part: match cart lines against the plain ones only.
+  const plainLines = p?.lines.filter((l) => !l.productBundleId) ?? [];
   // A preview made for an older cart (still loading the new one) is shown dimmed and can't be charged.
-  const previewCurrent = !!p && !preview.isPlaceholderData && !preview.isFetching && p.lines.length === cart.lines.length;
+  const previewCurrent = !!p && !preview.isPlaceholderData && !preview.isFetching
+    && plainLines.length === cart.lines.length && (p.bundles?.length ?? 0) === (cart.bundles?.length ?? 0);
   const previewError = preview.error ? normaliseError(preview.error) : null;
   const needsRx = !!p?.requiresPrescription || cart.lines.some((l) => l.requiresPrescription);
   const rx = cart.prescription;
@@ -74,7 +86,7 @@ export function PosPage() {
   const stockBlocks = !!p && p.lines.some((l) => !l.stockSufficient && (l.isBatchTracked || strictStock));
 
   const blockers: string[] = [];
-  if (cart.lines.length === 0) blockers.push('Add at least one item.');
+  if (empty) blockers.push('Add at least one item.');
   if (stockBlocks) blockers.push('Some items are short of stock.');
   if (creditNeedsCustomer) blockers.push('A credit sale needs a customer.');
   if (needsRx && !canDispense) blockers.push('Only staff allowed to dispense can sell prescription-only items.');
@@ -100,6 +112,25 @@ export function PosPage() {
     }
   }
 
+  function addBundle(bundle: Pick<ProductBundleDto, 'productBundleId' | 'name' | 'code' | 'availableQuantity'>) {
+    if (bundle.availableQuantity === 0) {
+      toast.error(`${bundle.name} is out of stock.`);
+      return;
+    }
+    addBundleToCart(businessId, bundle);
+  }
+
+  function onTile(tile: CounterTile) {
+    if (tile.kind === 'bundle') addBundle(tile.bundle);
+    else void addProduct(tile.product, tile.unitOfMeasureId);
+  }
+
+  // A bundle deactivated or removed since the list was loaded: refresh the tiles (the preview names it; the cashier removes it).
+  const bundleGone = !!cart.bundles?.length && !!previewError && (previewError.code === 'INVALID_ASSIGNMENT' || previewError.code === 'NOT_FOUND');
+  useEffect(() => {
+    if (bundleGone) void qc.invalidateQueries({ queryKey: ['product-bundles'] });
+  }, [bundleGone, qc]);
+
   async function addQuickKey(k: QuickKey) {
     try {
       const detail = await qc.fetchQuery({ queryKey: key('products', { detail: k.productId }), queryFn: () => productsApi.get(k.productId), staleTime: 60_000 });
@@ -116,6 +147,9 @@ export function PosPage() {
     toast.success(`Sale ${sale.saleNumber} completed`);
     qc.invalidateQueries({ queryKey: ['sales'] });
     qc.invalidateQueries({ queryKey: ['stock'] });
+    // Bundle counts and the water's stock change with every sale.
+    qc.invalidateQueries({ queryKey: ['product-bundles'] });
+    qc.invalidateQueries({ queryKey: ['products'] });
     qc.invalidateQueries({ queryKey: ['mpesa-unmatched'] });
     qc.invalidateQueries({ queryKey: ['dashboard'] });
     // A sale can raise stock alerts, which the API's worker sends within about 5 s: check then rather than at the next poll.
@@ -152,8 +186,26 @@ export function PosPage() {
     <div className="-m-4 grid min-h-[calc(100vh-3.5rem)] md:-m-6 lg:grid-cols-[1fr_28rem]">
       {/* Products */}
       <section className="flex min-w-0 flex-col gap-3 p-4 md:p-5">
-        {quickSale && <QuickKeys businessId={businessId} onAdd={addQuickKey} />}
-        <ProductSearch inputRef={searchRef} onAdd={addProduct} />
+        {counterLayout ? (
+          <RefillCounter
+            businessId={businessId}
+            priceType={p?.priceType ?? PriceType.Retail}
+            bundles={activeBundles.data}
+            bundlesLoading={activeBundles.isLoading}
+            keysEnabled={!paying && !registering && !receipt}
+            onTile={onTile}
+          />
+        ) : (
+          quickSale && <QuickKeys businessId={businessId} onAdd={addQuickKey} />
+        )}
+        <ProductSearch
+          inputRef={searchRef}
+          onAdd={addProduct}
+          bundles={bundlesOn ? activeBundles.data ?? [] : null}
+          priceType={p?.priceType ?? PriceType.Retail}
+          onAddBundle={addBundle}
+          onEmptyEnter={() => canCharge && !paying && setPaying(true)}
+        />
       </section>
 
       {/* Cart */}
@@ -178,22 +230,22 @@ export function PosPage() {
               store.hold(businessId, cart.customerName ?? `Walk-in ${new Date().toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}`);
               toast.success('Sale held');
             }}
-            canHold={cart.lines.length > 0}
+            canHold={!empty}
             onRecall={(id) => store.recall(businessId, id)}
             onDiscard={(id) => store.discardHeld(businessId, id)}
           />
-          <Button variant="ghost" size="icon" disabled={cart.lines.length === 0} onClick={() => store.reset(businessId)} aria-label="Clear cart" title="Clear cart">
+          <Button variant="ghost" size="icon" disabled={empty} onClick={() => store.reset(businessId)} aria-label="Clear cart" title="Clear cart">
             <Trash2 />
           </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {cart.lines.length === 0 ? (
-            <EmptyState title="Cart is empty" message="Scan a barcode or search for a product. F2 jumps to search." className="py-16" />
+          {empty ? (
+            <EmptyState title="Cart is empty" message={counterLayout ? 'Tap a size or a bottle, or press 1–9. F2 jumps to search.' : 'Scan a barcode or search for a product. F2 jumps to search.'} className="py-16" />
           ) : (
             <ul className={cn('divide-y transition-opacity', !previewCurrent && p && 'opacity-80')}>
               {cart.lines.map((line, index) => {
-                const pl = p?.lines[index]?.productId === line.productId ? p.lines[index] : undefined;
+                const pl = plainLines[index]?.productId === line.productId ? plainLines[index] : undefined;
                 if (line.containerFor) {
                   return (
                     <li key={line.key} className="flex items-center gap-2 px-3 py-2 pl-6 text-sm">
@@ -292,6 +344,16 @@ export function PosPage() {
                   </li>
                 );
               })}
+              {(cart.bundles ?? []).map((b) => (
+                <BundleRow
+                  key={b.productBundleId}
+                  businessId={businessId}
+                  bundle={b}
+                  preview={p}
+                  strictStock={strictStock}
+                  canDiscount={canDiscount}
+                />
+              ))}
             </ul>
           )}
 
@@ -302,18 +364,20 @@ export function PosPage() {
 
         {/* Totals and payment */}
         <div className="space-y-3 border-t p-3">
-          <ContainerToggle
-            lines={cart.lines}
-            needsContainer={!!cart.needsContainer}
-            onChange={(needsContainer) => patchCart(businessId, { needsContainer })}
-          />
+          {!counterLayout && (
+            <ContainerToggle
+              lines={cart.lines}
+              needsContainer={!!cart.needsContainer}
+              onChange={(needsContainer) => patchCart(businessId, { needsContainer })}
+            />
+          )}
           {previewError && (
             <Alert variant="destructive">
               <AlertTriangle />
               <AlertDescription>{previewError.message}</AlertDescription>
             </Alert>
           )}
-          {canDiscount && cart.lines.length > 0 && (
+          {canDiscount && !empty && (
             <div className="flex items-center gap-2">
               <Label htmlFor="sale-discount" className="flex-1 text-xs text-muted-foreground">
                 Discount on sale (KES){business?.maxDiscountPercent != null && ` · max ${business.maxDiscountPercent}%`}
@@ -339,7 +403,7 @@ export function PosPage() {
             )}
             <div className="flex items-baseline justify-between pt-1">
               <dt className="font-semibold">Total</dt>
-              <dd className="text-3xl font-bold tabular">{cart.lines.length && p ? formatMoney(p.totalAmount) : formatMoney(0)}</dd>
+              <dd className="text-3xl font-bold tabular">{!empty && p ? formatMoney(p.totalAmount) : formatMoney(0)}</dd>
             </div>
             {p && <p className="text-right text-xs text-muted-foreground">{labels.priceType[p.priceType]} prices</p>}
           </dl>
@@ -363,14 +427,14 @@ export function PosPage() {
             ))}
           </div>
 
-          {blockers.length > 0 && cart.lines.length > 0 && (
+          {blockers.length > 0 && !empty && (
             <ul className="space-y-0.5 text-xs text-warning-foreground dark:text-warning">
               {blockers.map((b) => <li key={b} className="flex items-center gap-1"><AlertTriangle className="size-3" />{b}</li>)}
             </ul>
           )}
 
           <Button size="xl" variant="success" className="w-full" disabled={!canCharge} onClick={() => setPaying(true)}>
-            <ShoppingCart />Charge {p && cart.lines.length ? formatMoney(p.totalAmount) : ''}
+            <ShoppingCart />Charge {p && !empty ? formatMoney(p.totalAmount) : ''}
             <kbd className="ml-auto rounded bg-black/15 px-1.5 text-xs">F9</kbd>
           </Button>
         </div>
@@ -405,8 +469,19 @@ export function PosPage() {
   );
 }
 
-/** Search box that also takes barcode scans: Enter tries an exact barcode/SKU lookup first. */
-function ProductSearch({ inputRef, onAdd }: { inputRef: React.RefObject<HTMLInputElement>; onAdd(p: ProductDto | ProductDetailDto): void }) {
+/**
+ * Search box that also takes barcode scans: Enter tries a bundle code, then an exact barcode/SKU lookup. Enter on an empty box opens
+ * Pay. Where the business uses bundles, matching bundles show in the results with a Bundle badge.
+ */
+function ProductSearch({ inputRef, onAdd, bundles, priceType, onAddBundle, onEmptyEnter }: {
+  inputRef: React.RefObject<HTMLInputElement>;
+  onAdd(p: ProductDto | ProductDetailDto): void;
+  /** Active bundles, or null where the business doesn't use them. */
+  bundles: ProductBundleDto[] | null;
+  priceType: PriceType;
+  onAddBundle(b: ProductBundleDto): void;
+  onEmptyEnter(): void;
+}) {
   const [text, setText] = useState('');
   const [looking, setLooking] = useState(false);
   const scannerSuffix = usePreferences((s) => s.scannerSuffix);
@@ -417,12 +492,27 @@ function ProductSearch({ inputRef, onAdd }: { inputRef: React.RefObject<HTMLInpu
     queryFn: ({ signal }) => productsApi.list({ search: debounced || undefined, isActive: true, itemType: ItemType.FinishedGood, pageSize: 24, sortBy: 'name' }, signal),
     staleTime: 60_000,
   });
+  const bundleResults = useQuery({
+    queryKey: key('product-bundles', { isActive: true, search: debounced }),
+    queryFn: ({ signal }) => productBundlesApi.list({ isActive: true, search: debounced }, signal),
+    enabled: bundles !== null && debounced.length > 0,
+    staleTime: 30_000,
+  });
+  const matchingBundles = debounced ? bundleResults.data ?? [] : [];
 
   useEffect(() => inputRef.current?.focus(), [inputRef]);
 
   async function onEnter() {
     const code = text.trim();
-    if (!code) return;
+    if (!code) return onEmptyEnter();
+    // A bundle code (HD20) adds the bundle.
+    const bundle = bundles?.find((b) => b.code && b.code.toUpperCase() === code.toUpperCase())
+      ?? matchingBundles.find((b) => b.code && b.code.toUpperCase() === code.toUpperCase());
+    if (bundle) {
+      onAddBundle(bundle);
+      setText('');
+      return;
+    }
     setLooking(true);
     try {
       const product = await productsApi.lookup(code);
@@ -470,10 +560,31 @@ function ProductSearch({ inputRef, onAdd }: { inputRef: React.RefObject<HTMLInpu
         </div>
       ) : results.error ? (
         <FormAlert error={results.error} />
-      ) : results.data?.items.length === 0 ? (
+      ) : results.data?.items.length === 0 && matchingBundles.length === 0 ? (
         <EmptyState title="No products found" message={debounced ? `Nothing matches “${debounced}”.` : 'No finished goods to sell yet.'} />
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+          {matchingBundles.map((b) => {
+            const out = b.availableQuantity === 0;
+            return (
+              <button
+                key={b.productBundleId}
+                type="button"
+                disabled={out}
+                onClick={() => onAddBundle(b)}
+                className={cn(
+                  'flex min-h-20 flex-col justify-between gap-1 rounded-lg border bg-card p-3 text-left shadow-sm transition-colors',
+                  out ? 'cursor-not-allowed border-dashed opacity-60' : 'hover:border-primary hover:bg-accent/40 active:scale-[0.99]',
+                )}
+              >
+                <span className="line-clamp-2 text-sm font-medium leading-snug">{b.name}</span>
+                <span className="flex items-center justify-between gap-1 text-xs text-muted-foreground">
+                  <span className="truncate tabular">{formatMoney(bundlePrice(b, priceType), { currency: false })}{out ? ' · Out' : b.availableQuantity != null ? ` · ${b.availableQuantity}` : ''}</span>
+                  <Badge variant="info"><Boxes className="size-3" />Bundle</Badge>
+                </span>
+              </button>
+            );
+          })}
           {results.data?.items.map((p) => (
             <button
               key={p.productId}
@@ -581,5 +692,76 @@ function HeldCarts({ held, onHold, canHold, onRecall, onDiscard }: {
         )}
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * A bundle on the cart: one row, its quantity (whole numbers) and the server's total. Red when any part is short, naming the part with
+ * the figures the preview gave. The parts are not listed here; the sale detail shows them.
+ */
+function BundleRow({ businessId, bundle, preview, strictStock, canDiscount }: {
+  businessId: string;
+  bundle: CartBundle;
+  preview: SalePreviewDto | undefined;
+  strictStock: boolean;
+  canDiscount: boolean;
+}) {
+  const { summary, short } = bundlePreview(preview, bundle.productBundleId);
+  const blocking = short.some((l) => l.isBatchTracked || strictStock);
+  return (
+    <li className={cn('space-y-2 p-3', short.length > 0 && blocking && 'bg-destructive/5')}>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 truncate text-sm font-medium"><Boxes className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />{bundle.name}</p>
+          {bundle.code && <p className="text-xs text-muted-foreground">{bundle.code}</p>}
+        </div>
+        <div className="text-right">
+          {summary ? <MoneyText value={summary.total} className="text-sm font-semibold" /> : <Skeleton className="h-4 w-16" />}
+          {summary && summary.discountAmount > 0 && <p className="text-xs text-success">−{formatMoney(summary.discountAmount, { currency: false })}</p>}
+        </div>
+        <Button variant="ghost" size="icon-sm" onClick={() => removeBundle(businessId, bundle.productBundleId)} aria-label={`Remove ${bundle.name}`}>
+          <X />
+        </Button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center rounded-md border">
+          <Button variant="ghost" size="icon-sm" onClick={() => updateBundle(businessId, bundle.productBundleId, { quantity: Math.max(1, bundle.quantity - 1) })} aria-label="Decrease">
+            <Minus />
+          </Button>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            step={1}
+            value={bundle.quantity}
+            // Whole bundles only; clearing the box keeps 1 rather than removing the row (× removes it).
+            onChange={(e) => updateBundle(businessId, bundle.productBundleId, { quantity: Math.max(1, Math.floor(Number(e.target.value) || 1)) })}
+            className="h-8 w-16 border-0 text-center shadow-none tabular"
+            aria-label={`Quantity of ${bundle.name}`}
+          />
+          <Button variant="ghost" size="icon-sm" onClick={() => updateBundle(businessId, bundle.productBundleId, { quantity: bundle.quantity + 1 })} aria-label="Increase">
+            <Plus />
+          </Button>
+        </div>
+        {canDiscount && (
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            placeholder="Disc KES"
+            value={bundle.discountAmount ?? ''}
+            onChange={(e) => updateBundle(businessId, bundle.productBundleId, { discountAmount: e.target.value === '' ? null : Number(e.target.value), discountPercent: null })}
+            className="ml-auto h-8 w-24"
+            aria-label={`Discount on ${bundle.name}`}
+          />
+        )}
+      </div>
+      {short.map((l) => (
+        <p key={`${l.productId}:${l.unitOfMeasureId}`} className={cn('flex items-center gap-1 text-xs', blocking ? 'text-destructive' : 'text-warning-foreground dark:text-warning')}>
+          <AlertTriangle className="size-3.5 shrink-0" />
+          {l.productName}: only {formatQty(Math.max(0, l.availableInBaseUnits))} in stock; needs {formatQty(l.requiredInBaseUnits)}.
+        </p>
+      ))}
+    </li>
   );
 }

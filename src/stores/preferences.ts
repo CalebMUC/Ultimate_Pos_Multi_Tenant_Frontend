@@ -19,6 +19,8 @@ interface PreferencesState {
   sidebarCollapsed: boolean;
   /** POS quick keys by business id. */
   quickKeys: Record<string, QuickKey[]>;
+  /** The refill counter's water product (its "own bottle" sizes), by business id. Unset: found by its category. */
+  counterWaterProduct: Record<string, string>;
   set<K extends keyof Omit<PreferencesState, 'set'>>(key: K, value: PreferencesState[K]): void;
 }
 
@@ -33,6 +35,7 @@ export const usePreferences = create<PreferencesState>()(
       showPharmacyMenu: null,
       sidebarCollapsed: false,
       quickKeys: {},
+      counterWaterProduct: {},
       set: (key, value) => set({ [key]: value } as Partial<PreferencesState>),
     }),
     { name: 'upos.preferences', storage: createJSONStorage(() => localStorage) },

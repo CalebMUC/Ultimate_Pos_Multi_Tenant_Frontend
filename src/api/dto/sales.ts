@@ -35,9 +35,29 @@ export interface CreateSaleRequestDto {
   discountAmount?: number | null;
   overrideCreditLimit?: boolean;
   prescription?: SalePrescriptionRequestDto | null;
+  /** Bundles rung up as one item each. A sale needs at least one line or one bundle. Each bundle once; whole quantities. */
+  bundles?: CreateSaleBundleRequestDto[] | null;
 }
 
-export interface SalePreviewLineDto {
+/** A discount here covers all of this bundle's quantity, not each one. Needs Sales.ApplyDiscount. */
+export interface CreateSaleBundleRequestDto {
+  productBundleId: Guid;
+  quantity: number;
+  discountAmount?: number | null;
+  discountPercent?: number | null;
+}
+
+/** Fields on a sale line (and a preview line) that belongs to a bundle. Lines sharing productBundleId are one bundle row. */
+export interface BundleLineFields {
+  productBundleId?: Guid | null;
+  bundleName?: string | null;
+  bundleQuantity?: number | null;
+}
+
+/** A bundle on a sale, as the receipt shows it: total is the sum of its lines. */
+export interface SaleBundleDto { productBundleId: Guid; name: string; quantity: number; total: number; discountAmount: number }
+
+export interface SalePreviewLineDto extends BundleLineFields {
   productId: Guid;
   productName: string;
   sku: string;
@@ -69,6 +89,8 @@ export interface SalePreviewDto {
   customerBalance: number | null;
   creditLimit: number | null;
   creditLimitExceeded: boolean;
+  /** Null when the sale has none. */
+  bundles?: SaleBundleDto[] | null;
 }
 
 export interface SaleLineBatchDto {
@@ -94,6 +116,9 @@ export interface SaleLineDto {
   sku: string | null;
   unitSymbol: string | null;
   batches: SaleLineBatchDto[] | null;
+  productBundleId?: Guid | null;
+  bundleName?: string | null;
+  bundleQuantity?: number | null;
 }
 
 export interface SalePrescriptionDto extends SalePrescriptionRequestDto {
@@ -124,6 +149,8 @@ export interface SaleDto {
   branchId?: Guid;
   kraBranchId?: string | null;
   branchName?: string | null;
+  /** Null when the sale has none. */
+  bundles?: SaleBundleDto[] | null;
 }
 
 export interface SaleQuery {
