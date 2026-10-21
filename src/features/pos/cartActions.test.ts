@@ -116,13 +116,15 @@ describe('toSaleRequest', () => {
   });
 
   it('sends only the payment detail that belongs to the method', () => {
-    const payment = { amountTendered: 500, mpesaPhoneNumber: '0712345678', mpesaTransactionId: 'tx' };
-    const cash = toSaleRequest(cart({ lines: [line], paymentMethod: PaymentMethod.Cash }), payment);
-    expect([cash.amountTendered, cash.mpesaPhoneNumber, cash.mpesaTransactionId]).toEqual([500, null, null]);
-    const stk = toSaleRequest(cart({ lines: [line], paymentMethod: PaymentMethod.MpesaStkPush }), payment);
-    expect([stk.amountTendered, stk.mpesaPhoneNumber, stk.mpesaTransactionId]).toEqual([null, '0712345678', null]);
-    const till = toSaleRequest(cart({ lines: [line], paymentMethod: PaymentMethod.MpesaTill }), payment);
-    expect([till.amountTendered, till.mpesaPhoneNumber, till.mpesaTransactionId]).toEqual([null, null, 'tx']);
+    const payment = { amountTendered: 500, mpesaPhoneNumber: '0712345678', mpesaTransactionId: 'tx', mpesaReference: 'SJK4H7LM2P' };
+    const sent = (method: PaymentMethod) => {
+      const b = toSaleRequest(cart({ lines: [line], paymentMethod: method }), payment);
+      return [b.amountTendered, b.mpesaPhoneNumber, b.mpesaTransactionId, b.mpesaReference];
+    };
+    expect(sent(PaymentMethod.Cash)).toEqual([500, null, null, null]);
+    expect(sent(PaymentMethod.MpesaStkPush)).toEqual([null, '0712345678', null, null]);
+    expect(sent(PaymentMethod.MpesaTill)).toEqual([null, null, 'tx', null]);
+    expect(sent(PaymentMethod.MpesaReference)).toEqual([null, null, null, 'SJK4H7LM2P']);
   });
 
   it('only overrides the credit limit on credit sales', () => {

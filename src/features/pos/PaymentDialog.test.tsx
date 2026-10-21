@@ -79,3 +79,32 @@ describe('payment conflicts', () => {
     expect(await screen.findByText('Select the customer’s M-Pesa payment.')).toBeInTheDocument();
   });
 });
+
+describe('M-Pesa code', () => {
+  it('checks the code, then sends it cleaned up', async () => {
+    let body: Record<string, unknown> | null = null;
+    server.use(http.post(`${API}/sales`, async ({ request }) => {
+      body = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({ success: true, data: { saleId: 's1', status: 1 }, error: null, meta: null });
+    }));
+    const { onCompleted } = renderDialog(PaymentMethod.MpesaReference);
+    const input = screen.getByLabelText('M-Pesa code');
+    await userEvent.type(input, 'sjk4');
+    await userEvent.click(screen.getByRole('button', { name: /Complete sale/ }));
+    expect(await screen.findByText(/10-character M-Pesa code/)).toBeInTheDocument();
+    expect(body).toBeNull();
+
+    await userEvent.type(input, 'h7l m2p');
+    await userEvent.click(screen.getByRole('button', { name: /Complete sale/ }));
+    await waitFor(() => expect(onCompleted).toHaveBeenCalled());
+    expect(body).toMatchObject({ paymentMethod: PaymentMethod.MpesaReference, mpesaReference: 'SJK4H7LM2P', mpesaTransactionId: null });
+  });
+
+  it('shows a code already used on another sale', async () => {
+    server.use(http.post(`${API}/sales`, () => fail(409, 'DUPLICATE_REFERENCE', 'M-Pesa code SJK4H7LM2P is already on sale INV-000041.')));
+    renderDialog(PaymentMethod.MpesaReference);
+    await userEvent.type(screen.getByLabelText('M-Pesa code'), 'SJK4H7LM2P');
+    await userEvent.click(screen.getByRole('button', { name: /Complete sale/ }));
+    expect(await screen.findByText(/already on sale INV-000041/)).toBeInTheDocument();
+  });
+});

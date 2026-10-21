@@ -37,6 +37,7 @@ import { useSalePreview } from './usePreview';
 
 const METHODS = [
   { value: PaymentMethod.Cash, icon: Banknote },
+  { value: PaymentMethod.MpesaReference, icon: Smartphone },
   { value: PaymentMethod.MpesaStkPush, icon: Smartphone },
   { value: PaymentMethod.MpesaTill, icon: Smartphone },
   { value: PaymentMethod.Credit, icon: CreditCard },
@@ -408,7 +409,7 @@ export function PosPage() {
             {p && <p className="text-right text-xs text-muted-foreground">{labels.priceType[p.priceType]} prices</p>}
           </dl>
 
-          <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Payment method">
+          <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="Payment method">
             {METHODS.map(({ value, icon: Icon }) => (
               <button
                 key={value}

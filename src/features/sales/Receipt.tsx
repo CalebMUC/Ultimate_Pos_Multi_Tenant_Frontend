@@ -84,6 +84,7 @@ export function Receipt({ sale, paper }: { sale: SaleDto; paper: ReceiptPaper })
         {business?.isVatRegistered && <Row label="VAT (incl.)" value={formatMoney(sale.taxTotal)} />}
         <Row label="TOTAL" value={formatMoney(sale.totalAmount)} bold />
         <Row label="Paid by" value={labels.paymentMethod[sale.paymentMethod]} />
+        {sale.mpesaReference && <Row label="M-Pesa code" value={sale.mpesaReference} />}
         {sale.paymentMethod === PaymentMethod.Cash && sale.amountTendered !== null && (
           <>
             <Row label="Tendered" value={formatMoney(sale.amountTendered)} />

@@ -6,7 +6,8 @@ export enum PurchaseOrderStatus { Draft = 0, Ordered = 1, PartiallyReceived = 2,
 export enum SaleStatus { Pending = 0, Completed = 1, Voided = 2, Failed = 3 }
 export enum DeliveryOrderStatus { Pending = 0, OutForDelivery = 1, Delivered = 2, Cancelled = 3 }
 export enum CustomerLedgerEntryType { Invoice = 0, Payment = 1, Reversal = 2, Return = 3 }
-export enum PaymentMethod { Cash = 0, Credit = 1, MpesaTill = 2, MpesaStkPush = 3 }
+/** MpesaReference: paid by M-Pesa outside the POS (e.g. sent to the business phone); the cashier types the confirmation code. */
+export enum PaymentMethod { Cash = 0, Credit = 1, MpesaTill = 2, MpesaStkPush = 3, MpesaReference = 4 }
 export enum MpesaTransactionType { C2B = 0, StkPush = 1 }
 export enum MpesaTransactionStatus { Received = 0, Matched = 1, Pending = 2, Confirmed = 3, Failed = 4 }
 export enum ProductionCostType { Labour = 0, Packaging = 1, Utilities = 2, Transport = 3, Overhead = 4, Other = 5 }
@@ -55,6 +56,7 @@ export const labels = {
   },
   paymentMethod: {
     [PaymentMethod.Cash]: 'Cash', [PaymentMethod.Credit]: 'Credit', [PaymentMethod.MpesaTill]: 'M-Pesa Till', [PaymentMethod.MpesaStkPush]: 'M-Pesa STK',
+    [PaymentMethod.MpesaReference]: 'M-Pesa Code',
   },
   mpesaTransactionType: { [MpesaTransactionType.C2B]: 'Till (C2B)', [MpesaTransactionType.StkPush]: 'STK push' },
   mpesaTransactionStatus: {

@@ -10,7 +10,7 @@ import { FormAlert } from '@/components/shared/States';
 import { mpesaApi, salesApi } from '@/api/endpoints/sales';
 import { normaliseError } from '@/api/errors';
 import { PaymentMethod, SaleStatus } from '@/api/enums';
-import { usePermission, useQueryKey } from '@/hooks/useSessionInfo';
+import { useActiveBusiness, usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { round2 } from '@/lib/utils';
 import { usePreferences } from '@/stores/preferences';
@@ -33,6 +33,9 @@ interface Props {
 
 /** Kenyan mobile numbers: 07…, 01…, 2547…, +2547… The API normalises; this only catches typos early. */
 const PHONE = /^(?:\+?254|0)?[17]\d{8}$/;
+/** M-Pesa confirmation codes: 10 letters and digits, e.g. SJK4H7LM2P. */
+export const MPESA_REFERENCE = /^[A-Z0-9]{10}$/;
+export const normaliseMpesaReference = (v: string) => v.replace(/\s/g, '').toUpperCase();
 
 export function PaymentDialog(props: Props) {
   const { cart, preview, open } = props;
@@ -40,6 +43,7 @@ export function PaymentDialog(props: Props) {
   const [tendered, setTendered] = useState('');
   const [phone, setPhone] = useState('');
   const [tillTxId, setTillTxId] = useState<string | null>(null);
+  const [reference, setReference] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [uncertain, setUncertain] = useState(false);
@@ -52,6 +56,7 @@ export function PaymentDialog(props: Props) {
     if (open) {
       setTendered('');
       setTillTxId(null);
+      setReference('');
       setError(null);
       setUncertain(false);
       setPendingSale(null);
@@ -84,6 +89,13 @@ export function PaymentDialog(props: Props) {
         return;
       }
       payment.mpesaTransactionId = tillTxId;
+    }
+    if (cart.paymentMethod === PaymentMethod.MpesaReference) {
+      if (!MPESA_REFERENCE.test(reference)) {
+        setError(new Error('Enter the 10-character M-Pesa code from the customer’s SMS, e.g. SJK4H7LM2P.'));
+        return;
+      }
+      payment.mpesaReference = reference;
     }
     setSubmitting(true);
     try {
@@ -126,7 +138,7 @@ export function PaymentDialog(props: Props) {
     );
   }
 
-  const methodIcon = { [PaymentMethod.Cash]: Banknote, [PaymentMethod.Credit]: CreditCard, [PaymentMethod.MpesaTill]: Smartphone, [PaymentMethod.MpesaStkPush]: Smartphone }[cart.paymentMethod];
+  const methodIcon = { [PaymentMethod.Cash]: Banknote, [PaymentMethod.Credit]: CreditCard, [PaymentMethod.MpesaTill]: Smartphone, [PaymentMethod.MpesaStkPush]: Smartphone, [PaymentMethod.MpesaReference]: Smartphone }[cart.paymentMethod];
   const MethodIcon = methodIcon;
 
   return (
@@ -222,6 +234,8 @@ export function PaymentDialog(props: Props) {
 
         {cart.paymentMethod === PaymentMethod.MpesaTill && <TillPayments total={total} value={tillTxId} onChange={setTillTxId} enabled={open} />}
 
+        {cart.paymentMethod === PaymentMethod.MpesaReference && <MpesaReferenceEntry total={total} value={reference} onChange={setReference} onSubmit={charge} />}
+
         {uncertain && (
           <Alert variant="warning">
             <AlertTriangle />
@@ -290,6 +304,48 @@ export function TillPayments({ total, value, onChange, enabled }: { total: numbe
         </ul>
       )}
       {all.length > matching.length && <p className="text-xs text-muted-foreground">{all.length - matching.length} other unmatched payment(s) have a different amount.</p>}
+    </div>
+  );
+}
+
+/** Paid by M-Pesa outside the POS: where the customer pays, and the code from their confirmation SMS. Until till payments reach the POS. */
+export function MpesaReferenceEntry({ total, value, onChange, onSubmit }: { total: number; value: string; onChange(v: string): void; onSubmit(): void }) {
+  const { business } = useActiveBusiness();
+  const payTo = [
+    { label: 'Send money to', value: business?.phoneNumber },
+    { label: 'Buy goods till', value: business?.mpesaTillNumber },
+    { label: 'Paybill', value: business?.mpesaPaybillNumber },
+  ].filter((d) => d.value);
+  return (
+    <div className="space-y-3">
+      <div className="rounded-lg bg-muted p-3 text-sm">
+        <p>Ask the customer to pay <span className="font-semibold tabular">{formatMoney(total)}</span> by M-Pesa{payTo.length ? ':' : ' to the business.'}</p>
+        {payTo.length > 0 && (
+          <dl className="mt-2 grid grid-cols-2 gap-1">
+            {payTo.map((d) => (
+              <div key={d.label} className="contents">
+                <dt className="text-muted-foreground">{d.label}</dt>
+                <dd className="text-right font-semibold tabular">{d.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="mpesa-reference">M-Pesa code</Label>
+        <Input
+          id="mpesa-reference"
+          autoFocus
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="SJK4H7LM2P"
+          value={value}
+          onChange={(e) => onChange(normaliseMpesaReference(e.target.value))}
+          onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
+          className="h-12 font-mono text-lg uppercase tracking-widest"
+        />
+        <p className="text-xs text-muted-foreground">From the M-Pesa confirmation SMS. Check the amount and that the business received it before completing.</p>
+      </div>
     </div>
   );
 }

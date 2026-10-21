@@ -24,7 +24,14 @@ function MpesaSetup() {
             <CardDescription>Payments to this till or paybill are routed to this business.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <DetailList items={[{ label: 'Short code', value: shortCode ?? 'Not set' }, { label: 'Business', value: business?.tradingName || business?.businessName }]} />
+            <DetailList
+              items={[
+                ...(business?.mpesaTillNumber !== undefined ? [{ label: 'Till', value: business.mpesaTillNumber ?? 'Not set' }] : []),
+                ...(business?.mpesaPaybillNumber !== undefined ? [{ label: 'Paybill', value: business.mpesaPaybillNumber ?? 'Not set' }] : []),
+                { label: 'Routes payments by', value: shortCode ?? 'Not set' },
+                { label: 'Business', value: business?.tradingName || business?.businessName },
+              ]}
+            />
             <Button variant="outline" size="sm" asChild><Link href="/admin/business">Change in business profile</Link></Button>
           </CardContent>
         </Card>

@@ -129,6 +129,7 @@ function SaleDetail({ id }: { id: string }) {
                   ...(s.kraBranchId ? [{ label: 'Branch', value: `${s.kraBranchId} · ${s.branchName ?? ''}` }] : []),
                   { label: 'Customer', value: s.customerId ? <Link className="text-primary hover:underline" href={`/customers/${s.customerId}`}>{s.customerName}</Link> : 'Walk-in' },
                   { label: 'Payment', value: labels.paymentMethod[s.paymentMethod] },
+                  ...(s.mpesaReference ? [{ label: 'M-Pesa code', value: <span className="font-mono">{s.mpesaReference}</span> }] : []),
                   { label: 'Cashier', value: s.createdByName },
                   { label: 'Subtotal', value: formatMoney(s.subtotal) },
                   { label: 'Discount', value: formatMoney(s.discountTotal) },

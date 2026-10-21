@@ -14,7 +14,7 @@ import { PaymentMethod, labels } from '@/api/enums';
 import { usePermission } from '@/hooks/useSessionInfo';
 import { formatMoney, formatQty } from '@/lib/format';
 import { cn, round2 } from '@/lib/utils';
-import { TillPayments } from '@/features/pos/PaymentDialog';
+import { MPESA_REFERENCE, MpesaReferenceEntry, TillPayments } from '@/features/pos/PaymentDialog';
 import type { CartLine } from '@/stores/cart';
 import type { DeliveryOrderDto } from '@/api/dto/deliveries';
 import { useLinesPreview } from './useLinesPreview';
@@ -74,6 +74,7 @@ export function DispatchDialog({ order, open, onOpenChange }: { order: DeliveryO
 
 const METHODS = [
   { value: PaymentMethod.Cash, icon: Banknote },
+  { value: PaymentMethod.MpesaReference, icon: Smartphone },
   { value: PaymentMethod.MpesaTill, icon: Smartphone },
   { value: PaymentMethod.Credit, icon: CreditCard },
 ] as const;
@@ -107,6 +108,7 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
   const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.Cash);
   const [tendered, setTendered] = useState('');
   const [tillTxId, setTillTxId] = useState<string | null>(null);
+  const [reference, setReference] = useState('');
   const [override, setOverride] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -117,6 +119,7 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
     setMethod(PaymentMethod.Cash);
     setTendered('');
     setTillTxId(null);
+    setReference('');
     setOverride(false);
     setError(null);
   }, [open, order]);
@@ -140,6 +143,9 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
       return setError(new Error(`The cash given must be at least ${formatMoney(total)}.`));
     }
     if (method === PaymentMethod.MpesaTill && !tillTxId) return setError(new Error('Select the customer’s M-Pesa payment.'));
+    if (method === PaymentMethod.MpesaReference && !MPESA_REFERENCE.test(reference)) {
+      return setError(new Error('Enter the 10-character M-Pesa code from the customer’s SMS, e.g. SJK4H7LM2P.'));
+    }
     setPending(true);
     try {
       // No automatic retry: the API gives one sale per delivery, and a retry after a lost response is refused, not doubled.
@@ -147,6 +153,7 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
         paymentMethod: method,
         amountTendered: method === PaymentMethod.Cash ? tenderedNum : null,
         mpesaTransactionId: method === PaymentMethod.MpesaTill ? tillTxId : null,
+        mpesaReference: method === PaymentMethod.MpesaReference ? reference : null,
         overrideCreditLimit: method === PaymentMethod.Credit && override,
         lines: edited ? lines.map((l) => ({ productId: l.productId, unitOfMeasureId: l.unitOfMeasureId, quantity: l.quantity })) : null,
       });
@@ -195,7 +202,7 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
         </div>
         {preview.error && <FormAlert error={preview.error} />}
 
-        <div className={cn('grid gap-1.5', methods.length === 3 ? 'grid-cols-3' : 'grid-cols-2')} role="radiogroup" aria-label="Payment">
+        <div className={cn('grid gap-1.5', methods.length === 4 ? 'grid-cols-4' : 'grid-cols-3')} role="radiogroup" aria-label="Payment">
           {methods.map(({ value, icon: Icon }) => (
             <button
               key={value}
@@ -225,6 +232,7 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
           </div>
         )}
         {method === PaymentMethod.MpesaTill && total !== null && <TillPayments total={total} value={tillTxId} onChange={setTillTxId} enabled={open} />}
+        {method === PaymentMethod.MpesaReference && total !== null && <MpesaReferenceEntry total={total} value={reference} onChange={setReference} onSubmit={submit} />}
         {method === PaymentMethod.Credit && p && (
           <div className="space-y-2 text-sm">
             <p>Charged to <span className="font-semibold">{order.customerName}</span>’s account, to be paid later.</p>

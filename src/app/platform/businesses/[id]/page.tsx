@@ -172,7 +172,9 @@ function BusinessDetail({ id }: { id: string }) {
                   { label: 'KRA PIN', value: b.kraPin },
                   { label: 'Registration no.', value: b.registrationNumber },
                   { label: 'VAT registered', value: b.isVatRegistered ? 'Yes' : 'No' },
-                  { label: 'M-Pesa short code', value: b.mpesaShortCode },
+                  ...(b.mpesaTillNumber !== undefined || b.mpesaPaybillNumber !== undefined
+                    ? [{ label: 'M-Pesa till', value: b.mpesaTillNumber }, { label: 'M-Pesa paybill', value: b.mpesaPaybillNumber }]
+                    : [{ label: 'M-Pesa short code', value: b.mpesaShortCode }]),
                   { label: 'Discount cap', value: b.maxDiscountPercent != null ? `${b.maxDiscountPercent}%` : 'None' },
                   { label: 'Selling below zero stock', value: b.allowNegativeStock === false ? 'Refused' : 'Allowed' },
                   { label: 'User limit', value: b.licenseMaxUsers ?? 'Unlimited' },

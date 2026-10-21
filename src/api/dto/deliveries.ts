@@ -16,13 +16,14 @@ export interface CreateDeliveryOrderRequestDto {
 }
 
 /**
- * Recorded when the rider is back. Cash (amountTendered), MpesaTill (mpesaTransactionId) or Credit: charged to the customer's account,
+ * Recorded when the rider is back. Cash (amountTendered), MpesaTill (mpesaTransactionId), MpesaReference (mpesaReference) or Credit: charged to the customer's account,
  * needs DeliveryOrders.AcceptCredit. lines: what was actually handed over, when it differs from the order; left out = as ordered.
  */
 export interface DeliverDeliveryOrderRequestDto {
   paymentMethod: PaymentMethod;
   amountTendered?: number | null;
   mpesaTransactionId?: Guid | null;
+  mpesaReference?: string | null;
   overrideCreditLimit?: boolean;
   lines?: DeliveryOrderLineRequestDto[] | null;
   notes?: string | null;

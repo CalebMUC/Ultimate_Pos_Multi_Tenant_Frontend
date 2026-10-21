@@ -11,6 +11,7 @@ import { email, optionalNumber, phone, requiredText, text } from '@/lib/schemas'
 import { emptyToNull } from '@/lib/utils';
 import type { BusinessDto, UpdateBusinessRequestDto } from '@/api/dto/business';
 
+const shortCode = (label: string) => z.string().trim().refine((v) => v === '' || /^\d{5,7}$/.test(v), `A ${label} number is 5–7 digits.`);
 const url = z.string().trim().max(500).refine((v) => v === '' || /^https?:\/\//i.test(v), 'Use a full link starting with https://');
 
 export const businessSchema = z.object({
@@ -29,13 +30,16 @@ export const businessSchema = z.object({
   logoUrl: url,
   backgroundImageUrl: url,
   isVatRegistered: z.boolean(),
-  mpesaShortCode: z.string().trim().refine((v) => v === '' || /^\d{5,7}$/.test(v), 'A till or paybill number is 5–7 digits.'),
+  mpesaTillNumber: shortCode('till'),
+  mpesaPaybillNumber: shortCode('paybill'),
   maxDiscountPercent: optionalNumber({ min: 0, max: 100, label: 'Discount cap' }),
   allowNegativeStock: z.boolean(),
 });
 export type BusinessValues = z.infer<typeof businessSchema>;
 
 export function businessDefaults(b?: BusinessDto | null): BusinessValues {
+  // Older APIs have only the short code: show it as the till.
+  const split = b?.mpesaTillNumber !== undefined || b?.mpesaPaybillNumber !== undefined;
   return {
     businessName: b?.businessName ?? '',
     tradingName: b?.tradingName ?? '',
@@ -52,7 +56,8 @@ export function businessDefaults(b?: BusinessDto | null): BusinessValues {
     logoUrl: b?.logoUrl ?? '',
     backgroundImageUrl: b?.backgroundImageUrl ?? '',
     isVatRegistered: b?.isVatRegistered ?? false,
-    mpesaShortCode: b?.mpesaShortCode ?? '',
+    mpesaTillNumber: (split ? b?.mpesaTillNumber : b?.mpesaShortCode) ?? '',
+    mpesaPaybillNumber: b?.mpesaPaybillNumber ?? '',
     maxDiscountPercent: b?.maxDiscountPercent ?? null,
     allowNegativeStock: b?.allowNegativeStock ?? true,
   };
@@ -72,7 +77,10 @@ export function toBusinessRequest(v: BusinessValues): UpdateBusinessRequestDto {
     logoUrl: emptyToNull(v.logoUrl),
     backgroundImageUrl: emptyToNull(v.backgroundImageUrl),
     isVatRegistered: v.isVatRegistered,
-    mpesaShortCode: emptyToNull(v.mpesaShortCode),
+    mpesaTillNumber: emptyToNull(v.mpesaTillNumber),
+    mpesaPaybillNumber: emptyToNull(v.mpesaPaybillNumber),
+    // Older APIs route till payments by this alone.
+    mpesaShortCode: emptyToNull(v.mpesaTillNumber || v.mpesaPaybillNumber),
     maxDiscountPercent: v.maxDiscountPercent,
     allowNegativeStock: v.allowNegativeStock,
   };
@@ -122,7 +130,8 @@ export function BusinessFields({ form, registering }: { form: UseFormReturn<Busi
       <Field label="Email" error={e.email}><Input type="email" {...form.register('email')} /></Field>
       <Field label="County" error={e.county}><Input {...form.register('county')} /></Field>
       <Field label="Address" error={e.physicalAddress} className="sm:col-span-2 lg:col-span-3"><Textarea {...form.register('physicalAddress')} /></Field>
-      <Field label="M-Pesa till / paybill" error={e.mpesaShortCode} hint="Till payments are routed to the business by this number."><Input inputMode="numeric" {...form.register('mpesaShortCode')} /></Field>
+      <Field label="M-Pesa till" error={e.mpesaTillNumber} hint="Buy Goods number. Till payments are routed to the business by this number."><Input inputMode="numeric" {...form.register('mpesaTillNumber')} /></Field>
+      <Field label="M-Pesa paybill" error={e.mpesaPaybillNumber} hint="Business number. Used for routing when there is no till."><Input inputMode="numeric" {...form.register('mpesaPaybillNumber')} /></Field>
       <Field label="Max discount per sale (%)" error={e.maxDiscountPercent} hint="Empty for no cap."><Input type="number" step="0.1" min={0} max={100} {...form.register('maxDiscountPercent', { valueAsNumber: true })} /></Field>
       <Field label="VAT" error={e.isVatRegistered}>
         <label className="flex h-9 items-center gap-2 text-sm">

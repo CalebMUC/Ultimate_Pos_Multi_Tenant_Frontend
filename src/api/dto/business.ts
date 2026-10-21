@@ -16,7 +16,11 @@ interface BusinessProfileFields {
   logoUrl: string | null;
   backgroundImageUrl: string | null;
   isVatRegistered: boolean;
+  /** The short code C2B (till) payments are routed by. Newer APIs derive it from the till, else the paybill. */
   mpesaShortCode: string | null;
+  /** Missing on older APIs. */
+  mpesaTillNumber?: string | null;
+  mpesaPaybillNumber?: string | null;
   maxDiscountPercent: number | null;
   /** False: a sale needing more stock than is held is refused (409 INSUFFICIENT_STOCK). Null on update keeps the current value. */
   allowNegativeStock?: boolean | null;

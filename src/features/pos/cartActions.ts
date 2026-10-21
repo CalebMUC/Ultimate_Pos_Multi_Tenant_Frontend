@@ -148,6 +148,7 @@ export interface PaymentDetails {
   amountTendered?: number | null;
   mpesaPhoneNumber?: string | null;
   mpesaTransactionId?: Guid | null;
+  mpesaReference?: string | null;
 }
 
 /** Builds the request body. Never carries prices: the API prices every line. */
@@ -167,6 +168,7 @@ export function toSaleRequest(cart: Cart, payment: PaymentDetails = {}, includeP
     amountTendered: cart.paymentMethod === PaymentMethod.Cash ? payment.amountTendered ?? null : null,
     mpesaPhoneNumber: cart.paymentMethod === PaymentMethod.MpesaStkPush ? emptyToNull(payment.mpesaPhoneNumber) : null,
     mpesaTransactionId: cart.paymentMethod === PaymentMethod.MpesaTill ? payment.mpesaTransactionId ?? null : null,
+    mpesaReference: cart.paymentMethod === PaymentMethod.MpesaReference ? emptyToNull(payment.mpesaReference) : null,
     bundles: cart.bundles?.length
       ? cart.bundles.map((b) => ({
           productBundleId: b.productBundleId,

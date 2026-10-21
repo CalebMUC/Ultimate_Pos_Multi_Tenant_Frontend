@@ -32,6 +32,8 @@ export interface CreateSaleRequestDto {
   amountTendered: number | null;
   mpesaPhoneNumber: string | null;
   mpesaTransactionId: Guid | null;
+  /** MpesaReference only: the M-Pesa confirmation code, e.g. SJK4H7LM2P. Unique per business (409 DUPLICATE_REFERENCE). */
+  mpesaReference?: string | null;
   discountAmount?: number | null;
   overrideCreditLimit?: boolean;
   prescription?: SalePrescriptionRequestDto | null;
@@ -134,6 +136,8 @@ export interface SaleDto {
   totalAmount: number;
   amountTendered: number | null;
   changeDue: number | null;
+  /** The confirmation code typed for an MpesaReference sale. Missing on older APIs. */
+  mpesaReference?: string | null;
   notes: string | null;
   createdAt: DateTimeString;
   lines: SaleLineDto[];
