@@ -23,8 +23,10 @@ export interface CreateExpenseRequestDto {
   branchId?: Guid | null;
   /** A cost of no one branch (head-office rent). Needs Branches.AccessAll; leave branchId out. */
   businessWide?: boolean;
+  /** The rider the cost was for (their fuel), as named on delivery trips. Only tagged expenses count as a rider's fuel. */
+  riderName?: string | null;
 }
-/** Date, amount, payment method and branch are locked after posting. */
+/** Date, amount, payment method and branch are locked after posting. riderName: null keeps the tag, "" removes it. */
 export type UpdateExpenseRequestDto = Omit<CreateExpenseRequestDto, 'expenseDate' | 'amount' | 'paymentMethod' | 'branchId' | 'businessWide'>;
 
 /** Raw shape: paymentMethod and status are pre-formatted strings. */
@@ -52,6 +54,7 @@ export interface ExpenseApiDto {
   voidReason: string | null;
   /** Null = business-wide. */
   branchId?: Guid | null;
+  riderName?: string | null;
 }
 export interface ExpenseDto extends Omit<ExpenseApiDto, 'paymentMethod' | 'status'> {
   paymentMethod: ExpensePaymentMethod;
@@ -69,6 +72,7 @@ export interface ExpenseQuery {
   status?: ExpenseStatus;
   search?: string;
   missingEtims?: boolean;
+  riderName?: string;
 }
 
 export interface ExpenseCategoryTotalDto {

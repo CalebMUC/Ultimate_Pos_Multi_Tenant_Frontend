@@ -50,13 +50,13 @@ afterEach(() => {
   delivered = null;
 });
 
-const render = () => renderWithProviders(<RecordDeliveryDialog order={order} open onOpenChange={vi.fn()} />);
+const render = (o: DeliveryOrderDto = order) => renderWithProviders(<RecordDeliveryDialog order={o} open onOpenChange={vi.fn()} />);
 
 describe('record delivery', () => {
   it('offers paying later only to users who may accept credit', async () => {
     signIn(['DeliveryOrders.Deliver', 'Sales.View']);
     render();
-    expect(await screen.findByRole('button', { name: /Delivered · KES 700/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Complete sale · KES 700/ })).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: /Pay later/ })).not.toBeInTheDocument();
   });
 
@@ -67,11 +67,32 @@ describe('record delivery', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Remove 20L Container' }));
     await userEvent.click(screen.getByRole('radio', { name: /Pay later/ }));
     expect(await screen.findByText(/Charged to/)).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole('button', { name: /Delivered · KES 200/ })).toBeEnabled());
-    await userEvent.click(screen.getByRole('button', { name: /Delivered · KES 200/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Complete sale · KES 200/ })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: /Complete sale · KES 200/ }));
 
     await waitFor(() => expect(delivered).not.toBeNull());
     expect(delivered).toMatchObject({ paymentMethod: PaymentMethod.Credit, lines: [{ productId: 'water', unitOfMeasureId: '20L', quantity: 1 }] });
     expect(delivered).not.toHaveProperty('paymentDueDate');
+  });
+
+  it('asks for the M-Pesa code the rider brought back and sends nothing without it', async () => {
+    signIn(['DeliveryOrders.Deliver', 'Sales.View']);
+    // The customer said they would pay by M-Pesa: preselected.
+    render({ ...order, expectedPaymentMethod: PaymentMethod.MpesaReference });
+    expect(await screen.findByRole('radio', { name: /M-Pesa Code/ })).toHaveAttribute('aria-checked', 'true');
+    const complete = await screen.findByRole('button', { name: /Complete sale · KES 700/ });
+    await waitFor(() => expect(complete).toBeEnabled());
+    await userEvent.click(complete);
+
+    expect(await screen.findByText('Enter the M-Pesa code the rider brought back.')).toBeInTheDocument();
+    expect(delivered).toBeNull();
+
+    await userEvent.type(screen.getByLabelText('M-Pesa code'), 'SJK4H7LM2P');
+    await userEvent.click(complete);
+    await waitFor(() => expect(delivered).not.toBeNull());
+    expect(delivered).toMatchObject({ paymentMethod: PaymentMethod.MpesaReference, mpesaReference: 'SJK4H7LM2P' });
+    // As ordered: neither lines nor bundles are sent.
+    expect(delivered).not.toHaveProperty('lines');
+    expect(delivered).not.toHaveProperty('bundles');
   });
 });

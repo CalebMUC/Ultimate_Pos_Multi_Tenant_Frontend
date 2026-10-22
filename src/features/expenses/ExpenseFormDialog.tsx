@@ -9,7 +9,7 @@ import { FormDialog } from '@/components/shared/FormDialog';
 import { ExpenseCategorySelect, SupplierPicker } from '@/components/shared/Pickers';
 import { expensesApi } from '@/api/endpoints/other';
 import { enumOptions, ExpensePaymentMethod, labels } from '@/api/enums';
-import { usePermission } from '@/hooks/useSessionInfo';
+import { useActiveBusiness, usePermission } from '@/hooks/useSessionInfo';
 import { Checkbox } from '@/components/ui/overlays';
 import { useSession } from '@/stores/session';
 import { branchLabel, useBranchLabels } from '@/features/branches/branches';
@@ -17,6 +17,7 @@ import { todayIso } from '@/lib/format';
 import { requiredNumber, requiredText, text } from '@/lib/schemas';
 import { emptyToNull } from '@/lib/utils';
 import type { ExpenseDto } from '@/api/dto/expenses';
+import { RiderNameInput } from '@/features/deliveries/RiderNameInput';
 
 const schema = z.object({
   expenseDate: z.string().min(1, 'Pick a date.').refine((d) => d <= todayIso(), 'The date can’t be in the future.'),
@@ -31,6 +32,8 @@ const schema = z.object({
   etimsControlNumber: text(100),
   receiptUrl: z.string().trim().max(500).refine((v) => v === '' || /^https?:\/\//i.test(v), 'Use a full link starting with https://'),
   notes: text(1000),
+  /** The rider the cost was for (their fuel). Only tagged expenses count as a rider's fuel. */
+  riderName: text(100),
   // Optional: the select is disabled (so left out) while Business-wide is ticked.
   branchId: z.string().optional(),
   /** A cost of no one branch (head-office rent). Branches.AccessAll only. */
@@ -47,6 +50,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: { open: boole
   const activeBranchId = useSession((s) => s.activeBranchId);
   const myBranches = useSession((s) => s.branches);
   const branchName = useBranchLabels();
+  const delivers = useActiveBusiness().hasModule('deliveries');
   return (
     <FormDialog<Values>
       open={open}
@@ -68,6 +72,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: { open: boole
         etimsControlNumber: expense?.etimsControlNumber ?? '',
         receiptUrl: expense?.receiptUrl ?? '',
         notes: expense?.notes ?? '',
+        riderName: expense?.riderName ?? '',
         branchId: expense ? expense.branchId ?? '' : activeBranchId ?? '',
         businessWide: expense ? !expense.branchId : false,
       }}
@@ -83,10 +88,13 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: { open: boole
           receiptUrl: emptyToNull(v.receiptUrl),
           notes: emptyToNull(v.notes),
         };
-        if (editing) await expensesApi.update(expense!.expenseId, common);
-        else {
+        if (editing) {
+          // "" removes the tag; leaving it out (a business that doesn't deliver) keeps it.
+          await expensesApi.update(expense!.expenseId, { ...common, ...(delivers ? { riderName: v.riderName.trim() } : {}) });
+        } else {
           await expensesApi.create({
             ...common,
+            riderName: delivers ? emptyToNull(v.riderName) : null,
             expenseDate: v.expenseDate,
             amount: v.amount,
             paymentMethod: v.paymentMethod,
@@ -125,6 +133,11 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: { open: boole
             <Field label="Supplier invoice no." error={e.supplierInvoiceNumber}><Input {...form.register('supplierInvoiceNumber')} /></Field>
             <Field label="eTIMS control no." error={e.etimsControlNumber} hint="From the supplier’s KRA eTIMS invoice."><Input {...form.register('etimsControlNumber')} /></Field>
             <Field label="Receipt link" error={e.receiptUrl} className="sm:col-span-2"><Input type="url" placeholder="https://…" {...form.register('receiptUrl')} /></Field>
+            {delivers && (
+              <Field label="Rider" error={e.riderName} hint="Fuel for a rider: counted against their trips.">
+                <RiderNameInput value={form.watch('riderName')} onChange={(v) => form.setValue('riderName', v, { shouldDirty: true })} placeholder="None" />
+              </Field>
+            )}
             {editing ? (
               (myBranches.length > 1 || !expense!.branchId) && (
                 <Field label="Branch" hint="Fixed once posted.">

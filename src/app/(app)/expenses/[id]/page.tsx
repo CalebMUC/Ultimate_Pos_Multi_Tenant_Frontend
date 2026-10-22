@@ -61,6 +61,7 @@ function ExpenseDetail({ id }: { id: string }) {
                 { label: 'Branch', value: x.branchId ? branchName(x.branchId) : 'Business-wide' },
                 { label: 'Category', value: `${x.categoryCode} · ${x.categoryName}` },
                 { label: 'Supplier / payee', value: x.supplierId ? <Link className="text-primary hover:underline" href={`/suppliers/${x.supplierId}`}>{x.supplierName}</Link> : x.payeeName },
+                ...(x.riderName ? [{ label: 'Rider', value: x.riderName }] : []),
                 { label: 'Supplier invoice no.', value: x.supplierInvoiceNumber },
                 { label: 'eTIMS control no.', value: x.etimsControlNumber ?? <span className="text-warning">Missing</span> },
                 { label: 'Recorded', value: formatDateTime(x.createdAt) },

@@ -72,7 +72,8 @@ const entityRoutes: Record<string, (id: string) => string> = {
   Role: (id) => `/roles/${id}`,
   MpesaTransaction: () => '/mpesa',
   StockTransfer: (id) => `/stock-transfers/${id}`,
-  DeliveryOrder: () => '/deliveries',
+  DeliveryOrder: (id) => `/deliveries?orderId=${encodeURIComponent(id)}`,
+  CashSession: (id) => `/cash-sessions/${id}`,
   Branch: (id) => `/branches/${id}`,
 };
 

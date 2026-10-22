@@ -17,12 +17,13 @@ import { expensesApi } from '@/api/endpoints/other';
 import { ExpenseStatus, labels, type ExpensePaymentMethod } from '@/api/enums';
 import { useApiMutation } from '@/hooks/useApiMutation';
 import { useDebouncedValue } from '@/hooks/useDebounce';
-import { usePermissions, useQueryKey } from '@/hooks/useSessionInfo';
+import { useActiveBusiness, usePermissions, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly } from '@/lib/format';
 import { ExpenseFormDialog } from '@/features/expenses/ExpenseFormDialog';
 import type { ExpenseDto } from '@/api/dto/expenses';
 import { useBranchFilter, useBranchLabels } from '@/features/branches/branches';
 import { withBranchColumn } from '@/features/branches/branchColumn';
+import { RiderNameInput } from '@/features/deliveries/RiderNameInput';
 
 function Expenses() {
   const key = useQueryKey();
@@ -36,6 +37,8 @@ function Expenses() {
   const [status, setStatus] = useState<ExpenseStatus | null>(ExpenseStatus.Posted);
   const [missingEtims, setMissingEtims] = useState(false);
   const [search, setSearch] = useState('');
+  const [rider, setRider] = useState('');
+  const delivers = useActiveBusiness().hasModule('deliveries');
   const [page, setPage] = useState(1);
   // Another branch is another list: start from its first page.
   useEffect(() => setPage(1), [branch.branchId]);
@@ -44,9 +47,10 @@ function Expenses() {
   const [voiding, setVoiding] = useState<ExpenseDto | null>(null);
   const [reason, setReason] = useState('');
   const debounced = useDebouncedValue(search.trim(), 300);
+  const riderName = useDebouncedValue(rider.trim(), 300);
   const params = {
     ...range, page, pageSize, search: debounced || undefined, categoryId: categoryId || undefined, paymentMethod: method ?? undefined,
-    status: status ?? undefined, missingEtims: missingEtims || undefined,
+    status: status ?? undefined, missingEtims: missingEtims || undefined, riderName: (delivers && riderName) || undefined,
   };
   const query = useQuery({ queryKey: key('expenses', { ...params, branchId: branch.branchId }), queryFn: () => expensesApi.list({ ...params, ...branch.scope }), placeholderData: keepPreviousData });
   const voidExpense = useApiMutation((v: { id: string; reason: string }) => expensesApi.void(v.id, v.reason), { invalidate: ['expenses', 'dashboard'], success: 'Expense voided', toastErrors: false });
@@ -64,6 +68,7 @@ function Expenses() {
         <span className="block truncate">
           {row.original.description}
           {(row.original.supplierName || row.original.payeeName) && <span className="block text-xs text-muted-foreground">{row.original.supplierName ?? row.original.payeeName}</span>}
+          {row.original.riderName && <span className="block text-xs text-muted-foreground">Rider: {row.original.riderName}</span>}
           {row.original.status === ExpenseStatus.Voided && row.original.voidReason && <span className="block text-xs text-destructive">Void: {row.original.voidReason}</span>}
         </span>
       ),
@@ -114,6 +119,7 @@ function Expenses() {
             <ExpenseCategorySelect value={categoryId} onChange={(e) => reset(setCategoryId)(e.target.value)} placeholder="All categories" activeOnly={false} className="w-44" aria-label="Category" />
             <EnumSelect map={labels.expensePaymentMethod} value={method} onChange={reset(setMethod)} placeholder="Any method" className="w-36" aria-label="Payment method" />
             <EnumSelect map={labels.expenseStatus} value={status} onChange={reset(setStatus)} placeholder="Any status" className="w-32" aria-label="Status" />
+            {delivers && <div className="w-40"><RiderNameInput value={rider} onChange={reset(setRider)} placeholder="Any rider" aria-label="Rider" /></div>}
             <label className="flex items-center gap-2 text-sm"><Checkbox checked={missingEtims} onCheckedChange={(v) => reset(setMissingEtims)(v === true)} />Missing eTIMS</label>
           </>
         }
@@ -125,6 +131,7 @@ function Expenses() {
             { header: 'Category', value: (x) => x.categoryName },
             { header: 'Description', value: (x) => x.description },
             { header: 'Supplier / payee', value: (x) => x.supplierName ?? x.payeeName },
+            { header: 'Rider', value: (x) => x.riderName },
             { header: 'Paid by', value: (x) => labels.expensePaymentMethod[x.paymentMethod] },
             { header: 'Reference', value: (x) => x.paymentReference },
             { header: 'Invoice no.', value: (x) => x.supplierInvoiceNumber },

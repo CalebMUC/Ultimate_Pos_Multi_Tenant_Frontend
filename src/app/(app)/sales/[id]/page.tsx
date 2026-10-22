@@ -5,15 +5,15 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Ban, Boxes, Printer, RefreshCw, Undo2 } from 'lucide-react';
+import { ArrowLeft, Ban, Bike, Boxes, Printer, RefreshCw, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/primitives';
+import { Badge, Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/primitives';
 import { Can, PermissionRoute } from '@/components/shared/Can';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DetailList, MoneyText, PageHeader, QuantityText, StatusBadge } from '@/components/shared/Display';
 import { ErrorState, LoadingState } from '@/components/shared/States';
 import { salesApi } from '@/api/endpoints/sales';
-import { labels, PaymentMethod, SaleStatus } from '@/api/enums';
+import { DeliveryMode, labels, PaymentMethod, SaleStatus } from '@/api/enums';
 import { useApiMutation } from '@/hooks/useApiMutation';
 import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatDateTime, formatMoney } from '@/lib/format';
@@ -63,7 +63,12 @@ function SaleDetail({ id }: { id: string }) {
   return (
     <>
       <PageHeader
-        title={<span className="flex items-center gap-2">Sale {s.saleNumber} <StatusBadge kind="sale" value={s.status} /></span>}
+        title={(
+          <span className="flex items-center gap-2">
+            Sale {s.saleNumber} <StatusBadge kind="sale" value={s.status} />
+            {s.deliveryMode === DeliveryMode.Rider && <Badge variant="info"><Bike className="size-3" />Rider delivery</Badge>}
+          </span>
+        )}
         description={formatDateTime(s.createdAt)}
         actions={
           <>

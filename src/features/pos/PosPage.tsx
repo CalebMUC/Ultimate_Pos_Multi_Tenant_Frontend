@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  AlertTriangle, Banknote, Boxes, ClipboardList, CornerDownRight, CreditCard, Minus, PauseCircle, Pill, Plus, ScanBarcode, Search, ShoppingCart,
+  AlertTriangle, Banknote, Bike, Boxes, ClipboardList, CornerDownRight, CreditCard, Minus, PauseCircle, Pill, Plus, ScanBarcode, Search, ShoppingCart,
   Smartphone, Trash2, UserPlus, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,25 +16,32 @@ import { MoneyText, ProductFlags } from '@/components/shared/Display';
 import { EmptyState, FormAlert } from '@/components/shared/States';
 import { productsApi } from '@/api/endpoints/catalog';
 import { productBundlesApi } from '@/api/endpoints/bundles';
+import { deliveryOrdersApi } from '@/api/endpoints/deliveries';
 import { isApiError, normaliseError } from '@/api/errors';
-import { ItemType, PaymentMethod, PriceType, SaleStatus, labels } from '@/api/enums';
+import { DeliveryMode, ItemType, PaymentMethod, PriceType, SaleStatus, labels } from '@/api/enums';
 import { useDebouncedValue } from '@/hooks/useDebounce';
 import { useActiveBusiness, usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney, formatQty, todayIso } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { isCartEmpty, useCartStore, type CartBundle } from '@/stores/cart';
+import { emptyDelivery, isCartEmpty, useCartStore, type CartBundle } from '@/stores/cart';
 import { usePreferences, type QuickKey } from '@/stores/preferences';
 import { ContainerToggle, QuickKeys, QuickKeyToggle } from './QuickKeys';
 import { CustomerFormDialog } from '@/features/customers/CustomerFormDialog';
 import type { ProductDetailDto, ProductDto } from '@/api/dto/catalog';
 import type { SaleDto, SalePreviewDto } from '@/api/dto/sales';
 import type { ProductBundleDto } from '@/api/dto/bundles';
+import type { DeliveryOrderDto } from '@/api/dto/deliveries';
 import { ReceiptDialog } from '@/features/sales/Receipt';
+import { DeliveryNoteDialog } from '@/features/deliveries/DeliveryNote';
+import { OpenDayBanner } from '@/features/cashSessions/OpenDayBanner';
 import { addBundleToCart, addProductToCart, patchCart, removeBundle, removeLine, updateBundle, updateLine, useCart } from './cartActions';
 import { bundlePreview, bundlePrice, useActiveBundles } from './bundles';
 import { RefillCounter, type CounterTile } from './RefillCounter';
 import { PaymentDialog } from './PaymentDialog';
 import { useSalePreview } from './usePreview';
+import {
+  DeliveryModeToggle, ExpectedPaymentPicker, isRiderCart, patchDelivery, RiderDeliveryFields, riderBlockers, toDeliveryOrderRequest,
+} from './RiderDelivery';
 
 const METHODS = [
   { value: PaymentMethod.Cash, icon: Banknote },
@@ -54,10 +62,15 @@ export function PosPage() {
   const store = useCartStore.getState();
   const qc = useQueryClient();
   const key = useQueryKey();
+  const router = useRouter();
   const preview = useSalePreview(cart);
   const canDiscount = usePermission('Sales.ApplyDiscount');
   const canDispense = usePermission('Prescriptions.Dispense');
   const canRegisterCustomer = usePermission('Customers.Register');
+  // Delivery by rider: a delivery order, completed when the rider is back. Offered where the business delivers.
+  const canTakeDeliveries = usePermission('DeliveryOrders.Create');
+  const canDeliver = hasModule('deliveries') && canTakeDeliveries;
+  const rider = canDeliver && isRiderCart(cart);
   const quickSale = hasModule('containers');
   const bundlesOn = hasModule('bundles');
   // A refill station (bundles and containers): the counter's tiles replace the quick keys and the container toggle.
@@ -66,6 +79,9 @@ export function PosPage() {
   const [paying, setPaying] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [receipt, setReceipt] = useState<SaleDto | null>(null);
+  const [note, setNote] = useState<DeliveryOrderDto | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<unknown>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const p = preview.data;
@@ -79,7 +95,7 @@ export function PosPage() {
   const needsRx = !!p?.requiresPrescription || cart.lines.some((l) => l.requiresPrescription);
   const rx = cart.prescription;
   const rxComplete = !!(rx.prescriberName?.trim() && rx.patientName?.trim() && rx.prescriptionDate);
-  const creditNeedsCustomer = cart.paymentMethod === PaymentMethod.Credit && !cart.customerId;
+  const creditNeedsCustomer = !rider && cart.paymentMethod === PaymentMethod.Credit && !cart.customerId;
 
   // Batch-tracked stock is never sold beyond unexpired lots; other stock only where the business allows selling below zero.
   // The API enforces both (409 INSUFFICIENT_STOCK); this stops the cashier before charging.
@@ -90,8 +106,9 @@ export function PosPage() {
   if (empty) blockers.push('Add at least one item.');
   if (stockBlocks) blockers.push('Some items are short of stock.');
   if (creditNeedsCustomer) blockers.push('A credit sale needs a customer.');
-  if (needsRx && !canDispense) blockers.push('Only staff allowed to dispense can sell prescription-only items.');
-  if (needsRx && canDispense && !rxComplete) blockers.push('Fill in the prescription: prescriber, patient and date.');
+  if (rider) blockers.push(...riderBlockers(cart, needsRx));
+  if (!rider && needsRx && !canDispense) blockers.push('Only staff allowed to dispense can sell prescription-only items.');
+  if (!rider && needsRx && canDispense && !rxComplete) blockers.push('Fill in the prescription: prescriber, patient and date.');
   const canCharge = previewCurrent && !previewError && blockers.length === 0;
 
   async function addProduct(product: ProductDto | ProductDetailDto, unitId?: string) {
@@ -158,6 +175,50 @@ export function PosPage() {
     setTimeout(() => searchRef.current?.focus(), 50);
   }
 
+  /** Rider mode: no payment is taken. The order holds the stock until the rider is back; then the sale is completed on the board. */
+  async function sendWithRider() {
+    setSendError(null);
+    setSending(true);
+    const withRider = !!cart.delivery?.riderName.trim();
+    try {
+      const order = await deliveryOrdersApi.create(toDeliveryOrderRequest(cart));
+      store.reset(businessId);
+      qc.invalidateQueries({ queryKey: ['delivery-orders'] });
+      qc.invalidateQueries({ queryKey: ['stock'] });
+      qc.invalidateQueries({ queryKey: ['product-bundles'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
+      // A delivery note for the rider, not a receipt: there is no sale yet.
+      if (order.riderName) setNote(order);
+      else setTimeout(() => searchRef.current?.focus(), 50);
+      toast.success(order.riderName ? `${order.orderNumber} is out with ${order.riderName} · not completed` : `${order.orderNumber} is waiting on the Deliveries board`, {
+        action: { label: 'Open', onClick: () => router.push(`/deliveries?orderId=${order.deliveryOrderId}`) },
+      });
+    } catch (e) {
+      const apiError = normaliseError(e);
+      // Stock ran short since the preview: re-price so the cart shows which lines are short. Cart kept.
+      if (apiError.code === 'INSUFFICIENT_STOCK') {
+        void qc.invalidateQueries({ queryKey: ['sale-preview'] });
+        void qc.invalidateQueries({ queryKey: ['stock'] });
+        void qc.invalidateQueries({ queryKey: ['product-bundles'] });
+      }
+      // The trip came back, or is another rider's: start a new one.
+      if (apiError.fieldErrors.deliveryTripId || (apiError.code === 'INVALID_ASSIGNMENT' && cart.delivery?.deliveryTripId)) {
+        patchDelivery(businessId, { deliveryTripId: null });
+        void qc.invalidateQueries({ queryKey: ['delivery-orders'] });
+      }
+      setSendError(apiError.status === 403 && withRider
+        ? new Error('You cannot send orders out with a rider. Leave the rider out: the order waits on the Deliveries board for someone who can dispatch it.')
+        : apiError);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function charge() {
+    if (rider) void sendWithRider();
+    else setPaying(true);
+  }
+
   function abandoned(sale: SaleDto) {
     setPaying(false);
     qc.invalidateQueries({ queryKey: ['sales'] });
@@ -167,33 +228,37 @@ export function PosPage() {
     }
   }
 
-  // F2: search. F9: pay.
+  const chargeRef = useRef(charge);
+  chargeRef.current = charge;
+
+  // F2: search. F9: pay (or send with the rider).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'F2') {
         e.preventDefault();
         searchRef.current?.focus();
       }
-      if (e.key === 'F9' && canCharge && !paying) {
+      if (e.key === 'F9' && canCharge && !paying && !sending) {
         e.preventDefault();
-        setPaying(true);
+        chargeRef.current();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [canCharge, paying]);
+  }, [canCharge, paying, sending]);
 
   return (
     <div className="-m-4 grid min-h-[calc(100vh-3.5rem)] md:-m-6 lg:grid-cols-[1fr_28rem]">
       {/* Products */}
       <section className="flex min-w-0 flex-col gap-3 p-4 md:p-5">
+        <OpenDayBanner />
         {counterLayout ? (
           <RefillCounter
             businessId={businessId}
             priceType={p?.priceType ?? PriceType.Retail}
             bundles={activeBundles.data}
             bundlesLoading={activeBundles.isLoading}
-            keysEnabled={!paying && !registering && !receipt}
+            keysEnabled={!paying && !registering && !receipt && !note}
             onTile={onTile}
           />
         ) : (
@@ -205,7 +270,7 @@ export function PosPage() {
           bundles={bundlesOn ? activeBundles.data ?? [] : null}
           priceType={p?.priceType ?? PriceType.Retail}
           onAddBundle={addBundle}
-          onEmptyEnter={() => canCharge && !paying && setPaying(true)}
+          onEmptyEnter={() => canCharge && !paying && !sending && charge()}
         />
       </section>
 
@@ -217,7 +282,13 @@ export function PosPage() {
               value={cart.customerId}
               selectedLabel={cart.customerName}
               clearable
-              onChange={(id, c) => patchCart(businessId, { customerId: id, customerName: c?.customerName ?? null, overrideCreditLimit: false })}
+              onChange={(id, c) => patchCart(businessId, {
+                customerId: id,
+                customerName: c?.customerName ?? null,
+                overrideCreditLimit: false,
+                // Another customer, another address: refilled from their record.
+                ...(cart.delivery && id !== cart.customerId ? { delivery: { ...cart.delivery, address: c?.physicalAddress ?? '', contactPhone: '' } } : {}),
+              })}
             />
           </div>
           {canRegisterCustomer && (
@@ -358,9 +429,10 @@ export function PosPage() {
             </ul>
           )}
 
-          {needsRx && cart.lines.length > 0 && (
+          {needsRx && cart.lines.length > 0 && !rider && (
             <PrescriptionSection businessId={businessId} canDispense={canDispense} />
           )}
+          {rider && <RiderDeliveryFields businessId={businessId} cart={cart} />}
         </div>
 
         {/* Totals and payment */}
@@ -409,6 +481,18 @@ export function PosPage() {
             {p && <p className="text-right text-xs text-muted-foreground">{labels.priceType[p.priceType]} prices</p>}
           </dl>
 
+          {canDeliver && (
+            <DeliveryModeToggle
+              value={rider ? DeliveryMode.Rider : DeliveryMode.Counter}
+              onChange={(mode) => {
+                setSendError(null);
+                patchCart(businessId, { deliveryMode: mode, delivery: cart.delivery ?? emptyDelivery() });
+              }}
+            />
+          )}
+          {rider ? (
+            <ExpectedPaymentPicker businessId={businessId} value={cart.delivery?.expectedPaymentMethod ?? PaymentMethod.Cash} />
+          ) : (
           <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="Payment method">
             {METHODS.map(({ value, icon: Icon }) => (
               <button
@@ -427,6 +511,7 @@ export function PosPage() {
               </button>
             ))}
           </div>
+          )}
 
           {blockers.length > 0 && !empty && (
             <ul className="space-y-0.5 text-xs text-warning-foreground dark:text-warning">
@@ -434,14 +519,22 @@ export function PosPage() {
             </ul>
           )}
 
-          <Button size="xl" variant="success" className="w-full" disabled={!canCharge} onClick={() => setPaying(true)}>
-            <ShoppingCart />Charge {p && !empty ? formatMoney(p.totalAmount) : ''}
-            <kbd className="ml-auto rounded bg-black/15 px-1.5 text-xs">F9</kbd>
-          </Button>
+          {rider && <FormAlert error={sendError} />}
+          {rider ? (
+            <Button size="xl" variant="success" className="w-full" disabled={!canCharge} loading={sending} onClick={charge}>
+              <Bike />{cart.delivery?.riderName.trim() ? 'Send with rider' : 'Take delivery order'} {p && !empty ? formatMoney(p.totalAmount) : ''}
+              <kbd className="ml-auto rounded bg-black/15 px-1.5 text-xs">F9</kbd>
+            </Button>
+          ) : (
+            <Button size="xl" variant="success" className="w-full" disabled={!canCharge} onClick={charge}>
+              <ShoppingCart />Charge {p && !empty ? formatMoney(p.totalAmount) : ''}
+              <kbd className="ml-auto rounded bg-black/15 px-1.5 text-xs">F9</kbd>
+            </Button>
+          )}
         </div>
       </section>
 
-      {p && (
+      {p && !rider && (
         <PaymentDialog
           open={paying}
           onOpenChange={setPaying}
@@ -457,7 +550,12 @@ export function PosPage() {
         open={registering}
         onOpenChange={setRegistering}
         quick
-        onSaved={(c) => patchCart(businessId, { customerId: c.customerId, customerName: c.customerName, overrideCreditLimit: false })}
+        onSaved={(c) => patchCart(businessId, {
+          customerId: c.customerId,
+          customerName: c.customerName,
+          overrideCreditLimit: false,
+          ...(cart.delivery ? { delivery: { ...cart.delivery, address: c.physicalAddress ?? '', contactPhone: '' } } : {}),
+        })}
       />
       <ReceiptDialog
         sale={receipt}
@@ -465,6 +563,16 @@ export function PosPage() {
         onOpenChange={(o) => !o && setReceipt(null)}
         title={receipt ? `Sale ${receipt.saleNumber} complete` : 'Receipt'}
         actions={<Button variant="outline" onClick={() => setReceipt(null)}>New sale</Button>}
+      />
+      <DeliveryNoteDialog
+        order={note}
+        open={!!note}
+        onOpenChange={(o) => {
+          if (o) return;
+          setNote(null);
+          setTimeout(() => searchRef.current?.focus(), 50);
+        }}
+        actions={<Button variant="outline" onClick={() => setNote(null)}>New sale</Button>}
       />
     </div>
   );

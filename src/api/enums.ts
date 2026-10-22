@@ -4,7 +4,14 @@ export enum TaxClassification { Standard = 0, ZeroRated = 1, Exempt = 2 }
 export enum PriceType { Wholesale = 0, Retail = 1 }
 export enum PurchaseOrderStatus { Draft = 0, Ordered = 1, PartiallyReceived = 2, Received = 3, Cancelled = 4 }
 export enum SaleStatus { Pending = 0, Completed = 1, Voided = 2, Failed = 3 }
-export enum DeliveryOrderStatus { Pending = 0, OutForDelivery = 1, Delivered = 2, Cancelled = 3 }
+/** Returned: the rider brought it back undelivered; the reserved stock is free again. */
+export enum DeliveryOrderStatus { Pending = 0, OutForDelivery = 1, Delivered = 2, Cancelled = 3, Returned = 4 }
+/** How the goods reached the customer. Rider: rung up at the till as a delivery order, a sale only once the rider is back. */
+export enum DeliveryMode { Counter = 0, Rider = 1 }
+/** A till's day: Open from the float being counted in until the cash is counted out. */
+export enum CashSessionStatus { Open = 0, Closed = 1 }
+/** PayIn: cash added (float top-up, a rider handing back change). PayOut: cash taken out (banking, change given to a rider). */
+export enum CashMovementType { PayIn = 0, PayOut = 1 }
 export enum CustomerLedgerEntryType { Invoice = 0, Payment = 1, Reversal = 2, Return = 3 }
 /** MpesaReference: paid by M-Pesa outside the POS (e.g. sent to the business phone); the cashier types the confirmation code. */
 export enum PaymentMethod { Cash = 0, Credit = 1, MpesaTill = 2, MpesaStkPush = 3, MpesaReference = 4 }
@@ -48,8 +55,11 @@ export const labels = {
   saleStatus: { [SaleStatus.Pending]: 'Pending', [SaleStatus.Completed]: 'Completed', [SaleStatus.Voided]: 'Voided', [SaleStatus.Failed]: 'Failed' },
   deliveryOrderStatus: {
     [DeliveryOrderStatus.Pending]: 'Pending', [DeliveryOrderStatus.OutForDelivery]: 'Out for delivery',
-    [DeliveryOrderStatus.Delivered]: 'Delivered', [DeliveryOrderStatus.Cancelled]: 'Cancelled',
+    [DeliveryOrderStatus.Delivered]: 'Delivered', [DeliveryOrderStatus.Cancelled]: 'Cancelled', [DeliveryOrderStatus.Returned]: 'Returned',
   },
+  deliveryMode: { [DeliveryMode.Counter]: 'Counter', [DeliveryMode.Rider]: 'Rider' },
+  cashSessionStatus: { [CashSessionStatus.Open]: 'Open', [CashSessionStatus.Closed]: 'Closed' },
+  cashMovementType: { [CashMovementType.PayIn]: 'Pay in', [CashMovementType.PayOut]: 'Pay out' },
   customerLedgerEntryType: {
     [CustomerLedgerEntryType.Invoice]: 'Invoice', [CustomerLedgerEntryType.Payment]: 'Payment',
     [CustomerLedgerEntryType.Reversal]: 'Reversal', [CustomerLedgerEntryType.Return]: 'Credit note',

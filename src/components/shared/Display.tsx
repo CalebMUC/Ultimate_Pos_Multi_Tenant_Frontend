@@ -24,7 +24,7 @@ const poVariant: Record<PurchaseOrderStatus, BadgeVariant> = {
 };
 const deliveryVariant: Record<DeliveryOrderStatus, BadgeVariant> = {
   [DeliveryOrderStatus.Pending]: 'secondary', [DeliveryOrderStatus.OutForDelivery]: 'info',
-  [DeliveryOrderStatus.Delivered]: 'success', [DeliveryOrderStatus.Cancelled]: 'secondary',
+  [DeliveryOrderStatus.Delivered]: 'success', [DeliveryOrderStatus.Cancelled]: 'secondary', [DeliveryOrderStatus.Returned]: 'warning',
 };
 const expiryVariant: Record<ExpiryStatus, BadgeVariant> = { Expired: 'destructive', NearExpiry: 'warning', Ok: 'success', NoExpiry: 'secondary' };
 

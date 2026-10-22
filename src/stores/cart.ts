@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { PaymentMethod } from '@/api/enums';
+import { DeliveryMode, PaymentMethod } from '@/api/enums';
 import type { Guid } from '@/api/dto/common';
 import type { SalePrescriptionRequestDto } from '@/api/dto/sales';
 
@@ -36,6 +36,21 @@ export interface CartBundle {
   discountPercent: number | null;
 }
 
+/** Delivery by rider, chosen at the till. expectedPaymentMethod guides the rider; it is not a payment. */
+export interface DeliveryDraft {
+  address: string;
+  contactPhone: string;
+  riderName: string;
+  notes: string;
+  expectedPaymentMethod: PaymentMethod;
+  /** A trip still out with the same rider to add this order to; null = a new trip. */
+  deliveryTripId: Guid | null;
+}
+
+export const emptyDelivery = (): DeliveryDraft => ({
+  address: '', contactPhone: '', riderName: '', notes: '', expectedPaymentMethod: PaymentMethod.Cash, deliveryTripId: null,
+});
+
 export type PrescriptionDraft = Partial<Omit<SalePrescriptionRequestDto, 'patientAgeYears'>> & { patientAgeYears?: number | null };
 
 export interface Cart {
@@ -51,6 +66,9 @@ export interface Cart {
   needsContainer?: boolean;
   /** Missing on carts saved before bundles. */
   bundles?: CartBundle[];
+  /** Counter (default): a sale now. Rider: a delivery order, a sale only once the rider is back. */
+  deliveryMode?: DeliveryMode;
+  delivery?: DeliveryDraft;
 }
 
 /** Nothing to sell yet: no line and no bundle. */

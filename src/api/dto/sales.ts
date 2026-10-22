@@ -1,5 +1,5 @@
 // Application/Sales/Dtos/SalesDtos.cs and Application/Payments/Dtos/MpesaDtos.cs
-import type { MpesaTransactionStatus, MpesaTransactionType, PaymentMethod, PriceType, RefundMethod, SaleStatus } from '../enums';
+import type { DeliveryMode, MpesaTransactionStatus, MpesaTransactionType, PaymentMethod, PriceType, RefundMethod, SaleStatus } from '../enums';
 import type { DateOnly, DateTimeString, Guid } from './common';
 
 export interface CreateSaleLineRequestDto {
@@ -155,6 +155,8 @@ export interface SaleDto {
   branchName?: string | null;
   /** Null when the sale has none. */
   bundles?: SaleBundleDto[] | null;
+  /** Rider: completed from a delivery order once the rider was back. Missing on older APIs (= Counter). */
+  deliveryMode?: DeliveryMode;
 }
 
 export interface SaleQuery {
@@ -167,6 +169,7 @@ export interface SaleQuery {
   createdBy?: Guid;
   paymentMethod?: PaymentMethod;
   search?: string;
+  deliveryMode?: DeliveryMode;
 }
 
 export interface CreateSaleReturnLineRequestDto { saleLineId: Guid; quantity: number; restock: boolean }

@@ -40,6 +40,8 @@ export const navigation: NavGroup[] = [
       { label: 'Returns', href: '/sales/returns', permission: 'Sales.View' },
       { label: 'Deliveries', href: '/deliveries', permission: 'DeliveryOrders.View', module: 'deliveries' },
       { label: 'Rider Cash-up', href: '/deliveries/cash-up', permission: 'DeliveryOrders.View', module: 'deliveries' },
+      { label: 'Trips & Fuel', href: '/deliveries/trips', permission: 'DeliveryOrders.View', module: 'deliveries' },
+      { label: 'Cash-up', href: '/cash-sessions', permission: 'CashSessions.View', module: 'cashUp' },
       { label: 'M-Pesa Payments', href: '/mpesa', permission: 'Mpesa.View' },
     ],
   },
