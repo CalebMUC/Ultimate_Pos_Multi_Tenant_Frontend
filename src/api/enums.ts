@@ -12,6 +12,11 @@ export enum DeliveryMode { Counter = 0, Rider = 1 }
 export enum CashSessionStatus { Open = 0, Closed = 1 }
 /** PayIn: cash added (float top-up, a rider handing back change). PayOut: cash taken out (banking, change given to a rider). */
 export enum CashMovementType { PayIn = 0, PayOut = 1 }
+/** How a customer has been buying, against the business's other customers in the same period. Worked out by the API. */
+export enum CustomerSegment { Occasional = 0, New = 1, Regular = 2, Top = 3, Slipping = 4 }
+/** What the numbers point to. The API suggests; the owner decides. */
+export enum CustomerSuggestedAction { None = 0, ConsiderDiscount = 1, WinBack = 2, ReviewDiscount = 3 }
+export enum CustomerInsightsSort { Spend = 0, Purchases = 1, Recent = 2 }
 export enum CustomerLedgerEntryType { Invoice = 0, Payment = 1, Reversal = 2, Return = 3 }
 /** MpesaReference: paid by M-Pesa outside the POS (e.g. sent to the business phone); the cashier types the confirmation code. */
 export enum PaymentMethod { Cash = 0, Credit = 1, MpesaTill = 2, MpesaStkPush = 3, MpesaReference = 4 }
@@ -59,6 +64,15 @@ export const labels = {
   },
   deliveryMode: { [DeliveryMode.Counter]: 'Counter', [DeliveryMode.Rider]: 'Rider' },
   cashSessionStatus: { [CashSessionStatus.Open]: 'Open', [CashSessionStatus.Closed]: 'Closed' },
+  customerSegment: {
+    [CustomerSegment.Top]: 'Top customer', [CustomerSegment.Regular]: 'Regular', [CustomerSegment.Slipping]: 'Slipping away',
+    [CustomerSegment.New]: 'New', [CustomerSegment.Occasional]: 'Occasional',
+  },
+  customerSuggestedAction: {
+    [CustomerSuggestedAction.None]: 'No suggestion', [CustomerSuggestedAction.ConsiderDiscount]: 'Consider a discount',
+    [CustomerSuggestedAction.WinBack]: 'Win back', [CustomerSuggestedAction.ReviewDiscount]: 'Review discount',
+  },
+  customerInsightsSort: { [CustomerInsightsSort.Spend]: 'Spend', [CustomerInsightsSort.Purchases]: 'Purchases', [CustomerInsightsSort.Recent]: 'Recent' },
   cashMovementType: { [CashMovementType.PayIn]: 'Pay in', [CashMovementType.PayOut]: 'Pay out' },
   customerLedgerEntryType: {
     [CustomerLedgerEntryType.Invoice]: 'Invoice', [CustomerLedgerEntryType.Payment]: 'Payment',

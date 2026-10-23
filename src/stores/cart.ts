@@ -56,6 +56,8 @@ export type PrescriptionDraft = Partial<Omit<SalePrescriptionRequestDto, 'patien
 export interface Cart {
   customerId: Guid | null;
   customerName: string | null;
+  /** The customer's standing discount, for the chip only: the API applies it and the preview prices it. */
+  customerDiscountPercent?: number | null;
   lines: CartLine[];
   paymentMethod: PaymentMethod;
   saleDiscountAmount: number | null;

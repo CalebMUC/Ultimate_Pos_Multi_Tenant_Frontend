@@ -5,7 +5,7 @@ export const SYSTEM_EVENT_TYPES = [
   'Branch.Activated', 'Branch.Created', 'Branch.Deactivated', 'Branch.Updated',
   'Business.Closed', 'Business.OwnerAdded', 'Business.ProfileUpdated', 'Business.Reactivated', 'Business.Registered', 'Business.Reopened', 'Business.Suspended',
   'CashSession.Closed', 'CashSession.MovementRecorded', 'CashSession.Opened', 'CashSession.Variance',
-  'Customer.PaymentRecorded',
+  'Customer.DiscountChanged', 'Customer.PaymentRecorded',
   'DeliveryOrder.Cancelled', 'DeliveryOrder.Created', 'DeliveryOrder.Delivered', 'DeliveryOrder.Dispatched', 'DeliveryOrder.Returned',
   'Expense.Voided',
   'License.Cancelled', 'License.Expired', 'License.ExpiringSoon', 'License.Issued',

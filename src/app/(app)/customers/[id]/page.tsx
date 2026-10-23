@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Banknote, Pencil, Scale, Wallet } from 'lucide-react';
+import { ArrowLeft, BadgePercent, Banknote, Pencil, Scale, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/primitives';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
 import { ActivationButton } from '@/components/shared/ActivationButton';
 import { Can, PermissionRoute } from '@/components/shared/Can';
 import { DataTable, type ColumnDef } from '@/components/shared/DataTable';
@@ -19,6 +20,8 @@ import { usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { useApiMutation } from '@/hooks/useApiMutation';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { CustomerFormDialog } from '@/features/customers/CustomerFormDialog';
+import { BuyingTab } from '@/features/customers/BuyingTab';
+import { DiscountBadge, DiscountDialog, type DiscountTarget } from '@/features/customers/insights';
 import type { CustomerLedgerEntryDto } from '@/api/dto/business';
 
 /** Invoices raise the balance; payments, reversals and credit notes lower it. */
@@ -45,6 +48,9 @@ const ledgerColumns: ColumnDef<CustomerLedgerEntryDto, unknown>[] = [
 function CustomerDetail({ id }: { id: string }) {
   const key = useQueryKey();
   const canLedger = usePermission('Customers.ViewLedger');
+  const canInsights = usePermission('Customers.ViewInsights');
+  const tab = useSearchParams().get('tab') === 'buying' && canInsights ? 'buying' : 'account';
+  const [discount, setDiscount] = useState<DiscountTarget | null>(null);
   const customer = useQuery({ queryKey: key('customers', { id }), queryFn: () => customersApi.get(id) });
   const balance = useQuery({ queryKey: key('customers', { id, balance: true }), queryFn: () => customersApi.balance(id), enabled: canLedger });
   const ledger = useQuery({ queryKey: key('customers', { id, ledger: true }), queryFn: () => customersApi.ledger(id), enabled: canLedger });
@@ -64,12 +70,17 @@ function CustomerDetail({ id }: { id: string }) {
   return (
     <>
       <PageHeader
-        title={<span className="flex items-center gap-2">{c.customerName} <StatusBadge kind="active" value={c.isActive} /></span>}
+        title={<span className="flex items-center gap-2">{c.customerName} <StatusBadge kind="active" value={c.isActive} /><DiscountBadge percent={c.discountPercent} long /></span>}
         description={`${labels.priceType[c.priceType]} prices`}
         actions={
           <>
             <Button variant="ghost" asChild><Link href="/customers"><ArrowLeft />Customers</Link></Button>
             <Can permission="Customers.RecordPayment"><Button onClick={() => setPaying(true)}><Banknote />Record payment</Button></Can>
+            <Can permission="Customers.ManageDiscount">
+              <Button variant="outline" onClick={() => setDiscount({ customerId: c.customerId, customerName: c.customerName, discountPercent: c.discountPercent, discountNote: c.discountNote, discountSetAt: c.discountSetAt })}>
+                <BadgePercent />{c.discountPercent ? 'Change discount' : 'Give discount'}
+              </Button>
+            </Can>
             <Can permission="Customers.Update"><Button variant="outline" onClick={() => setEditing(true)}><Pencil />Edit</Button></Can>
             <Can permission="Customers.Deactivate">
               <ActivationButton size="default" isActive={c.isActive} name={c.customerName} activate={() => customersApi.activate(id)} deactivate={() => customersApi.deactivate(id)} invalidate={['customers']} />
@@ -77,58 +88,70 @@ function CustomerDetail({ id }: { id: string }) {
           </>
         }
       />
-      {canLedger && (
-        <div className="mb-4 grid gap-3 sm:grid-cols-3">
-          <StatCard label="Outstanding" value={b ? formatMoney(b.outstandingBalance) : '—'} icon={<Wallet />} tone={b && b.outstandingBalance > 0 ? 'warning' : 'success'} />
-          <StatCard label="Credit limit" value={b ? (b.creditLimit === null ? 'No limit' : formatMoney(b.creditLimit)) : '—'} icon={<Scale />} />
-          <StatCard label="Available credit" value={b ? (b.availableCredit === null ? 'Unlimited' : formatMoney(b.availableCredit)) : '—'} icon={<Banknote />} tone={b?.availableCredit !== null && (b?.availableCredit ?? 1) <= 0 ? 'destructive' : 'default'} />
-        </div>
-      )}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader><CardTitle>Details</CardTitle></CardHeader>
-          <CardContent>
-            <DetailList
-              columns={1}
-              items={[
-                { label: 'Phone', value: c.phoneNumber },
-                { label: 'Email', value: c.email },
-                { label: 'KRA PIN', value: c.kraPin },
-                { label: 'Contact person', value: c.contactPerson },
-                { label: 'Address', value: c.physicalAddress },
-              ]}
-            />
-          </CardContent>
-        </Card>
-        {canLedger && (
-          <div className="lg:col-span-2">
-            <h2 className="mb-2 font-semibold">Statement</h2>
-            <DataTable
-              columns={ledgerColumns}
-              data={ledger.data}
-              isLoading={ledger.isLoading}
-              error={ledger.error}
-              onRetry={() => ledger.refetch()}
-              getRowId={(e) => e.customerLedgerEntryId}
-              emptyTitle="No transactions yet"
-              csv={{
-                fileName: `statement-${c.customerName}`,
-                columns: [
-                  { header: 'Date', value: (e) => e.createdAt },
-                  { header: 'Entry', value: (e) => labels.customerLedgerEntryType[e.entryType] },
-                  { header: 'Reference', value: (e) => e.referenceType },
-                  { header: 'Method', value: (e) => (e.paymentMethod !== null ? labels.settlementMethod[e.paymentMethod] : '') },
-                  { header: 'Payment ref', value: (e) => e.paymentReference },
-                  { header: 'Notes', value: (e) => e.notes },
-                  { header: 'Debit', value: (e) => (debit(e) ? e.amount : '') },
-                  { header: 'Credit', value: (e) => (!debit(e) ? e.amount : '') },
-                ],
-              }}
-            />
-          </div>
+      <Tabs key={tab} defaultValue={tab}>
+        {canInsights && (
+          <TabsList className="mb-3">
+            <TabsTrigger value="account">Account</TabsTrigger>
+            <TabsTrigger value="buying">Buying</TabsTrigger>
+          </TabsList>
         )}
-      </div>
+        {canInsights && <TabsContent value="buying"><BuyingTab customerId={id} onDiscount={setDiscount} /></TabsContent>}
+        <TabsContent value="account">
+          {canLedger && (
+            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+              <StatCard label="Outstanding" value={b ? formatMoney(b.outstandingBalance) : '—'} icon={<Wallet />} tone={b && b.outstandingBalance > 0 ? 'warning' : 'success'} />
+              <StatCard label="Credit limit" value={b ? (b.creditLimit === null ? 'No limit' : formatMoney(b.creditLimit)) : '—'} icon={<Scale />} />
+              <StatCard label="Available credit" value={b ? (b.availableCredit === null ? 'Unlimited' : formatMoney(b.availableCredit)) : '—'} icon={<Banknote />} tone={b?.availableCredit !== null && (b?.availableCredit ?? 1) <= 0 ? 'destructive' : 'default'} />
+            </div>
+          )}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card>
+              <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+              <CardContent>
+                <DetailList
+                  columns={1}
+                  items={[
+                    { label: 'Phone', value: c.phoneNumber },
+                    { label: 'Email', value: c.email },
+                    { label: 'KRA PIN', value: c.kraPin },
+                    { label: 'Contact person', value: c.contactPerson },
+                    { label: 'Address', value: c.physicalAddress },
+                  ]}
+                />
+              </CardContent>
+            </Card>
+            {canLedger && (
+              <div className="lg:col-span-2">
+                <h2 className="mb-2 font-semibold">Statement</h2>
+                <DataTable
+                  columns={ledgerColumns}
+                  data={ledger.data}
+                  isLoading={ledger.isLoading}
+                  error={ledger.error}
+                  onRetry={() => ledger.refetch()}
+                  getRowId={(e) => e.customerLedgerEntryId}
+                  emptyTitle="No transactions yet"
+                  csv={{
+                    fileName: `statement-${c.customerName}`,
+                    columns: [
+                      { header: 'Date', value: (e) => e.createdAt },
+                      { header: 'Entry', value: (e) => labels.customerLedgerEntryType[e.entryType] },
+                      { header: 'Reference', value: (e) => e.referenceType },
+                      { header: 'Method', value: (e) => (e.paymentMethod !== null ? labels.settlementMethod[e.paymentMethod] : '') },
+                      { header: 'Payment ref', value: (e) => e.paymentReference },
+                      { header: 'Notes', value: (e) => e.notes },
+                      { header: 'Debit', value: (e) => (debit(e) ? e.amount : '') },
+                      { header: 'Credit', value: (e) => (!debit(e) ? e.amount : '') },
+                    ],
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
       <CustomerFormDialog open={editing} onOpenChange={setEditing} customer={c} />
+      <DiscountDialog target={discount} open={!!discount} onOpenChange={(o) => !o && setDiscount(null)} />
       <SettlementDialog
         open={paying}
         onOpenChange={setPaying}

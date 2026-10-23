@@ -20,6 +20,7 @@ import { useSession } from '@/stores/session';
 import { BranchFilterSelect } from '@/features/branches/BranchFilterSelect';
 import { useBranchFilter } from '@/features/branches/branches';
 import { TodayPanel } from '@/features/dashboard/TodayPanel';
+import { CustomersPanel } from '@/features/dashboard/CustomersPanel';
 
 const dayLabel = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number);
@@ -107,6 +108,9 @@ function Dashboard() {
               <StatCard label="Production" value={`${d.production.runCount} run(s)`} hint={formatMoney(d.production.totalCost)} icon={<Factory />} />
             )}
           </section>
+
+          {/* Null without Customers.ViewInsights: then the panel is not shown at all. */}
+          {d.customers && <CustomersPanel data={d.customers} />}
 
           {canSalesReport && sales.data && (
             <section className="grid gap-4 lg:grid-cols-3">

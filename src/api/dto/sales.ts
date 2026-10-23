@@ -93,6 +93,9 @@ export interface SalePreviewDto {
   creditLimitExceeded: boolean;
   /** Null when the sale has none. */
   bundles?: SaleBundleDto[] | null;
+  /** The customer's standing discount. Already inside discountTotal and the lines' discountAmount: never subtract it again. */
+  customerDiscountPercent?: number | null;
+  customerDiscountTotal?: number;
 }
 
 export interface SaleLineBatchDto {
@@ -157,6 +160,9 @@ export interface SaleDto {
   bundles?: SaleBundleDto[] | null;
   /** Rider: completed from a delivery order once the rider was back. Missing on older APIs (= Counter). */
   deliveryMode?: DeliveryMode;
+  /** The customer's standing discount on this sale. Already inside discountTotal. */
+  customerDiscountPercent?: number | null;
+  customerDiscountAmount?: number;
 }
 
 export interface SaleQuery {

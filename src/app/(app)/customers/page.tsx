@@ -14,9 +14,14 @@ import { labels } from '@/api/enums';
 import { useQueryKey } from '@/hooks/useSessionInfo';
 import { CustomerFormDialog } from '@/features/customers/CustomerFormDialog';
 import type { CustomerDto } from '@/api/dto/business';
+import { DiscountBadge } from '@/features/customers/insights';
 
 const columns: ColumnDef<CustomerDto, unknown>[] = [
-  { header: 'Name', accessorKey: 'customerName', cell: ({ row }) => <span className="font-medium">{row.original.customerName}</span> },
+  {
+    header: 'Name',
+    accessorKey: 'customerName',
+    cell: ({ row }) => <span className="flex items-center gap-1.5 font-medium">{row.original.customerName}<DiscountBadge percent={row.original.discountPercent} /></span>,
+  },
   { header: 'Phone', accessorKey: 'phoneNumber', cell: ({ row }) => row.original.phoneNumber ?? '—' },
   { header: 'KRA PIN', accessorKey: 'kraPin', cell: ({ row }) => row.original.kraPin ?? '—' },
   { header: 'Price list', accessorKey: 'priceType', cell: ({ row }) => labels.priceType[row.original.priceType] },
@@ -65,6 +70,7 @@ function Customers() {
             { header: 'Contact', value: (c) => c.contactPerson },
             { header: 'Price list', value: (c) => labels.priceType[c.priceType] },
             { header: 'Credit limit', value: (c) => c.creditLimit },
+            { header: 'Discount %', value: (c) => c.discountPercent },
             { header: 'Active', value: (c) => c.isActive },
           ],
         }}

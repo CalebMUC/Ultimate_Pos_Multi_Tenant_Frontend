@@ -1,5 +1,6 @@
 // Application/Reports/Dtos/ReportsDtos.cs and Application/Dashboard/Dtos/DashboardDtos.cs.
 // Report DTOs carry enum-like values (payment method, status, item type) as pre-formatted strings.
+import type { DashboardCustomersDto } from './customerInsights';
 import type { DateOnly, DateTimeString, Guid } from './common';
 
 export interface SalesByDayDto { date: DateOnly; saleCount: number; revenue: number }
@@ -139,4 +140,6 @@ export interface DashboardSummaryDto {
   from: DateOnly; to: DateOnly; sections: string[]; hiddenSections: string[];
   sales: DashboardSalesDto | null; profit: DashboardProfitDto | null; receivables: DashboardReceivablesDto | null;
   stock: DashboardStockDto | null; production: DashboardProductionDto | null;
+  /** The last 90 days up to `to`, whatever the dashboard's dates. Null without Customers.ViewInsights (and on older APIs). */
+  customers?: DashboardCustomersDto | null;
 }

@@ -10,6 +10,7 @@ export const BUSINESS_PERMISSIONS = [
   'Roles.View', 'Roles.Create', 'Roles.Update', 'Roles.Deactivate', 'Roles.AssignPermissions', 'Permissions.View',
   'Businesses.View', 'Businesses.Update',
   'Customers.Register', 'Customers.View', 'Customers.Update', 'Customers.Deactivate', 'Customers.ViewLedger', 'Customers.RecordPayment',
+  'Customers.ViewInsights', 'Customers.ManageDiscount',
   'Categories.View', 'Categories.Create', 'Categories.Update', 'Categories.Deactivate', 'Categories.BulkImport',
   'Units.View', 'Units.Create', 'Units.Update', 'Units.Deactivate',
   'Products.View', 'Products.Create', 'Products.Update', 'Products.Deactivate', 'Products.ManagePricing', 'Products.BulkImport',

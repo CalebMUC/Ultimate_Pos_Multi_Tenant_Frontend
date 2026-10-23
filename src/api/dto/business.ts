@@ -84,7 +84,14 @@ export interface CustomerDto {
   isActive: boolean;
   priceType: PriceType;
   creditLimit: number | null;
+  /** The standing discount, applied by the API to every sale to them. Null = none. Set only through PUT /customers/{id}/discount. */
+  discountPercent?: number | null;
+  discountNote?: string | null;
+  discountSetAt?: DateTimeString | null;
 }
+
+/** Gives or changes (a note is required) the standing discount; null or 0 removes it. Needs Customers.ManageDiscount. */
+export interface SetCustomerDiscountRequestDto { discountPercent: number | null; note: string | null }
 
 export interface CustomerBalanceDto {
   customerId: Guid;

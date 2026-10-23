@@ -9,12 +9,19 @@ const axisTick = { fill: 'hsl(var(--muted-foreground))', fontSize: 11 };
 
 const compact = new Intl.NumberFormat('en-KE', { notation: 'compact', maximumFractionDigits: 1 });
 
-function ChartTooltip({ active, payload, label, format }: { active?: boolean; payload?: { value: number }[]; label?: string; format(v: number): string }) {
+function ChartTooltip({ active, payload, label, format, detail }: {
+  active?: boolean;
+  payload?: { value: number; payload?: unknown }[];
+  label?: string;
+  format(v: number): string;
+  detail?: (row: never) => string;
+}) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-md border bg-popover px-3 py-2 text-xs shadow-md">
       <p className="text-muted-foreground">{label}</p>
       <p className="font-semibold tabular text-foreground">{format(payload[0].value)}</p>
+      {detail && <p className="tabular text-muted-foreground">{detail(payload[0].payload as never)}</p>}
     </div>
   );
 }
@@ -30,9 +37,11 @@ interface BarProps<T> {
   /** Horizontal bars for long category names (products, customers). */
   horizontal?: boolean;
   ariaLabel: string;
+  /** A second fact about the bar for the tooltip (a count beside a total), so it never needs a second axis. */
+  detail?: (row: T) => string;
 }
 
-export function SimpleBarChart<T>({ data, x, y, xFormat, valueFormat = (v) => formatMoney(v), height = 260, horizontal, ariaLabel }: BarProps<T>) {
+export function SimpleBarChart<T>({ data, x, y, xFormat, valueFormat = (v) => formatMoney(v), height = 260, horizontal, ariaLabel, detail }: BarProps<T>) {
   const chartHeight = horizontal ? Math.max(height, data.length * 32 + 24) : height;
   return (
     <div role="img" aria-label={ariaLabel} style={{ height: chartHeight }}>
@@ -53,7 +62,13 @@ export function SimpleBarChart<T>({ data, x, y, xFormat, valueFormat = (v) => fo
           <Tooltip
             cursor={{ fill: 'hsl(var(--muted))', opacity: 0.6 }}
             content={({ active, payload, label }) => (
-              <ChartTooltip active={active} payload={payload as { value: number }[] | undefined} label={xFormat && !horizontal ? xFormat(String(label)) : String(label)} format={valueFormat} />
+              <ChartTooltip
+                active={active}
+                payload={payload as { value: number; payload?: unknown }[] | undefined}
+                label={xFormat && !horizontal ? xFormat(String(label)) : String(label)}
+                format={valueFormat}
+                detail={detail as ((row: never) => string) | undefined}
+              />
             )}
           />
           <Bar dataKey={y} fill="var(--chart-1)" radius={horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]} maxBarSize={horizontal ? 22 : 36} />
@@ -81,5 +96,34 @@ export function ShareList({ items }: { items: { label: string; value: number; pe
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * A part-to-whole split of two or three amounts in one bar: the first part in the series hue, the rest neutral, with a 2px surface gap
+ * between them. Every part is labelled with its value, so it reads without colour. The widths are geometry only; the amounts are the API's.
+ */
+export function SplitBar({ parts, ariaLabel }: { parts: { label: string; value: number; hint?: string }[]; ariaLabel: string }) {
+  const total = parts.reduce((a, p) => a + Math.max(0, p.value), 0);
+  const fills = ['var(--chart-1)', 'hsl(var(--muted-foreground) / 0.35)', 'hsl(var(--muted-foreground) / 0.18)'];
+  return (
+    <div className="space-y-2">
+      <div role="img" aria-label={ariaLabel} className="flex h-3 gap-0.5 overflow-hidden rounded bg-muted">
+        {total > 0 && parts.map((p, i) => (
+          p.value > 0 && <div key={p.label} title={`${p.label}: ${formatMoney(p.value)}`} className="h-full first:rounded-l last:rounded-r" style={{ width: `${(p.value / total) * 100}%`, background: fills[i] }} />
+        ))}
+      </div>
+      <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+        {parts.map((p, i) => (
+          <li key={p.label} className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-sm" style={{ background: fills[i] }} aria-hidden />
+            <span className="text-muted-foreground">{p.label}</span>
+            <span className="font-semibold tabular">{formatMoney(p.value)}</span>
+            {total > 0 && <span className="text-xs text-muted-foreground tabular">{Math.round((p.value / total) * 100)}%</span>}
+            {p.hint && <span className="text-xs text-muted-foreground">{p.hint}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

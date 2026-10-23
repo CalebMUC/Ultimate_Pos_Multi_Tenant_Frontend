@@ -7,7 +7,7 @@ import { labels, PaymentMethod, SaleStatus } from '@/api/enums';
 import { formatDateOnly, formatDateTime, formatMoney, formatQty } from '@/lib/format';
 import { usePreferences, type ReceiptPaper } from '@/stores/preferences';
 import { useSession } from '@/stores/session';
-import { cn } from '@/lib/utils';
+import { cn, round2 } from '@/lib/utils';
 import type { SaleDto } from '@/api/dto/sales';
 
 /** A printable receipt. Prices, VAT and totals are the API's, never recomputed. */
@@ -80,7 +80,13 @@ export function Receipt({ sale, paper }: { sale: SaleDto; paper: ReceiptPaper })
       <div className="my-2 border-t border-dashed border-black" />
       <div className="space-y-0.5">
         <Row label="Subtotal" value={formatMoney(sale.subtotal)} />
-        {sale.discountTotal > 0 && <Row label="Discount" value={`−${formatMoney(sale.discountTotal)}`} />}
+        {/* The customer's standing discount is part of discountTotal: its own line, the rest as "Discount". */}
+        {(sale.customerDiscountAmount ?? 0) > 0 && (
+          <Row label={`Customer discount${sale.customerDiscountPercent ? ` (${sale.customerDiscountPercent}%)` : ''}`} value={`−${formatMoney(sale.customerDiscountAmount)}`} />
+        )}
+        {round2(sale.discountTotal - (sale.customerDiscountAmount ?? 0)) > 0 && (
+          <Row label="Discount" value={`−${formatMoney(round2(sale.discountTotal - (sale.customerDiscountAmount ?? 0)))}`} />
+        )}
         {business?.isVatRegistered && <Row label="VAT (incl.)" value={formatMoney(sale.taxTotal)} />}
         <Row label="TOTAL" value={formatMoney(sale.totalAmount)} bold />
         <Row label="Paid by" value={labels.paymentMethod[sale.paymentMethod]} />

@@ -22,11 +22,12 @@ import { DeliveryMode, ItemType, PaymentMethod, PriceType, SaleStatus, labels } 
 import { useDebouncedValue } from '@/hooks/useDebounce';
 import { useActiveBusiness, usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney, formatQty, todayIso } from '@/lib/format';
-import { cn } from '@/lib/utils';
+import { cn, round2 } from '@/lib/utils';
 import { emptyDelivery, isCartEmpty, useCartStore, type CartBundle } from '@/stores/cart';
 import { usePreferences, type QuickKey } from '@/stores/preferences';
 import { ContainerToggle, QuickKeys, QuickKeyToggle } from './QuickKeys';
 import { CustomerFormDialog } from '@/features/customers/CustomerFormDialog';
+import { DiscountBadge } from '@/features/customers/insights';
 import type { ProductDetailDto, ProductDto } from '@/api/dto/catalog';
 import type { SaleDto, SalePreviewDto } from '@/api/dto/sales';
 import type { ProductBundleDto } from '@/api/dto/bundles';
@@ -92,6 +93,10 @@ export function PosPage() {
   const previewCurrent = !!p && !preview.isPlaceholderData && !preview.isFetching
     && plainLines.length === cart.lines.length && (p.bundles?.length ?? 0) === (cart.bundles?.length ?? 0);
   const previewError = preview.error ? normaliseError(preview.error) : null;
+  const customerDiscountTotal = p?.customerDiscountTotal ?? 0;
+  const typedDiscount = p ? round2(p.discountTotal - customerDiscountTotal) : 0;
+  // The preview's rate once it has priced this customer; until then the one the customer came with.
+  const customerDiscount = cart.customerId ? (p && p.customerId === cart.customerId ? p.customerDiscountPercent : cart.customerDiscountPercent) : null;
   const needsRx = !!p?.requiresPrescription || cart.lines.some((l) => l.requiresPrescription);
   const rx = cart.prescription;
   const rxComplete = !!(rx.prescriberName?.trim() && rx.patientName?.trim() && rx.prescriptionDate);
@@ -285,6 +290,7 @@ export function PosPage() {
               onChange={(id, c) => patchCart(businessId, {
                 customerId: id,
                 customerName: c?.customerName ?? null,
+                customerDiscountPercent: c?.discountPercent ?? null,
                 overrideCreditLimit: false,
                 // Another customer, another address: refilled from their record.
                 ...(cart.delivery && id !== cart.customerId ? { delivery: { ...cart.delivery, address: c?.physicalAddress ?? '', contactPhone: '' } } : {}),
@@ -310,6 +316,11 @@ export function PosPage() {
             <Trash2 />
           </Button>
         </div>
+        {customerDiscount ? (
+          <div className="flex items-center gap-2 border-b px-3 py-1.5 text-xs text-muted-foreground">
+            <DiscountBadge percent={customerDiscount} long />Applied automatically to this customer.
+          </div>
+        ) : null}
 
         <div className="flex-1 overflow-y-auto">
           {empty ? (
@@ -468,8 +479,15 @@ export function PosPage() {
           )}
           <dl className="space-y-1 text-sm">
             <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd className="tabular">{p ? formatMoney(p.subtotal) : '—'}</dd></div>
-            {p && p.discountTotal > 0 && (
-              <div className="flex justify-between text-success"><dt>Discount</dt><dd className="tabular">−{formatMoney(p.discountTotal)}</dd></div>
+            {/* The customer's standing discount is already inside discountTotal: shown as its own line, never taken off again. */}
+            {p && customerDiscountTotal > 0 && (
+              <div className="flex justify-between text-success">
+                <dt>Customer discount{p.customerDiscountPercent ? ` (${p.customerDiscountPercent}%)` : ''}</dt>
+                <dd className="tabular">−{formatMoney(customerDiscountTotal)}</dd>
+              </div>
+            )}
+            {p && typedDiscount > 0 && (
+              <div className="flex justify-between text-success"><dt>Discount</dt><dd className="tabular">−{formatMoney(typedDiscount)}</dd></div>
             )}
             {business?.isVatRegistered && (
               <div className="flex justify-between"><dt className="text-muted-foreground">VAT (included)</dt><dd className="tabular">{p ? formatMoney(p.taxTotal) : '—'}</dd></div>
@@ -553,6 +571,7 @@ export function PosPage() {
         onSaved={(c) => patchCart(businessId, {
           customerId: c.customerId,
           customerName: c.customerName,
+          customerDiscountPercent: c.discountPercent ?? null,
           overrideCreditLimit: false,
           ...(cart.delivery ? { delivery: { ...cart.delivery, address: c.physicalAddress ?? '', contactPhone: '' } } : {}),
         })}

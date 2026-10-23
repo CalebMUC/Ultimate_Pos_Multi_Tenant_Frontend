@@ -59,6 +59,7 @@ export const navigation: NavGroup[] = [
     icon: Users,
     items: [
       { label: 'Customers', href: '/customers', permission: 'Customers.View' },
+      { label: 'Buying Insights', href: '/customers/insights', permission: 'Customers.ViewInsights' },
       { label: 'Receivables', href: '/reports/customer-aging', permission: 'CustomerReports.View' },
     ],
   },
