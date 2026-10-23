@@ -18,6 +18,7 @@ import { useApiMutation } from '@/hooks/useApiMutation';
 import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateOnly, formatDateTime, formatMoney } from '@/lib/format';
 import { round2 } from '@/lib/utils';
+import { customerDiscountLabel } from '@/features/sales/customerDiscount';
 import { ReceiptDialog } from '@/features/sales/Receipt';
 import { ReturnDialog } from '@/features/sales/ReturnDialog';
 import { WithActivityTab } from '@/features/audit/WithActivityTab';
@@ -139,7 +140,7 @@ function SaleDetail({ id }: { id: string }) {
                   { label: 'Cashier', value: s.createdByName },
                   { label: 'Subtotal', value: formatMoney(s.subtotal) },
                   ...((s.customerDiscountAmount ?? 0) > 0
-                    ? [{ label: `Customer discount${s.customerDiscountPercent ? ` (${s.customerDiscountPercent}%)` : ''}`, value: formatMoney(s.customerDiscountAmount) }]
+                    ? [{ label: customerDiscountLabel(s.customerDiscountSource, s.customerDiscountPercent), value: formatMoney(s.customerDiscountAmount) }]
                     : []),
                   { label: (s.customerDiscountAmount ?? 0) > 0 ? 'Other discount' : 'Discount', value: formatMoney(round2(s.discountTotal - (s.customerDiscountAmount ?? 0))) },
                   { label: 'VAT (included)', value: formatMoney(s.taxTotal) },

@@ -17,6 +17,10 @@ export enum CustomerSegment { Occasional = 0, New = 1, Regular = 2, Top = 3, Sli
 /** What the numbers point to. The API suggests; the owner decides. */
 export enum CustomerSuggestedAction { None = 0, ConsiderDiscount = 1, WinBack = 2, ReviewDiscount = 3 }
 export enum CustomerInsightsSort { Spend = 0, Purchases = 1, Recent = 2 }
+/** The monthly-spend reward: every later purchase that month, or only the first one after reaching the threshold. */
+export enum MonthlyDiscountScope { RestOfMonth = 0, NextPurchaseOnly = 1 }
+/** Where a sale's customer discount came from: the customer's own standing discount, or the monthly-spend reward. */
+export enum CustomerDiscountSource { Standing = 0, MonthlySpend = 1 }
 export enum CustomerLedgerEntryType { Invoice = 0, Payment = 1, Reversal = 2, Return = 3 }
 /** MpesaReference: paid by M-Pesa outside the POS (e.g. sent to the business phone); the cashier types the confirmation code. */
 export enum PaymentMethod { Cash = 0, Credit = 1, MpesaTill = 2, MpesaStkPush = 3, MpesaReference = 4 }
@@ -73,6 +77,9 @@ export const labels = {
     [CustomerSuggestedAction.WinBack]: 'Win back', [CustomerSuggestedAction.ReviewDiscount]: 'Review discount',
   },
   customerInsightsSort: { [CustomerInsightsSort.Spend]: 'Spend', [CustomerInsightsSort.Purchases]: 'Purchases', [CustomerInsightsSort.Recent]: 'Recent' },
+  monthlyDiscountScope: {
+    [MonthlyDiscountScope.RestOfMonth]: 'Every purchase for the rest of the month', [MonthlyDiscountScope.NextPurchaseOnly]: 'Only the next purchase',
+  },
   cashMovementType: { [CashMovementType.PayIn]: 'Pay in', [CashMovementType.PayOut]: 'Pay out' },
   customerLedgerEntryType: {
     [CustomerLedgerEntryType.Invoice]: 'Invoice', [CustomerLedgerEntryType.Payment]: 'Payment',

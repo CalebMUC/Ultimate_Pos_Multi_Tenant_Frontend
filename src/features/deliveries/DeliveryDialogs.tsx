@@ -19,6 +19,7 @@ import { bundlePreview } from '@/features/pos/bundles';
 import type { CartBundle, CartLine } from '@/stores/cart';
 import type { DeliveryOrderDto, DeliveryOrderLineDto } from '@/api/dto/deliveries';
 import { useLinesPreview } from './useLinesPreview';
+import { customerDiscountLabel, MonthlyRewardProgress } from '@/features/sales/customerDiscount';
 import { RiderNameInput } from './RiderNameInput';
 
 /** Everything a delivery changes: the order, its sale, stock (reservation and issue), the customer's account, till payments and the drawer. */
@@ -390,6 +391,17 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
           <span className="text-sm text-muted-foreground">{edited ? 'Total for what was handed over' : 'Total'}</span>
           <span className={cn('text-2xl font-bold tabular', !previewCurrent && 'opacity-60')}>{total === null ? '—' : formatMoney(total)}</span>
         </div>
+        {/* Priced again now: a customer discount or the monthly reward can differ from when the order was taken. */}
+        {p && (p.customerDiscountTotal ?? 0) > 0 && (
+          <p className="flex justify-between text-sm text-success">
+            <span>{customerDiscountLabel(p.customerDiscountSource, p.customerDiscountPercent)}</span>
+            <span className="tabular">−{formatMoney(p.customerDiscountTotal)}</span>
+          </p>
+        )}
+        {p?.customerMonth && <MonthlyRewardProgress month={p.customerMonth} />}
+        {previewCurrent && total !== null && total !== order.estimatedTotal && !edited && (
+          <p className="text-xs text-muted-foreground">The order was estimated at {formatMoney(order.estimatedTotal)}; this is the price now.</p>
+        )}
         {preview.error && <FormAlert error={preview.error} />}
 
         <div className={cn('grid gap-1.5', methods.length === 4 ? 'grid-cols-4' : 'grid-cols-3')} role="radiogroup" aria-label="Payment">

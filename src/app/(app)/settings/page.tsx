@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label
 import { Switch } from '@/components/ui/overlays';
 import { PageHeader } from '@/components/shared/Display';
 import { getStorageMode, tokenStorage, type RefreshTokenStorageMode } from '@/api/tokenStorage';
+import { MonthlyRewardCard } from '@/features/admin/MonthlyRewardCard';
 import { usePreferences, type ReceiptPaper, type ScannerSuffix, type Theme } from '@/stores/preferences';
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -26,7 +27,7 @@ export default function SettingsPage() {
   const [quick, setQuick] = useState(p.quickCashAmounts.join(', '));
   return (
     <>
-      <PageHeader title="Settings" description="Preferences for this device and browser." />
+      <PageHeader title="Settings" description="Preferences for this device and browser, and the business’s discounts." />
       <div className="grid max-w-3xl gap-4">
         <Can permission="Businesses.View">
           <Link href="/settings/license" className="flex items-center gap-3 rounded-lg border bg-card p-4 shadow-sm transition-colors hover:border-primary">
@@ -34,6 +35,10 @@ export default function SettingsPage() {
             <span className="flex-1"><span className="block font-medium">Licence</span><span className="text-sm text-muted-foreground">Status, end date, user limit and history.</span></span>
             <ChevronRight className="size-4 text-muted-foreground" />
           </Link>
+        </Can>
+        <Can permission="Businesses.Update">
+          <h2 className="-mb-2 text-sm font-semibold text-muted-foreground">Discounts</h2>
+          <MonthlyRewardCard />
         </Can>
         <Card>
           <CardHeader><CardTitle>Appearance</CardTitle></CardHeader>

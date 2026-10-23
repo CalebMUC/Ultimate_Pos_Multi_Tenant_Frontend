@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { PriceType } from '@/api/enums';
+import { CustomerDiscountSource, MonthlyDiscountScope, PriceType } from '@/api/enums';
 import { formatMoney } from '@/lib/format';
 import { emptyCart, useCartStore } from '@/stores/cart';
 import { API, BUSINESS_ID, ok, paged, renderWithProviders, signIn } from '@/test/render';
@@ -27,6 +27,18 @@ function previewOf(body: CreateSaleRequestDto): SalePreviewDto {
   return {
     customerId: body.customerId, priceType: PriceType.Retail, totalAmount: 380, allStockSufficient: true, lines, subtotal: 400, discountTotal: 20, taxTotal: 0,
     requiresPrescription: false, customerBalance: 0, creditLimit: null, creditLimitExceeded: false, customerDiscountPercent: 5, customerDiscountTotal: 20,
+  };
+}
+
+/** The monthly-reward variants: the totals here are the API's and deliberately not re-derivable from the lines. */
+function monthlyPreview(body: CreateSaleRequestDto, qualifies: boolean): SalePreviewDto {
+  return {
+    ...previewOf(body), totalAmount: 160, discountTotal: qualifies ? 40 : 0, customerDiscountPercent: qualifies ? 20 : null,
+    customerDiscountTotal: qualifies ? 40 : 0, customerDiscountSource: qualifies ? CustomerDiscountSource.MonthlySpend : null,
+    customerMonth: {
+      month: '2026-10', spent: qualifies ? 4200 : 3800, threshold: 4000, percent: 20, scope: MonthlyDiscountScope.RestOfMonth,
+      remainingToThreshold: qualifies ? 0 : 200, qualifies,
+    },
   };
 }
 
@@ -73,5 +85,40 @@ describe('POS customer discount', () => {
     // Nothing typed: the request carries no discount of its own (the API applies the customer's).
     expect(sent!.discountAmount).toBeNull();
     expect(sent!.lines[0]).toMatchObject({ discountAmount: null, discountPercent: null });
+  });
+
+  const setCart = () => useCartStore.setState({
+    carts: {
+      [BUSINESS_ID]: {
+        ...emptyCart(), customerId: 'c1', customerName: 'Mama Wanjiru',
+        lines: [{ key: 'k1', productId: 'water', productName: 'Water (refill)', sku: 'WTR', unitOfMeasureId: '20L', quantity: 1, discountAmount: null,
+          discountPercent: null, isBatchTracked: false, requiresPrescription: false, units: [{ unitOfMeasureId: '20L', symbol: '20L' }] }],
+      },
+    },
+    held: {},
+  });
+
+  it('shows the month’s progress and no reward until the customer qualifies', async () => {
+    server.use(http.post(`${API}/sales/preview`, async ({ request }) => HttpResponse.json(ok(monthlyPreview((await request.json()) as CreateSaleRequestDto, false)))));
+    signIn(['Sales.Create', 'Sales.View']);
+    setCart();
+    renderWithProviders(<PosPage />);
+    expect(await screen.findByText((_, el) => el?.tagName === 'P' && !!el.textContent?.includes(`${formatMoney(200)} to unlock 20% off`))).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Spent this month' })).toHaveAttribute('aria-valuenow', '3800');
+    expect(screen.queryByText(/monthly reward applied/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Monthly reward \(/)).not.toBeInTheDocument();
+  });
+
+  it('labels the line as the monthly reward with the API’s amount once it applies', async () => {
+    server.use(http.post(`${API}/sales/preview`, async ({ request }) => HttpResponse.json(ok(monthlyPreview((await request.json()) as CreateSaleRequestDto, true)))));
+    signIn(['Sales.Create', 'Sales.View']);
+    setCart();
+    renderWithProviders(<PosPage />);
+    expect(await screen.findByText('20% monthly reward applied')).toBeInTheDocument();
+    expect(screen.getByText('Monthly reward (20%)')).toBeInTheDocument();
+    expect(screen.getByText(`−${formatMoney(40)}`)).toBeInTheDocument();
+    expect(screen.queryByText(/Customer discount/)).not.toBeInTheDocument();
+    // The total is the API's 160, not anything the lines would add up to.
+    expect(screen.getByRole('button', { name: /Charge/ })).toHaveTextContent(formatMoney(160));
   });
 });

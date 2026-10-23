@@ -9,6 +9,7 @@ import { usePreferences, type ReceiptPaper } from '@/stores/preferences';
 import { useSession } from '@/stores/session';
 import { cn, round2 } from '@/lib/utils';
 import type { SaleDto } from '@/api/dto/sales';
+import { customerDiscountLabel } from './customerDiscount';
 
 /** A printable receipt. Prices, VAT and totals are the API's, never recomputed. */
 export function Receipt({ sale, paper }: { sale: SaleDto; paper: ReceiptPaper }) {
@@ -82,7 +83,7 @@ export function Receipt({ sale, paper }: { sale: SaleDto; paper: ReceiptPaper })
         <Row label="Subtotal" value={formatMoney(sale.subtotal)} />
         {/* The customer's standing discount is part of discountTotal: its own line, the rest as "Discount". */}
         {(sale.customerDiscountAmount ?? 0) > 0 && (
-          <Row label={`Customer discount${sale.customerDiscountPercent ? ` (${sale.customerDiscountPercent}%)` : ''}`} value={`−${formatMoney(sale.customerDiscountAmount)}`} />
+          <Row label={customerDiscountLabel(sale.customerDiscountSource, sale.customerDiscountPercent)} value={`−${formatMoney(sale.customerDiscountAmount)}`} />
         )}
         {round2(sale.discountTotal - (sale.customerDiscountAmount ?? 0)) > 0 && (
           <Row label="Discount" value={`−${formatMoney(round2(sale.discountTotal - (sale.customerDiscountAmount ?? 0)))}`} />

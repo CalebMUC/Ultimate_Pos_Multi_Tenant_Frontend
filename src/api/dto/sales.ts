@@ -1,5 +1,5 @@
 // Application/Sales/Dtos/SalesDtos.cs and Application/Payments/Dtos/MpesaDtos.cs
-import type { DeliveryMode, MpesaTransactionStatus, MpesaTransactionType, PaymentMethod, PriceType, RefundMethod, SaleStatus } from '../enums';
+import type { CustomerDiscountSource, DeliveryMode, MonthlyDiscountScope, MpesaTransactionStatus, MpesaTransactionType, PaymentMethod, PriceType, RefundMethod, SaleStatus } from '../enums';
 import type { DateOnly, DateTimeString, Guid } from './common';
 
 export interface CreateSaleLineRequestDto {
@@ -96,6 +96,24 @@ export interface SalePreviewDto {
   /** The customer's standing discount. Already inside discountTotal and the lines' discountAmount: never subtract it again. */
   customerDiscountPercent?: number | null;
   customerDiscountTotal?: number;
+  /** Which discount customerDiscountTotal is: the standing one or the monthly reward (the larger of the two, never both). */
+  customerDiscountSource?: CustomerDiscountSource | null;
+  /** The customer's month against the reward. Null for walk-ins or when the business has no reward. */
+  customerMonth?: CustomerMonthlySpendDto | null;
+}
+
+/**
+ * A registered customer's calendar month (East Africa Time, every branch) against the monthly-spend reward. spent is before this sale;
+ * qualifies: this sale gets the reward. Worked out by the API only.
+ */
+export interface CustomerMonthlySpendDto {
+  month: string;
+  spent: number;
+  threshold: number;
+  percent: number;
+  scope: MonthlyDiscountScope;
+  remainingToThreshold: number;
+  qualifies: boolean;
 }
 
 export interface SaleLineBatchDto {
@@ -163,6 +181,7 @@ export interface SaleDto {
   /** The customer's standing discount on this sale. Already inside discountTotal. */
   customerDiscountPercent?: number | null;
   customerDiscountAmount?: number;
+  customerDiscountSource?: CustomerDiscountSource | null;
 }
 
 export interface SaleQuery {

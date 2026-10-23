@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { PaymentMethod, SaleStatus } from '@/api/enums';
+import { CustomerDiscountSource, PaymentMethod, SaleStatus } from '@/api/enums';
+import { formatMoney } from '@/lib/format';
 import type { SaleDto, SaleLineDto } from '@/api/dto/sales';
 import { Receipt } from './Receipt';
 
@@ -27,5 +28,18 @@ describe('receipt', () => {
     expect(rows[1]).toHaveTextContent('20L Heavy-duty bottle + water');
     expect(rows[1]).toHaveTextContent('1,500.00');
     expect(screen.queryByText('20L Heavy-duty bottle')).not.toBeInTheDocument();
+  });
+
+  it('labels the customer discount by where it came from', () => {
+    const discounted = { ...sale, discountTotal: 340, customerDiscountPercent: 20, customerDiscountAmount: 340 };
+    const { rerender } = render(<Receipt sale={{ ...discounted, customerDiscountSource: CustomerDiscountSource.MonthlySpend }} paper="80mm" />);
+    expect(screen.getByText('Monthly reward (20%)')).toBeInTheDocument();
+    expect(screen.getByText(`−${formatMoney(340)}`)).toBeInTheDocument();
+    // All of discountTotal is the customer's: no second "Discount" line.
+    expect(screen.queryByText('Discount')).not.toBeInTheDocument();
+
+    rerender(<Receipt sale={{ ...discounted, customerDiscountPercent: 10, customerDiscountSource: CustomerDiscountSource.Standing }} paper="80mm" />);
+    expect(screen.getByText('Customer discount (10%)')).toBeInTheDocument();
+    expect(screen.queryByText(/Monthly reward/)).not.toBeInTheDocument();
   });
 });

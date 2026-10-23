@@ -1,6 +1,7 @@
 // Application/Customers/CustomerInsights.cs
 import type { CustomerInsightsSort, CustomerSegment, CustomerSuggestedAction, PaymentMethod } from '../enums';
 import type { DateOnly, DateTimeString, Guid } from './common';
+import type { CustomerMonthlySpendDto } from './sales';
 
 /** One customer's buying in a period, ranked against the business's other customers by the API. */
 export interface CustomerBuyingSummaryDto {
@@ -58,6 +59,8 @@ export interface CustomerInsightsDto {
   typicalDaysBetweenPurchases: number | null;
   /** Plain sentences behind the segment and suggestion. */
   reasons: string[];
+  /** This calendar month against the monthly-spend reward; null when the business has none. */
+  thisMonth?: CustomerMonthlySpendDto | null;
 }
 
 /** from/to: local days. Left out: the last 90 days. */

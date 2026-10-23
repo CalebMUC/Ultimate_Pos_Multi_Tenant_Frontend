@@ -1,5 +1,5 @@
 // Application/Business/Dtos/BusinessDtos.cs and Application/Accounting/Dtos/AccountingDtos.cs
-import type { BusinessKind, BusinessSector, BusinessType, CustomerLedgerEntryType, PriceType, SettlementMethod, SupplierLedgerEntryType } from '../enums';
+import type { BusinessKind, BusinessSector, BusinessType, CustomerLedgerEntryType, MonthlyDiscountScope, PriceType, SettlementMethod, SupplierLedgerEntryType } from '../enums';
 import type { DateOnly, DateTimeString, Guid } from './common';
 import type { BusinessAccessDto, BusinessLicenseDto, BusinessOwnerRequestDto } from './platform';
 
@@ -22,6 +22,10 @@ interface BusinessProfileFields {
   mpesaTillNumber?: string | null;
   mpesaPaybillNumber?: string | null;
   maxDiscountPercent: number | null;
+  /** The monthly-spend reward: both null = off. Applied by the API; the cashier's cap does not limit it. Missing on older APIs. */
+  monthlyDiscountThreshold?: number | null;
+  monthlyDiscountPercent?: number | null;
+  monthlyDiscountScope?: MonthlyDiscountScope;
   /** False: a sale needing more stock than is held is refused (409 INSUFFICIENT_STOCK). Null on update keeps the current value. */
   allowNegativeStock?: boolean | null;
 }
@@ -89,6 +93,9 @@ export interface CustomerDto {
   discountNote?: string | null;
   discountSetAt?: DateTimeString | null;
 }
+
+/** Both values, or both null (off). Needs Businesses.Update. */
+export interface UpdateMonthlyDiscountRequestDto { threshold: number | null; percent: number | null; scope: MonthlyDiscountScope }
 
 /** Gives or changes (a note is required) the standing discount; null or 0 removes it. Needs Customers.ManageDiscount. */
 export interface SetCustomerDiscountRequestDto { discountPercent: number | null; note: string | null }

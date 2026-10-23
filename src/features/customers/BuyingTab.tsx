@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Lightbulb } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui/primitives';
+import { Alert, AlertDescription, AlertTitle, Badge, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui/primitives';
 import { SimpleBarChart } from '@/components/shared/Charts';
 import { DateRangeFilter, type DateRangeValue } from '@/components/shared/DateRange';
 import { DetailList, MoneyText, StatCard } from '@/components/shared/Display';
@@ -14,6 +14,8 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { addDays, formatDateTime, formatMoney, formatQty, todayIso } from '@/lib/format';
 import { daysAgo, DiscountBadge, everyDays, SegmentChip, suggestionText, SuggestionAction, type DiscountTarget } from './insights';
 import type { CustomerInsightsDto } from '@/api/dto/customerInsights';
+import type { CustomerMonthlySpendDto } from '@/api/dto/sales';
+import { MonthlyRewardProgress } from '@/features/sales/customerDiscount';
 
 /** "2026-10" → "Oct 26". */
 const monthLabel = (ym: string) => {
@@ -72,6 +74,7 @@ function Insights({ d, onDiscount }: { d: CustomerInsightsDto; onDiscount(): voi
           </AlertDescription>
         </Alert>
       )}
+      {d.thisMonth && <ThisMonthCard month={d.thisMonth} />}
       {d.reasons.length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-sm text-muted-foreground" aria-label="Why">
           {d.reasons.map((r) => <li key={r}>{r}</li>)}
@@ -147,5 +150,29 @@ function Insights({ d, onDiscount }: { d: CustomerInsightsDto; onDiscount(): voi
         </>
       )}
     </>
+  );
+}
+
+/** This calendar month against the monthly-spend reward, as the API reports it. */
+function ThisMonthCard({ month }: { month: CustomerMonthlySpendDto }) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm">This month ({monthLabel(month.month)})</CardTitle>
+        {month.qualifies && <Badge variant="success">Reward active</Badge>}
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <DetailList
+          columns={3}
+          items={[
+            { label: 'Spent', value: formatMoney(month.spent) },
+            { label: 'Threshold', value: `${formatMoney(month.threshold)} for ${month.percent}% off` },
+            { label: 'Remaining', value: month.remainingToThreshold > 0 ? formatMoney(month.remainingToThreshold) : 'Reached' },
+          ]}
+        />
+        <MonthlyRewardProgress month={month} />
+        <p className="text-xs text-muted-foreground">Applies to: {labels.monthlyDiscountScope[month.scope]?.toLowerCase()}. Purchases at every branch count; walk-in sales never do.</p>
+      </CardContent>
+    </Card>
   );
 }

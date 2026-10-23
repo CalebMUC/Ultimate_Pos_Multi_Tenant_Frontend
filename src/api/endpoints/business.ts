@@ -3,7 +3,7 @@ import type { Guid } from '../dto/common';
 import type { RegisterBusinessResultDto } from '../dto/platform';
 import type {
   BusinessDto, BusinessLicenseStatusDto, CustomerBalanceDto, CustomerDto, CustomerLedgerEntryDto, RecordCustomerPaymentRequestDto, RegisterBusinessRequestDto,
-  RegisterCustomerRequestDto, UpdateBusinessRequestDto, UpdateCustomerRequestDto,
+  RegisterCustomerRequestDto, UpdateBusinessRequestDto, UpdateCustomerRequestDto, UpdateMonthlyDiscountRequestDto,
 } from '../dto/business';
 
 export const businessesApi = {
@@ -16,6 +16,8 @@ export const businessesApi = {
   /** The signed-in business's own licence status and history (Businesses.View). */
   currentLicense: () => api.get<BusinessLicenseStatusDto>('/businesses/current/license'),
   update: (id: Guid, body: UpdateBusinessRequestDto) => api.put<BusinessDto>(`/businesses/${id}`, body),
+  /** The monthly-spend reward. 400 `threshold` / `percent` when only one is given or out of range. */
+  updateMonthlyDiscount: (body: UpdateMonthlyDiscountRequestDto) => api.put<BusinessDto>('/businesses/current/monthly-discount', body),
 };
 
 export const customersApi = {
