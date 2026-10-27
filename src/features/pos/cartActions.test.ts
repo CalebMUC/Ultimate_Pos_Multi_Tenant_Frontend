@@ -7,7 +7,7 @@ import { addBundleToCart, addProductToCart, patchCart, removeLine, sellableUnits
 const product = (over: Partial<ProductDetailDto> = {}): ProductDetailDto => ({
   productId: 'p1', sku: 'MED-FG-000001', name: 'Amoxil', strength: '500mg', description: null, categoryId: 'c1', categoryName: 'Antibiotics',
   itemType: ItemType.FinishedGood, taxClassification: TaxClassification.Exempt, baseUnitOfMeasureId: 'pcs', baseUnitSymbol: 'pcs', reorderLevel: 0,
-  barcode: null, isBatchTracked: true, requiresPrescription: true, genericName: null, dosageForm: null, manufacturer: null, isActive: true,
+  barcode: null, isBatchTracked: true, requiresPrescription: true, genericName: null, dosageForm: null, manufacturer: null, isActive: true, brandId: null, brandName: null,
   unitConversions: [
     { productUnitConversionId: 'x1', packUnitOfMeasureId: 'box', conversionFactor: 10, isActive: true, packUnitSymbol: 'box' },
     { productUnitConversionId: 'x2', packUnitOfMeasureId: 'crate', conversionFactor: 100, isActive: false, packUnitSymbol: 'crate' },

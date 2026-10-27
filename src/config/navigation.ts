@@ -70,6 +70,7 @@ export const navigation: NavGroup[] = [
       { label: 'Products', href: '/products', permission: 'Products.View' },
       { label: 'Bundles', href: '/bundles', permission: 'Products.View', module: 'bundles' },
       { label: 'Categories', href: '/categories', permission: 'Categories.View' },
+      { label: 'Brands', href: '/brands', permission: 'Products.View' },
       { label: 'Units of Measure', href: '/units', permission: 'Units.View' },
       { label: 'Bulk Import', href: '/bulk-import', permission: ['Products.BulkImport', 'Categories.BulkImport'] },
     ],

@@ -14,6 +14,11 @@ export interface CreateCategoryRequestDto { name: string; code: string; parentCa
 /** The code is fixed once created. */
 export interface UpdateCategoryRequestDto { name: string; parentCategoryId: Guid | null }
 
+/** Whose product it is (Soko, Pembe), beside the category saying what it is. */
+export interface BrandDto { brandId: Guid; name: string; isActive: boolean; productCount: number }
+export interface BrandRequestDto { name: string }
+export interface BrandQuery { search?: string; isActive?: boolean }
+
 export interface UnitOfMeasureDto { unitOfMeasureId: Guid; name: string; symbol: string; isActive: boolean }
 export interface UnitOfMeasureRequestDto { name: string; symbol: string }
 
@@ -32,7 +37,25 @@ export interface ProductRequestDto {
   strength: string | null;
   dosageForm: string | null;
   manufacturer: string | null;
+  /** Optional. Must be an active brand of the business. */
+  brandId?: Guid | null;
 }
+
+/** A pack a new product also comes in (Bale = 12 packets), with its own prices per pack. */
+export interface NewProductPackDto { packUnitOfMeasureId: Guid; conversionFactor: number; retailPrice?: number | null; wholesalePrice?: number | null }
+
+/**
+ * Prices (per base unit, from now) and packs are saved with the product, all or nothing. Prices need Products.ManagePricing and packs
+ * Products.ManageUnitConversions. The response is a ProductDto without prices.
+ */
+export interface CreateProductRequestDto extends ProductRequestDto {
+  retailPrice?: number | null;
+  wholesalePrice?: number | null;
+  packs?: NewProductPackDto[];
+}
+
+/** brandId null or missing keeps the current brand; removeBrand clears it. Never both. */
+export interface UpdateProductRequestDto extends ProductRequestDto { removeBrand?: boolean }
 
 export interface ProductDto extends ProductRequestDto {
   productId: Guid;
@@ -40,6 +63,8 @@ export interface ProductDto extends ProductRequestDto {
   isActive: boolean;
   categoryName: string | null;
   baseUnitSymbol: string | null;
+  brandId: Guid | null;
+  brandName: string | null;
 }
 
 export interface ProductUnitConversionDto {
@@ -81,6 +106,7 @@ export interface ProductQuery {
   page?: number;
   pageSize?: number;
   categoryId?: Guid;
+  brandId?: Guid;
   itemType?: ItemType;
   search?: string;
   isActive?: boolean;

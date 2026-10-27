@@ -2,9 +2,9 @@ import { cleanParams } from '@/lib/utils';
 import { api } from '../client';
 import type { Guid } from '../dto/common';
 import type {
-  AddPriceTierRequestDto, BulkImportResultDto, CategoryDto, CategoryImportRowResult, CreateCategoryRequestDto,
+  AddPriceTierRequestDto, BrandDto, BrandQuery, BrandRequestDto, BulkImportResultDto, CategoryDto, CreateProductRequestDto, CategoryImportRowResult, CreateCategoryRequestDto,
   CreateProductUnitConversionRequestDto, ProductDetailDto, ProductDto, ProductImportRowResult, ProductPriceTierDto, ProductQuery,
-  ProductRequestDto, ProductUnitConversionDto, UnitOfMeasureDto, UnitOfMeasureRequestDto, UpdateCategoryRequestDto,
+  ProductUnitConversionDto, UnitOfMeasureDto, UnitOfMeasureRequestDto, UpdateCategoryRequestDto, UpdateProductRequestDto,
 } from '../dto/catalog';
 
 export const categoriesApi = {
@@ -17,6 +17,17 @@ export const categoriesApi = {
   downloadTemplate: () => api.download('/categories/bulk-upload/template', 'categories-template.xlsx'),
   bulkUpload: (file: File, dryRun: boolean) =>
     api.upload<BulkImportResultDto<CategoryImportRowResult>>('/categories/bulk-upload', file, { dryRun }),
+};
+
+/** Not paged: a shop has tens of brands. Sorted by name. There is no delete. */
+export const brandsApi = {
+  list: (query: BrandQuery = {}) => api.get<BrandDto[]>('/brands', cleanParams(query)),
+  create: (body: BrandRequestDto) => api.post<BrandDto>('/brands', body),
+  /** Shows on every product with the brand at once; product names don't change. */
+  update: (id: Guid, body: BrandRequestDto) => api.put<BrandDto>(`/brands/${id}`, body),
+  activate: (id: Guid) => api.post<BrandDto>(`/brands/${id}/activate`),
+  /** Products keep it, but it can't be given to another one. */
+  deactivate: (id: Guid) => api.post<BrandDto>(`/brands/${id}/deactivate`),
 };
 
 export const unitsApi = {
@@ -32,8 +43,8 @@ export const productsApi = {
   get: (id: Guid) => api.get<ProductDetailDto>(`/products/${id}`),
   /** Exact barcode first, then SKU. Includes inactive products. */
   lookup: (code: string) => api.get<ProductDetailDto>('/products/lookup', { code }),
-  create: (body: ProductRequestDto) => api.post<ProductDto>('/products/create-product', body),
-  update: (id: Guid, body: ProductRequestDto) => api.put<ProductDto>(`/products/${id}`, body),
+  create: (body: CreateProductRequestDto) => api.post<ProductDto>('/products/create-product', body),
+  update: (id: Guid, body: UpdateProductRequestDto) => api.put<ProductDto>(`/products/${id}`, body),
   activate: (id: Guid) => api.post<ProductDto>(`/products/${id}/activate`),
   deactivate: (id: Guid) => api.post<ProductDto>(`/products/${id}/deactivate`),
   priceTiers: (id: Guid) => api.get<ProductPriceTierDto[]>(`/products/${id}/price-tiers`),

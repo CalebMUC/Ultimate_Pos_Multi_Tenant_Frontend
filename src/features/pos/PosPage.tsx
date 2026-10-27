@@ -682,7 +682,7 @@ function ProductSearch({ inputRef, onAdd, bundles, priceType, onAddBundle, onEmp
             }
             if (e.key === 'Escape') setText('');
           }}
-          placeholder="Scan a barcode, or search by name, SKU or generic name…"
+          placeholder="Scan a barcode, or search by name, brand, SKU or generic name…"
           className="h-12 pl-10 pr-16 text-base"
           aria-label="Product search"
           autoComplete="off"
@@ -727,7 +727,10 @@ function ProductSearch({ inputRef, onAdd, bundles, priceType, onAddBundle, onEmp
               onClick={() => onAdd(p)}
               className="flex min-h-20 flex-col justify-between gap-1 rounded-lg border bg-card p-3 text-left shadow-sm transition-colors hover:border-primary hover:bg-accent/40 active:scale-[0.99]"
             >
-              <span className="line-clamp-2 text-sm font-medium leading-snug">{p.name}{p.strength ? ` ${p.strength}` : ''}</span>
+              <span className="flex flex-col">
+                <span className="line-clamp-2 text-sm font-medium leading-snug">{p.name}{p.strength ? ` ${p.strength}` : ''}</span>
+                {p.brandName && <span className="truncate text-xs text-muted-foreground">{p.brandName}</span>}
+              </span>
               <span className="flex items-center justify-between gap-1 text-xs text-muted-foreground">
                 <span className="truncate">{p.sku}</span>
                 <ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} />

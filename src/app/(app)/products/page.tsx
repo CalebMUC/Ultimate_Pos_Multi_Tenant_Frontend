@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Plus, Upload } from 'lucide-react';
 import Link from 'next/link';
@@ -10,7 +10,7 @@ import { NativeSelect } from '@/components/ui/primitives';
 import { Can, PermissionRoute } from '@/components/shared/Can';
 import { DataTable, type ColumnDef } from '@/components/shared/DataTable';
 import { PageHeader, ProductFlags, StatusBadge } from '@/components/shared/Display';
-import { CategorySelect, EnumSelect } from '@/components/shared/Pickers';
+import { BrandSelect, CategorySelect, EnumSelect } from '@/components/shared/Pickers';
 import { productsApi } from '@/api/endpoints/catalog';
 import { labels, type ItemType } from '@/api/enums';
 import { useDebouncedValue } from '@/hooks/useDebounce';
@@ -35,6 +35,7 @@ const columns: ColumnDef<ProductDto, unknown>[] = [
   },
   { header: 'SKU', id: 'sku', accessorKey: 'sku', cell: ({ row }) => <code className="text-xs">{row.original.sku}</code> },
   { header: 'Category', id: 'categoryName', accessorKey: 'categoryName', cell: ({ row }) => row.original.categoryName ?? '—' },
+  { header: 'Brand', id: 'brandName', enableSorting: false, accessorKey: 'brandName', cell: ({ row }) => row.original.brandName ?? '' },
   { header: 'Type', id: 'itemType', enableSorting: false, accessorKey: 'itemType', cell: ({ row }) => labels.itemType[row.original.itemType] },
   { header: 'Unit', id: 'unit', enableSorting: false, accessorKey: 'baseUnitSymbol' },
   { header: 'Barcode', id: 'barcode', enableSorting: false, accessorKey: 'barcode', cell: ({ row }) => row.original.barcode ?? '—' },
@@ -47,6 +48,8 @@ function Products() {
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  // Catalog → Brands links here with ?brandId=.
+  const [brandId, setBrandId] = useState(useSearchParams().get('brandId') ?? '');
   const [itemType, setItemType] = useState<ItemType | null>(null);
   const [status, setStatus] = useState<'active' | 'inactive' | 'all'>('active');
   const [flag, setFlag] = useState<'' | 'rx' | 'batch'>('');
@@ -60,6 +63,7 @@ function Products() {
     pageSize,
     search: debounced || undefined,
     categoryId: categoryId || undefined,
+    brandId: brandId || undefined,
     itemType: itemType ?? undefined,
     isActive: status === 'all' ? undefined : status === 'active',
     requiresPrescription: flag === 'rx' ? true : undefined,
@@ -100,12 +104,13 @@ function Products() {
         onSortingChange={(updater) => { setSorting(updater); setPage(1); }}
         search={search}
         onSearchChange={reset(setSearch)}
-        searchPlaceholder="Name, SKU, barcode or generic name…"
+        searchPlaceholder="Name, brand, SKU, barcode or generic name…"
         emptyTitle="No products"
         emptyAction={<Can permission="Products.Create"><Button onClick={() => setCreating(true)}><Plus />Add a product</Button></Can>}
         toolbar={
           <>
             <CategorySelect value={categoryId} onChange={(e) => reset(setCategoryId)(e.target.value)} placeholder="All categories" className="w-44" aria-label="Category" />
+            <BrandSelect value={brandId} onChange={(e) => reset(setBrandId)(e.target.value)} className="w-40" aria-label="Brand" />
             <EnumSelect map={labels.itemType} value={itemType} onChange={reset(setItemType)} placeholder="All types" className="w-36" aria-label="Item type" />
             <NativeSelect value={flag} onChange={(e) => reset(setFlag)(e.target.value as typeof flag)} className="w-36" aria-label="Medicine">
               <option value="">Any product</option><option value="rx">Prescription only</option><option value="batch">Batch-tracked</option>
@@ -121,6 +126,7 @@ function Products() {
             { header: 'SKU', value: (p) => p.sku },
             { header: 'Name', value: (p) => p.name },
             { header: 'Category', value: (p) => p.categoryName },
+            { header: 'Brand', value: (p) => p.brandName },
             { header: 'Type', value: (p) => labels.itemType[p.itemType] },
             { header: 'Unit', value: (p) => p.baseUnitSymbol },
             { header: 'Barcode', value: (p) => p.barcode },

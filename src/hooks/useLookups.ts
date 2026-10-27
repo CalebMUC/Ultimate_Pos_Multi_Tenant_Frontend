@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { categoriesApi, productsApi, unitsApi } from '@/api/endpoints/catalog';
+import { brandsApi, categoriesApi, productsApi, unitsApi } from '@/api/endpoints/catalog';
 import { suppliersApi, purchaseOrdersApi } from '@/api/endpoints/inventory';
 import { expenseCategoriesApi } from '@/api/endpoints/other';
 import type { CategoryDto, UnitOfMeasureDto } from '@/api/dto/catalog';
@@ -25,6 +25,13 @@ export function useCategories() {
   const key = useQueryKey();
   const allowed = usePermission(['Categories.View', 'Products.View']);
   return useQuery({ queryKey: key('categories'), queryFn: categoriesApi.list, staleTime: LOOKUP_STALE, enabled: allowed });
+}
+
+/** Every brand, active or not, by name. Pickers filter to active ones but still need inactive names for products that keep one. */
+export function useBrands() {
+  const key = useQueryKey();
+  const allowed = usePermission('Products.View');
+  return useQuery({ queryKey: key('brands'), queryFn: () => brandsApi.list(), staleTime: LOOKUP_STALE, enabled: allowed });
 }
 
 export interface FlatCategory extends Omit<CategoryDto, 'subcategories'> { depth: number; path: string }

@@ -14,7 +14,7 @@ import { RefillCounter } from './RefillCounter';
 const water: ProductDetailDto = {
   productId: 'water', sku: 'WTR-1', name: 'Purified Water', description: null, categoryId: 'cat-water', categoryName: 'Water Refill',
   itemType: ItemType.FinishedGood, taxClassification: TaxClassification.Exempt, baseUnitOfMeasureId: 'l', baseUnitSymbol: 'l', reorderLevel: 500,
-  barcode: null, isBatchTracked: false, requiresPrescription: false, genericName: null, strength: null, dosageForm: null, manufacturer: null, isActive: true,
+  barcode: null, isBatchTracked: false, requiresPrescription: false, genericName: null, strength: null, dosageForm: null, manufacturer: null, isActive: true, brandId: null, brandName: null,
   unitConversions: [
     { productUnitConversionId: 'c20', packUnitOfMeasureId: '20L', conversionFactor: 20, isActive: true, packUnitSymbol: '20L' },
     { productUnitConversionId: 'c10', packUnitOfMeasureId: '10L', conversionFactor: 10, isActive: true, packUnitSymbol: '10L' },

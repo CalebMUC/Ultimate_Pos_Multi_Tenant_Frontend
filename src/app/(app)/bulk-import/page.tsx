@@ -18,12 +18,14 @@ import type { BulkImportResultDto } from '@/api/dto/catalog';
 
 interface ImportRow { rowNumber: number; name: string; isValid: boolean; error: string | null }
 
-function Importer<R extends ImportRow>({ kind, upload, template, extraColumns, invalidate }: {
+function Importer<R extends ImportRow>({ kind, upload, template, extraColumns, invalidate, note }: {
   kind: string;
   upload(file: File, dryRun: boolean): Promise<BulkImportResultDto<R>>;
   template(): Promise<void>;
   extraColumns: ColumnDef<R, unknown>[];
-  invalidate: string;
+  /** Other cached lists the import can change. */
+  invalidate: string[];
+  note?: string;
 }) {
   const qc = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
@@ -39,7 +41,7 @@ function Importer<R extends ImportRow>({ kind, upload, template, extraColumns, i
       const r = await upload(file, dryRun);
       setResult(r);
       if (r.committed) {
-        await qc.invalidateQueries({ queryKey: [invalidate] });
+        await Promise.all(invalidate.map((r) => qc.invalidateQueries({ queryKey: [r] })));
         toast.success(`${r.validRows} ${kind} imported`);
       }
     } catch (e) {
@@ -65,7 +67,7 @@ function Importer<R extends ImportRow>({ kind, upload, template, extraColumns, i
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><FileSpreadsheet className="size-5 text-primary" />Import {kind}</CardTitle>
-          <CardDescription>1. Download the template. 2. Fill it in. 3. Check the file: nothing is saved until you import. Up to 5,000 rows per file.</CardDescription>
+          <CardDescription>1. Download the template. 2. Fill it in. 3. Check the file: nothing is saved until you import. Up to 5,000 rows per file.{note ? ` ${note}` : ''}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2">
           <Button
@@ -125,7 +127,7 @@ function BulkImport() {
               kind="categories"
               upload={categoriesApi.bulkUpload}
               template={categoriesApi.downloadTemplate}
-              invalidate="categories"
+              invalidate={['categories']}
               extraColumns={[{ header: 'Code', accessorKey: 'code' }, { header: 'Parent code', accessorKey: 'parentCode', cell: ({ row }) => (row.original as { parentCode: string | null }).parentCode ?? '—' }]}
             />
           </TabsContent>
@@ -136,7 +138,8 @@ function BulkImport() {
               kind="products"
               upload={productsApi.bulkUpload}
               template={productsApi.downloadTemplate}
-              invalidate="products"
+              invalidate={['products', 'brands']}
+              note="Description and Brand are optional. A brand that doesn’t exist yet is created on import; a deactivated brand is an error."
               extraColumns={[{ header: 'SKU', accessorKey: 'sku', cell: ({ row }) => (row.original as { sku: string | null }).sku ?? '—' }]}
             />
           </TabsContent>

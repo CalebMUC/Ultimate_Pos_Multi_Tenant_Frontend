@@ -14,7 +14,7 @@ export const BUSINESS_PERMISSIONS = [
   'Categories.View', 'Categories.Create', 'Categories.Update', 'Categories.Deactivate', 'Categories.BulkImport',
   'Units.View', 'Units.Create', 'Units.Update', 'Units.Deactivate',
   'Products.View', 'Products.Create', 'Products.Update', 'Products.Deactivate', 'Products.ManagePricing', 'Products.BulkImport',
-  'Products.ManageUnitConversions', 'Products.ManageBundles',
+  'Products.ManageUnitConversions', 'Products.ManageBundles', 'Products.ManageBrands',
   'Suppliers.Register', 'Suppliers.View', 'Suppliers.Update', 'Suppliers.Deactivate', 'Suppliers.ViewLedger', 'Suppliers.RecordPayment',
   'PurchaseOrders.Create', 'PurchaseOrders.View', 'PurchaseOrders.Receive', 'PurchaseOrders.Cancel',
   'Stock.View', 'Stock.Adjust',

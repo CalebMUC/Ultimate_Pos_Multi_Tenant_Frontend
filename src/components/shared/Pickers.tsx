@@ -1,14 +1,14 @@
 'use client';
 
-import { forwardRef, type SelectHTMLAttributes } from 'react';
+import { forwardRef, type ReactNode, type SelectHTMLAttributes } from 'react';
 import { customersApi } from '@/api/endpoints/business';
-import { productsApi } from '@/api/endpoints/catalog';
+import { brandsApi, productsApi } from '@/api/endpoints/catalog';
 import { suppliersApi } from '@/api/endpoints/inventory';
 import { NativeSelect } from '@/components/ui/primitives';
-import { flattenCategories, useCategories, useExpenseCategories, useUnits } from '@/hooks/useLookups';
+import { flattenCategories, useBrands, useCategories, useExpenseCategories, useUnits } from '@/hooks/useLookups';
 import { formatMoney } from '@/lib/format';
 import type { CustomerDto } from '@/api/dto/business';
-import type { ProductDto, ProductQuery } from '@/api/dto/catalog';
+import type { BrandDto, ProductDto, ProductQuery } from '@/api/dto/catalog';
 import type { SupplierDto } from '@/api/dto/inventory';
 import { ProductFlags } from './Display';
 import { EntityCombobox } from './EntityCombobox';
@@ -41,11 +41,43 @@ export function ProductPicker({ filter, ...props }: PickerProps<ProductDto> & { 
         </span>
       )}
       placeholder={props.placeholder ?? 'Select product…'}
-      searchPlaceholder="Name, SKU, barcode or generic name…"
+      searchPlaceholder="Name, brand, SKU, barcode or generic name…"
       {...props}
     />
   );
 }
+
+/** Offers active brands. A product keeping a since-deactivated brand shows it as "Pembe (inactive)" so it isn't silently lost. */
+export function BrandPicker({ footer, ...props }: PickerProps<BrandDto> & { footer?: ReactNode }) {
+  const brands = useBrands();
+  const current = props.value ? brands.data?.find((b) => b.brandId === props.value) : undefined;
+  const selectedLabel = current ? (current.isActive ? current.name : `${current.name} (inactive)`) : props.selectedLabel;
+  return (
+    <EntityCombobox<BrandDto>
+      resource="brands"
+      fetcher={(search) => brandsApi.list({ search: search || undefined, isActive: true })}
+      getId={(b) => b.brandId}
+      getLabel={(b) => b.name}
+      placeholder={props.placeholder ?? 'No brand'}
+      searchPlaceholder="Search brands…"
+      footer={footer}
+      {...props}
+      selectedLabel={selectedLabel}
+    />
+  );
+}
+
+/** Brand filter for lists: every brand, inactive ones marked. */
+export const BrandSelect = forwardRef<HTMLSelectElement, SelectProps>(function BrandSelect({ placeholder = 'All brands', activeOnly = false, ...props }, ref) {
+  const brands = useBrands();
+  const list = (brands.data ?? []).filter((b) => !activeOnly || b.isActive || b.brandId === props.value);
+  return (
+    <NativeSelect ref={ref} {...props}>
+      <option value="">{brands.isLoading ? 'Loading…' : placeholder}</option>
+      {list.map((b) => <option key={b.brandId} value={b.brandId}>{b.isActive ? b.name : `${b.name} (inactive)`}</option>)}
+    </NativeSelect>
+  );
+});
 
 export function CustomerPicker(props: PickerProps<CustomerDto>) {
   return (
