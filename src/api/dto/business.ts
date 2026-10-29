@@ -37,6 +37,8 @@ export interface RegisterBusinessRequestDto extends BusinessProfileFields {
   sector?: BusinessSector | null;
   /** The person who will run it: becomes its first Admin. Super users only. */
   owner?: BusinessOwnerRequestDto | null;
+  /** Reports to KRA eTIMS. Defaults to false. Chosen here and changed later only by the platform (PUT /platform/businesses/{id}/etims). */
+  etimsEnabled?: boolean;
 }
 /** Full replace. Kind cannot change. */
 export type UpdateBusinessRequestDto = BusinessProfileFields;
@@ -56,6 +58,8 @@ export interface BusinessDto extends BusinessProfileFields {
   sector?: BusinessSector;
   /** The app areas it uses (module keys), from sector and kind. Missing on older APIs. */
   modules?: string[] | null;
+  /** Reports to KRA eTIMS ("etims" is then in modules). Set by the platform only. Missing on older APIs. */
+  etimsEnabled?: boolean;
 }
 
 /** maxBranches: open branches allowed (head office included), null = unlimited. openBranches: every open branch, whoever asks. */

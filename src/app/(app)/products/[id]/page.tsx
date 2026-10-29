@@ -26,6 +26,7 @@ import { formatDate, formatDateOnly, formatDateTime, formatQty, toIsoDate } from
 import { requiredId, requiredNumber } from '@/lib/schemas';
 import { ProductFormDialog } from '@/features/products/ProductFormDialog';
 import { ActivityTimeline } from '@/features/audit/ActivityTimeline';
+import { ProductEtimsTab } from '@/features/etims/ProductEtimsTab';
 import { branchLabel, useActiveBranch } from '@/features/branches/branches';
 import type { ProductDetailDto, ProductPriceTierDto, ProductUnitConversionDto } from '@/api/dto/catalog';
 import type { StockBatchDto, StockMovementDto } from '@/api/dto/inventory';
@@ -61,7 +62,9 @@ function ProductDetail({ id }: { id: string }) {
   const key = useQueryKey();
   const qc = useQueryClient();
   const can = usePermissions();
-  const containers = useActiveBusiness().hasModule('containers');
+  const { hasModule } = useActiveBusiness();
+  const containers = hasModule('containers');
+  const etims = hasModule('etims') && can('Etims.View');
   const canStock = usePermission('Stock.View');
   const activeBranch = useActiveBranch();
   const atBranch = activeBranch ? `At ${branchLabel(activeBranch)}` : undefined;
@@ -199,6 +202,7 @@ function ProductDetail({ id }: { id: string }) {
           <TabsTrigger value="units">Pack units</TabsTrigger>
           {canStock && <TabsTrigger value="movements">Stock movements</TabsTrigger>}
           {canStock && p.isBatchTracked && <TabsTrigger value="batches">Batches</TabsTrigger>}
+          {etims && <TabsTrigger value="etims">KRA eTIMS</TabsTrigger>}
           {canAudit && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
         <TabsContent value="overview">
@@ -257,6 +261,9 @@ function ProductDetail({ id }: { id: string }) {
           <TabsContent value="batches">
             <DataTable columns={batchColumns} data={batches.data} isLoading={batches.isLoading} error={batches.error} getRowId={(b) => b.stockBatchId} emptyTitle="No batches in stock" />
           </TabsContent>
+        )}
+        {etims && (
+          <TabsContent value="etims"><ProductEtimsTab productId={id} categoryName={p.categoryName} /></TabsContent>
         )}
         {canAudit && (
           <TabsContent value="activity">

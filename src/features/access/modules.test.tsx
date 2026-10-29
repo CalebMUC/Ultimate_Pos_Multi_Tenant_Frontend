@@ -9,6 +9,7 @@ import { useSession } from '@/stores/session';
 import { PermissionRoute } from '@/components/shared/Can';
 import { useVisibleNavigation } from '@/components/layout/Sidebar';
 import { ProductFormDialog } from '@/features/products/ProductFormDialog';
+import { moduleEnabled } from '@/config/businessCapabilities';
 import type { BusinessDto } from '@/api/dto/business';
 
 vi.mock('next/navigation', () => ({
@@ -117,5 +118,49 @@ describe('product form', () => {
     expect(screen.getByRole('option', { name: 'Raw material' })).toBeInTheDocument();
     expect(screen.getByText(/Batch-tracked/)).toBeInTheDocument();
     expect(screen.getByText(/Prescription only/)).toBeInTheDocument();
+  });
+});
+
+describe('KRA eTIMS is shown only to businesses that have it', () => {
+  const ETIMS = ['Etims.View', 'Etims.Manage', 'Dashboard.View'];
+  const etimsItems = (menu: string[]) => menu.filter((l) => /eTIMS/.test(l));
+
+  it('is on only when the API lists it, and off when there is no list (older APIs have no eTIMS)', () => {
+    expect(moduleEnabled([...CORE, 'etims'], BusinessKind.Trader, 'etims')).toBe(true);
+    expect(moduleEnabled(CORE, BusinessKind.Trader, 'etims')).toBe(false);
+    expect(moduleEnabled(undefined, BusinessKind.Trader, 'etims')).toBe(false);
+    expect(moduleEnabled(null, BusinessKind.Manufacturer, 'etims')).toBe(false);
+  });
+
+  it('shows the menus with the module and the permission', () => {
+    business(BusinessKind.Trader, BusinessSector.Supermarket, [...CORE, 'etims'], ETIMS);
+    expect(etimsItems(labels())).toEqual(['Administration > KRA eTIMS', 'Administration > eTIMS Submissions']);
+  });
+
+  it('hides them without the module, whatever the permissions', () => {
+    business(BusinessKind.Trader, BusinessSector.Supermarket, CORE, ETIMS);
+    expect(etimsItems(labels())).toEqual([]);
+  });
+
+  it('hides them without Etims.View: a cashier sees no eTIMS menu', () => {
+    business(BusinessKind.Trader, BusinessSector.Supermarket, [...CORE, 'etims'], ['Sales.Create', 'Sales.View', 'Dashboard.View']);
+    expect(etimsItems(labels())).toEqual([]);
+  });
+
+  it('follows a super user switching it on, once the profile is re-read', () => {
+    business(BusinessKind.Trader, BusinessSector.Supermarket, CORE, ETIMS);
+    expect(etimsItems(labels())).toEqual([]);
+    act(() => useSession.getState().setBusiness({
+      businessId: BUSINESS_ID, kind: BusinessKind.Trader, sector: BusinessSector.Supermarket, modules: [...CORE, 'etims'], etimsEnabled: true,
+    } as BusinessDto));
+    expect(etimsItems(labels())).toHaveLength(2);
+  });
+
+  it('its pages say "not used by this business" without it', () => {
+    business(BusinessKind.Trader, BusinessSector.Supermarket, CORE, ETIMS);
+    renderWithProviders(<PermissionRoute permission="Etims.View" module="etims"><p>Devices</p></PermissionRoute>);
+    expect(screen.getByText('Not used by this business')).toBeInTheDocument();
+    expect(screen.getByText(/KRA eTIMS isn't part of this business's setup/)).toBeInTheDocument();
+    expect(screen.queryByText('Devices')).not.toBeInTheDocument();
   });
 });

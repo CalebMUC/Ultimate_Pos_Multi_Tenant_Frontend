@@ -67,6 +67,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSaved }: { op
   const production = hasModule('production');
   const batches = hasModule('batches');
   const prescriptions = hasModule('prescriptions');
+  const etims = hasModule('etims');
   const itemTypes = enumOptions(labels.itemType).filter((o) => production || o.value === ItemType.FinishedGood || o.value === product?.itemType);
   const hasRxDetails = !!(product?.requiresPrescription || product?.genericName || product?.strength || product?.dosageForm);
   const showRx = prescriptions || hasRxDetails;
@@ -135,7 +136,9 @@ export function ProductFormDialog({ open, onOpenChange, product, onSaved }: { op
           await qc.invalidateQueries({ queryKey: ['products'] });
           // Product counts per brand.
           await qc.invalidateQueries({ queryKey: ['brands'] });
-          toast.success(editing ? 'Product updated' : `${saved.name} added as ${saved.sku}`);
+          toast.success(editing ? 'Product updated' : `${saved.name} added as ${saved.sku}`, {
+            description: !editing && etims ? 'Set its KRA classification on the product’s eTIMS tab before its first sale, if the category’s is not right.' : undefined,
+          });
           onSaved?.(saved);
         }}
       >

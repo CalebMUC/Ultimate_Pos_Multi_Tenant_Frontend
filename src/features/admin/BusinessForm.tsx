@@ -34,6 +34,8 @@ export const businessSchema = z.object({
   mpesaPaybillNumber: shortCode('paybill'),
   maxDiscountPercent: optionalNumber({ min: 0, max: 100, label: 'Discount cap' }),
   allowNegativeStock: z.boolean(),
+  /** Registration only: afterwards the platform switches it, and PUT /businesses/{id} ignores it. */
+  etimsEnabled: z.boolean(),
 });
 export type BusinessValues = z.infer<typeof businessSchema>;
 
@@ -60,6 +62,7 @@ export function businessDefaults(b?: BusinessDto | null): BusinessValues {
     mpesaPaybillNumber: b?.mpesaPaybillNumber ?? '',
     maxDiscountPercent: b?.maxDiscountPercent ?? null,
     allowNegativeStock: b?.allowNegativeStock ?? true,
+    etimsEnabled: b?.etimsEnabled ?? false,
   };
 }
 
@@ -135,10 +138,33 @@ export function BusinessFields({ form, registering }: { form: UseFormReturn<Busi
       <Field label="Max discount per sale (%)" error={e.maxDiscountPercent} hint="Empty for no cap."><Input type="number" step="0.1" min={0} max={100} {...form.register('maxDiscountPercent', { valueAsNumber: true })} /></Field>
       <Field label="VAT" error={e.isVatRegistered}>
         <label className="flex h-9 items-center gap-2 text-sm">
-          <Switch checked={form.watch('isVatRegistered')} onCheckedChange={(v) => form.setValue('isVatRegistered', v, { shouldDirty: true })} />
+          <Switch
+            checked={form.watch('isVatRegistered')}
+            onCheckedChange={(v) => {
+              form.setValue('isVatRegistered', v, { shouldDirty: true });
+              // A VAT-registered business usually has to issue eTIMS invoices: suggest it (still editable).
+              if (registering) form.setValue('etimsEnabled', v, { shouldDirty: true });
+            }}
+          />
           VAT registered (receipts show VAT)
         </label>
       </Field>
+      {registering ? (
+        <Field
+          label="KRA eTIMS"
+          error={e.etimsEnabled}
+          hint="Turn on for businesses that must issue KRA eTIMS invoices. Their branches then report sales and stock to KRA, and staff see eTIMS menus. Can be changed later."
+        >
+          <label className="flex h-9 items-center gap-2 text-sm">
+            <Switch checked={form.watch('etimsEnabled')} onCheckedChange={(v) => form.setValue('etimsEnabled', v, { shouldDirty: true })} />
+            Reports to KRA eTIMS
+          </label>
+        </Field>
+      ) : (
+        <Field label="KRA eTIMS">
+          <Input readOnly className="bg-muted" value={`${form.getValues('etimsEnabled') ? 'On' : 'Off'} — set by the platform`} />
+        </Field>
+      )}
       <Field label="Stock" error={e.allowNegativeStock} hint={form.watch('allowNegativeStock') ? 'Sales go through even when stock shows less than is sold.' : 'A sale needing more than is in stock is refused.'}>
         <label className="flex h-9 items-center gap-2 text-sm">
           <Switch checked={form.watch('allowNegativeStock')} onCheckedChange={(v) => form.setValue('allowNegativeStock', v, { shouldDirty: true })} />

@@ -50,7 +50,9 @@ export function RegisterBusinessWizard() {
     try {
       // getValues() gives the raw inputs (select values are strings); the schema turns them into the numbers the API expects.
       const b = businessSchema.parse(business.getValues());
-      const created = await businessesApi.register({ ...toBusinessRequest(b), kind: b.kind, sector: b.sector, owner: toOwnerRequest(owner.getValues()) });
+      const created = await businessesApi.register({
+        ...toBusinessRequest(b), kind: b.kind, sector: b.sector, etimsEnabled: b.etimsEnabled, owner: toOwnerRequest(owner.getValues()),
+      });
       setResult(created);
       await qc.invalidateQueries({ queryKey: ['platform'] });
       toast.success(`${created.business.businessName} registered`);
@@ -114,6 +116,7 @@ export function RegisterBusinessWizard() {
                     { label: 'Sells as', value: labels.businessType[Number(b.businessType) as 0 | 1] },
                     { label: 'KRA PIN', value: b.kraPin },
                     { label: 'VAT registered', value: b.isVatRegistered ? 'Yes' : 'No' },
+                    { label: 'KRA eTIMS', value: b.etimsEnabled ? 'On' : 'Off' },
                     { label: 'M-Pesa till', value: b.mpesaTillNumber || '—' },
                     { label: 'M-Pesa paybill', value: b.mpesaPaybillNumber || '—' },
                     { label: 'Discount cap', value: b.maxDiscountPercent != null && !Number.isNaN(b.maxDiscountPercent) ? `${b.maxDiscountPercent}%` : 'None' },
@@ -161,6 +164,7 @@ function RegisteredPanel({ result, onAnother }: { result: RegisterBusinessResult
             { label: 'Owner', value: `${owner.fullName} · ${owner.email}` },
             { label: 'Trial ends', value: trialLicense ? formatDateOnly(trialLicense.endsOn) : 'No trial: issue a licence' },
             { label: 'Sector', value: `${sectorLabel(business.sector)} · ${labels.businessKind[business.kind]}` },
+            { label: 'KRA eTIMS', value: business.etimsEnabled ? 'On: its admin registers each branch’s device' : 'Off' },
           ]}
         />
         <p className="text-sm text-muted-foreground">

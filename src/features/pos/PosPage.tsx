@@ -588,6 +588,7 @@ export function PosPage() {
         open={!!receipt}
         onOpenChange={(o) => !o && setReceipt(null)}
         title={receipt ? `Sale ${receipt.saleNumber} complete` : 'Receipt'}
+        live
         actions={<Button variant="outline" onClick={() => setReceipt(null)}>New sale</Button>}
       />
       <DeliveryNoteDialog

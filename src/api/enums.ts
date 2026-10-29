@@ -46,6 +46,10 @@ export enum LicenseKind { Trial = 0, Paid = 1, Complimentary = 2 }
 export enum LicenseState { Active = 0, Cancelled = 1 }
 /** Notifications and audit-log entries. Arrives as a number; query strings accept the name. */
 export enum EventSeverity { Info = 0, Warning = 1, Critical = 2 }
+/** What a KRA eTIMS submission reports. Items go first: KRA refuses documents that name an unregistered item. */
+export enum EtimsDocumentType { Item = 0, Sale = 1, CreditNote = 2, Purchase = 3, StockIO = 4, StockMaster = 5 }
+/** Pending: not sent yet (or waiting for an item). Failed: will be retried. Sent: KRA accepted it. Rejected: gave up; needs a person. */
+export enum EtimsSubmissionStatus { Pending = 0, Failed = 1, Sent = 2, Rejected = 3 }
 
 export type ExpiryStatus = 'Expired' | 'NearExpiry' | 'Ok' | 'NoExpiry';
 export type StockStatus = 'InStock' | 'LowStock' | 'OutOfStock';
@@ -125,6 +129,14 @@ export const labels = {
     [StockTransferStatus.Cancelled]: 'Cancelled',
   },
   eventSeverity: { [EventSeverity.Info]: 'Info', [EventSeverity.Warning]: 'Warning', [EventSeverity.Critical]: 'Critical' },
+  etimsDocumentType: {
+    [EtimsDocumentType.Item]: 'Item', [EtimsDocumentType.Sale]: 'Sale', [EtimsDocumentType.CreditNote]: 'Credit note',
+    [EtimsDocumentType.Purchase]: 'Purchase', [EtimsDocumentType.StockIO]: 'Stock in/out', [EtimsDocumentType.StockMaster]: 'Stock balance',
+  },
+  etimsSubmissionStatus: {
+    [EtimsSubmissionStatus.Pending]: 'Pending', [EtimsSubmissionStatus.Failed]: 'Failed', [EtimsSubmissionStatus.Sent]: 'Sent',
+    [EtimsSubmissionStatus.Rejected]: 'Rejected',
+  },
   expiryStatus: { Expired: 'Expired', NearExpiry: 'Near expiry', Ok: 'OK', NoExpiry: 'No expiry' } as Record<ExpiryStatus, string>,
 } as const;
 

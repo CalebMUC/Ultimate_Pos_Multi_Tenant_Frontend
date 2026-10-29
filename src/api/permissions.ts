@@ -3,6 +3,7 @@
 export const PLATFORM_PERMISSIONS = [
   'Businesses.Register', 'Businesses.ViewAll', 'Businesses.Deactivate', 'Businesses.Suspend',
   'Licenses.View', 'Licenses.Manage', 'Platform.Dashboard.View', 'Platform.Support', 'Platform.Users.Manage',
+  'Platform.Etims.View', 'Platform.Etims.Manage',
 ] as const;
 
 export const BUSINESS_PERMISSIONS = [
@@ -27,6 +28,7 @@ export const BUSINESS_PERMISSIONS = [
   'Prescriptions.Dispense', 'Prescriptions.View',
   'Mpesa.Configure', 'Mpesa.View',
   'CashSessions.View', 'CashSessions.Open', 'CashSessions.RecordMovement', 'CashSessions.Close',
+  'Etims.View', 'Etims.Manage',
   'Costing.View', 'Costing.Revalue',
   'ExpenseCategories.Create', 'ExpenseCategories.View', 'ExpenseCategories.Update', 'ExpenseCategories.Deactivate',
   'Expenses.Create', 'Expenses.View', 'Expenses.Update', 'Expenses.Void',

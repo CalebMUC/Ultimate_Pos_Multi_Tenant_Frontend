@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Ban, KeyRound, Layers, Lock, Plus, Power, RefreshCw, ShieldAlert, ShieldCheck, Unlock, UserPlus, XCircle } from 'lucide-react';
+import { ArrowLeft, Ban, KeyRound, Layers, Lock, Plus, Power, ReceiptText, RefreshCw, ShieldAlert, ShieldCheck, Unlock, UserPlus, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle, Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/ui/primitives';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
@@ -26,6 +26,7 @@ import { AccessStatusBadge } from '@/features/access/AccessComponents';
 import { AuditLogView } from '@/features/audit/AuditLogPage';
 import { LicenseTable } from '@/features/licensing/LicenseTable';
 import { relativeTime } from '@/features/notifications/format';
+import { ChangeEtimsDialog } from '@/features/platform/ChangeEtimsDialog';
 import { daysLeftText } from '@/features/platform/ExpiringLicensesTable';
 import { IssueLicenseDialog } from '@/features/platform/IssueLicenseDialog';
 import { OneTimePasswordPanel } from '@/features/platform/OneTimePassword';
@@ -55,6 +56,7 @@ function BusinessDetail({ id }: { id: string }) {
   const [resetting, setResetting] = useState<UserDto | null>(null);
   const [oneTime, setOneTime] = useState<OneTime | null>(null);
   const [changingSector, setChangingSector] = useState(false);
+  const [changingEtims, setChangingEtims] = useState(false);
 
   const requested = params.get('tab');
   const tab = TABS.includes(requested as (typeof TABS)[number]) ? requested! : 'overview';
@@ -122,6 +124,14 @@ function BusinessDetail({ id }: { id: string }) {
           <>
             <Button variant="ghost" asChild><Link href="/platform/businesses"><ArrowLeft />Businesses</Link></Button>
             <Can permission="Businesses.Register"><Button variant="outline" onClick={() => setChangingSector(true)}><Layers />Change sector</Button></Can>
+            <Can permission="Businesses.Register">
+              <Button variant="outline" onClick={() => setChangingEtims(true)}><ReceiptText />{b.etimsEnabled ? 'Turn eTIMS off' : 'Turn eTIMS on'}</Button>
+            </Can>
+            {b.etimsEnabled && (
+              <Can permission="Platform.Etims.View">
+                <Button variant="outline" asChild><Link href={`/platform/etims/${id}`}><ReceiptText />Set up eTIMS devices</Link></Button>
+              </Can>
+            )}
             <Can permission="Licenses.Manage"><Button variant="outline" onClick={() => setIssuing(true)}><RefreshCw />{b.licenseEndsOn ? 'Renew licence' : 'Issue licence'}</Button></Can>
             {b.isActive && (
               <Can permission="Businesses.Suspend">
@@ -168,6 +178,7 @@ function BusinessDetail({ id }: { id: string }) {
                 items={[
                   { label: 'Registered name', value: b.businessName },
                   { label: 'Sector', value: sectorLabel(b.sector) },
+                  { label: 'KRA eTIMS', value: b.etimsEnabled ? <Badge variant="success">On</Badge> : <Badge variant="secondary">Off</Badge> },
                   { label: 'Trading name', value: b.tradingName },
                   { label: 'KRA PIN', value: b.kraPin },
                   { label: 'Registration no.', value: b.registrationNumber },
@@ -266,6 +277,9 @@ function BusinessDetail({ id }: { id: string }) {
           onOpenChange={setChangingSector}
           onChanged={refresh}
         />
+      )}
+      {changingEtims && (
+        <ChangeEtimsDialog businessId={id} name={name} enabled={!!b.etimsEnabled} onOpenChange={setChangingEtims} onChanged={refresh} />
       )}
       <IssueLicenseDialog
         open={issuing}

@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { z } from 'zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, FolderTree, Pencil, Plus } from 'lucide-react';
+import { ChevronRight, FolderTree, Pencil, Plus, ReceiptText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/primitives';
+import { Badge, Input } from '@/components/ui/primitives';
 import { ActivationButton } from '@/components/shared/ActivationButton';
 import { Can, PermissionRoute } from '@/components/shared/Can';
 import { DataTable, type ColumnDef } from '@/components/shared/DataTable';
@@ -16,7 +16,8 @@ import { FormDialog } from '@/components/shared/FormDialog';
 import { CategorySelect } from '@/components/shared/Pickers';
 import { categoriesApi } from '@/api/endpoints/catalog';
 import { flattenCategories, useCategories, type FlatCategory } from '@/hooks/useLookups';
-import { usePermissions } from '@/hooks/useSessionInfo';
+import { useHasModule, usePermissions } from '@/hooks/useSessionInfo';
+import { CategoryClassDialog } from '@/features/etims/CategoryClassDialog';
 import { requiredText } from '@/lib/schemas';
 
 const schema = z.object({
@@ -33,6 +34,10 @@ function Categories() {
   const flat = flattenCategories(categories.data);
   const [editing, setEditing] = useState<FlatCategory | { parentCategoryId: string | null } | null>(null);
   const current = editing && 'categoryId' in editing ? editing : null;
+  const etims = useHasModule('etims') && can('Etims.Manage');
+  const [classifying, setClassifying] = useState<FlatCategory | null>(null);
+  // There is no read of a category's classification: only what was set in this visit is shown.
+  const [classified, setClassified] = useState<ReadonlySet<string>>(new Set());
 
   const columns: ColumnDef<FlatCategory, unknown>[] = [
     {
@@ -53,6 +58,11 @@ function Categories() {
       meta: { align: 'right' },
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
+          {etims && (
+            <Button variant="ghost" size="sm" onClick={() => setClassifying(row.original)}>
+              <ReceiptText />KRA classification{classified.has(row.original.categoryId) && <Badge variant="success" className="ml-1">Set</Badge>}
+            </Button>
+          )}
           {can('Categories.Create') && <Button variant="ghost" size="sm" onClick={() => setEditing({ parentCategoryId: row.original.categoryId })}><Plus />Sub</Button>}
           {can('Categories.Update') && <Button variant="ghost" size="sm" onClick={() => setEditing(row.original)}><Pencil />Edit</Button>}
           {can('Categories.Deactivate') && (
@@ -98,6 +108,13 @@ function Categories() {
           </div>
         )}
       </FormDialog>
+      {etims && (
+        <CategoryClassDialog
+          category={classifying}
+          onOpenChange={(o) => !o && setClassifying(null)}
+          onSaved={(id) => setClassified((prev) => new Set(prev).add(id))}
+        />
+      )}
     </>
   );
 }

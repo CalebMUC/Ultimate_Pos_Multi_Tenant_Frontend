@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { NativeSelect } from '@/components/ui/primitives';
+import { Badge, NativeSelect } from '@/components/ui/primitives';
 import { Can, PermissionRoute } from '@/components/shared/Can';
 import { DataTable, type ColumnDef } from '@/components/shared/DataTable';
 import { PageHeader } from '@/components/shared/Display';
@@ -25,6 +25,7 @@ const columns: ColumnDef<BusinessSummaryDto, unknown>[] = [
     cell: ({ row }) => (
       <span>
         <span className="font-medium">{row.original.business.tradingName || row.original.business.businessName}</span>
+        {row.original.business.etimsEnabled && <Badge variant="info" className="ml-2 px-1.5 py-0 text-[10px]">eTIMS</Badge>}
         <span className="block text-xs text-muted-foreground">{row.original.business.kraPin}{row.original.business.county ? ` · ${row.original.business.county}` : ''}</span>
       </span>
     ),

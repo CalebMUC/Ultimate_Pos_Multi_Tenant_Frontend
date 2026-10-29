@@ -29,6 +29,8 @@ export const platformApi = {
   businesses: (sector?: BusinessSector | null) => api.get<BusinessSummaryDto[]>('/platform/businesses', cleanParams({ sector })),
   /** Reclassifies a business (Businesses.Register). Only the classification and its menus change. 400 if it is already that sector. */
   changeSector: (id: Guid, sector: BusinessSector) => api.put<BusinessSummaryDto>(`/platform/businesses/${id}/sector`, { sector }),
+  /** Switches KRA eTIMS reporting on or off (Businesses.Register). 400 INVALID_ASSIGNMENT if it is already in that state. */
+  changeEtims: (id: Guid, enabled: boolean) => api.put<BusinessSummaryDto>(`/platform/businesses/${id}/etims`, { enabled }),
   business: (id: Guid) => api.get<BusinessDetailDto>(`/platform/businesses/${id}`),
   suspend: (id: Guid, reason: string) => api.post<BusinessSummaryDto>(`/platform/businesses/${id}/suspend`, { reason }),
   reactivate: (id: Guid) => api.post<BusinessSummaryDto>(`/platform/businesses/${id}/reactivate`),

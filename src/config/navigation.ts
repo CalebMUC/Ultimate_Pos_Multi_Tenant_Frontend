@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  BadgeCheck, BarChart3, Bell, Boxes, Building2, ClipboardList, Factory, LayoutDashboard, Pill, Receipt, ScrollText, Settings, ShieldCheck, ShoppingCart, Tags, Truck,
-  Users, Wallet,
+  BadgeCheck, BarChart3, Bell, Boxes, Building2, ClipboardList, Factory, LayoutDashboard, Pill, Receipt, ReceiptText, ScrollText, Settings, ShieldCheck, ShoppingCart, Tags,
+  Truck, Users, Wallet,
 } from 'lucide-react';
 import type { PermissionRequirement } from '@/api/permissions';
 import type { ModuleKey } from './businessCapabilities';
@@ -144,6 +144,8 @@ export const navigation: NavGroup[] = [
       { label: 'Users', href: '/admin/users', permission: 'Users.View' },
       { label: 'Roles & Permissions', href: '/admin/roles', permission: 'Roles.View' },
       { label: 'M-Pesa Setup', href: '/admin/mpesa', permission: 'Mpesa.Configure' },
+      { label: 'KRA eTIMS', href: '/admin/etims', permission: 'Etims.View', module: 'etims' },
+      { label: 'eTIMS Submissions', href: '/admin/etims/submissions', permission: 'Etims.View', module: 'etims' },
       { label: 'Audit Log', href: '/admin/audit-log', permission: 'AuditLog.View' },
     ],
   },
@@ -156,6 +158,7 @@ export const platformNavigation: NavGroup[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/platform', permission: 'Platform.Dashboard.View' },
   { label: 'Businesses', icon: Building2, href: '/platform/businesses', permission: 'Businesses.ViewAll' },
   { label: 'Licences', icon: BadgeCheck, href: '/platform/licenses', permission: 'Licenses.View' },
+  { label: 'KRA eTIMS', icon: ReceiptText, href: '/platform/etims', permission: 'Platform.Etims.View' },
   { label: 'Super Users', icon: ShieldCheck, href: '/platform/super-users', permission: 'Platform.Users.Manage' },
   { label: 'Platform Audit Log', icon: ScrollText, href: '/platform/audit-log', permission: 'Platform.Support' },
   { label: 'Notifications', icon: Bell, href: '/platform/notifications' },
