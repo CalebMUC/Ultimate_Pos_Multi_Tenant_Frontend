@@ -1,7 +1,15 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '@/stores/session';
 import { moduleEnabled, type ModuleKey } from '@/config/businessCapabilities';
+import { tokenStorage, type StoredBranding } from '@/api/tokenStorage';
 import type { Permission, PermissionRequirement } from '@/api/permissions';
+
+/** The client remembered on this device. Undefined until read: there is no browser storage in the server render. */
+export function useStoredBranding() {
+  const [branding, setBranding] = useState<StoredBranding | null>();
+  useEffect(() => setBranding(tokenStorage.getBranding()), []);
+  return branding;
+}
 
 export function useBusinessId() {
   return useSession((s) => s.activeBusinessId);

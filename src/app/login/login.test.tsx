@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -69,6 +69,43 @@ async function signIn() {
   await user.click(screen.getByRole('button', { name: 'Sign in' }));
   return user;
 }
+
+describe('the client remembered on this device', () => {
+  it('shows Ultimate POS on a device nobody has signed in on', async () => {
+    renderWithProviders(<LoginPage />);
+    expect(await screen.findByRole('heading', { name: /Sell, stock and account/ })).toBeInTheDocument();
+    expect(screen.queryByText('Powered by Ultimate POS')).not.toBeInTheDocument();
+  });
+
+  it('shows their name, logo and background on the next sign-in, and survives signing out', async () => {
+    server.use(http.get(`${API}/businesses/current`, () => HttpResponse.json(ok({
+      businessId: BUSINESS_ID, businessName: 'Afya Pharmacy Ltd', tradingName: 'Afya Pharmacy',
+      logoUrl: 'https://bucket.s3.amazonaws.com/logo.png', backgroundImageUrl: 'https://bucket.s3.amazonaws.com/bg.jpg',
+    }))));
+    const first = renderWithProviders(<LoginPage />);
+    const user = await signIn();
+    await user.click(await screen.findByRole('button', { name: /Head Office/ }));
+    await waitFor(() => expect(tokenStorage.getBranding()?.name).toBe('Afya Pharmacy'));
+    first.unmount();
+
+    clearSession();
+    const { container } = renderWithProviders(<LoginPage />);
+    expect(await screen.findByRole('heading', { name: 'Welcome to Afya Pharmacy' })).toBeInTheDocument();
+    expect(screen.getByText('Powered by Ultimate POS')).toBeInTheDocument();
+    const images = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src'));
+    expect(images).toContain('https://bucket.s3.amazonaws.com/logo.png');
+    expect(images).toContain('https://bucket.s3.amazonaws.com/bg.jpg');
+  });
+
+  it('falls back to the Ultimate POS mark and plain panel when the images will not load', async () => {
+    tokenStorage.setBranding({ name: 'Afya Pharmacy', logoUrl: 'https://bucket.s3.amazonaws.com/logo.png', backgroundImageUrl: 'https://bucket.s3.amazonaws.com/bg.jpg' });
+    const { container } = renderWithProviders(<LoginPage />);
+    await screen.findByRole('heading', { name: 'Welcome to Afya Pharmacy' });
+    container.querySelectorAll('img').forEach((img) => fireEvent.error(img));
+    await waitFor(() => expect(container.querySelectorAll('img')).toHaveLength(0));
+    expect(screen.getByRole('heading', { name: 'Welcome to Afya Pharmacy' })).toBeInTheDocument();
+  });
+});
 
 describe('choosing the branch at sign-in', () => {
   it('asks where the user works today, in the sign-in card, and switches to the chosen branch', async () => {

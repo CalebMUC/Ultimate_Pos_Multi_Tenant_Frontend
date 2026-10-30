@@ -7,8 +7,9 @@ import { ChevronDown } from 'lucide-react';
 import { navigation, platformNavigation, type NavGroup } from '@/config/navigation';
 import { useActiveBusiness, usePermissions } from '@/hooks/useSessionInfo';
 import { usePharmacyMenu } from '@/features/auth/usePharmacyMenu';
+import { useSession } from '@/stores/session';
 import { cn } from '@/lib/utils';
-import { BrandMark } from './BrandMark';
+import { TenantMark } from './TenantMark';
 import { useTransferInbox } from '@/features/transfers/useTransferInbox';
 
 export type ShellArea = 'business' | 'platform';
@@ -47,6 +48,8 @@ export function Sidebar({ collapsed, onNavigate, area = 'business' }: { collapse
   const pathname = usePathname();
   const groups = useVisibleNavigation(area);
   const active = bestMatch(pathname, groups);
+  const profile = useSession((s) => s.business);
+  const business = area === 'business' ? profile : null;
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
   // Open the group that holds the current page.
@@ -58,7 +61,7 @@ export function Sidebar({ collapsed, onNavigate, area = 'business' }: { collapse
   return (
     <nav className="flex h-full flex-col bg-sidebar text-sidebar-foreground" aria-label="Main">
       <div className={cn('flex h-14 shrink-0 items-center border-b border-white/10', collapsed ? 'justify-center' : 'px-4')}>
-        <BrandMark compact={collapsed} />
+        <TenantMark name={business?.tradingName || business?.businessName} logoUrl={business?.logoUrl} compact={collapsed} />
       </div>
       <div className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
         {groups.map((group) => {

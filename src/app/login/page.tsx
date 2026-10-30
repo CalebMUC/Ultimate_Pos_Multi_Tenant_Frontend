@@ -9,7 +9,7 @@ import { Lock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/primitives';
 import { FormAlert } from '@/components/shared/States';
-import { BrandMark } from '@/components/layout/BrandMark';
+import { TenantMark } from '@/components/layout/TenantMark';
 import { login, logout } from '@/features/auth/sessionActions';
 import { BranchChoiceList } from '@/features/branches/BranchChoiceList';
 import { landingPath, safeReturnTo } from '@/features/auth/AuthGuard';
@@ -18,6 +18,7 @@ import { reportAccessBlocked } from '@/api/client';
 import { isApiError, normaliseError } from '@/api/errors';
 import { tokenStorage } from '@/api/tokenStorage';
 import { useSession } from '@/stores/session';
+import { useStoredBranding } from '@/hooks/useSessionInfo';
 
 const schema = z.object({
   email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.'),
@@ -151,22 +152,44 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const branding = useStoredBranding();
+  const [backgroundFailed, setBackgroundFailed] = useState(false);
+  const background = backgroundFailed ? null : branding?.backgroundImageUrl;
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-10 text-sidebar-foreground lg:flex">
-        <BrandMark />
-        <div className="space-y-4">
-          <h2 className="text-3xl font-semibold leading-tight">Sell, stock and account for every business you run, from one place.</h2>
-          <p className="max-w-md text-sidebar-muted">
-            Point of sale, batch and expiry tracking, purchasing, production and reports for Kenyan manufacturers, pharmacies and retailers.
-          </p>
-        </div>
-        <p className="text-xs text-sidebar-muted">© {new Date().getFullYear()} Ultimate POS</p>
-        <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-primary/20 blur-3xl" />
+        {background && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={background} alt="" onError={() => setBackgroundFailed(true)} className="absolute inset-0 size-full object-cover" />
+            <div className="absolute inset-0 bg-sidebar/75" />
+          </>
+        )}
+        {/* Empty until storage is read, so a client's till doesn't flash Ultimate POS first. */}
+        {branding !== undefined && (
+          <>
+            <TenantMark name={branding?.name} logoUrl={branding?.logoUrl} className="relative" />
+            {branding ? (
+              <div className="relative space-y-4">
+                <h2 className="text-3xl font-semibold leading-tight">Welcome to {branding.name}</h2>
+                <p className="max-w-md text-sidebar-muted">Sign in to continue.</p>
+              </div>
+            ) : (
+              <div className="relative space-y-4">
+                <h2 className="text-3xl font-semibold leading-tight">Sell, stock and account for every business you run, from one place.</h2>
+                <p className="max-w-md text-sidebar-muted">
+                  Point of sale, batch and expiry tracking, purchasing, production and reports for Kenyan manufacturers, pharmacies and retailers.
+                </p>
+              </div>
+            )}
+            <p className="relative text-xs text-sidebar-muted">{branding ? 'Powered by Ultimate POS' : <>© {new Date().getFullYear()} Ultimate POS</>}</p>
+          </>
+        )}
+        {!background && <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-primary/20 blur-3xl" />}
       </div>
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm space-y-6">
-          <div className="lg:hidden"><BrandMark dark={false} /></div>
+          <div className="min-h-8 lg:hidden">{branding !== undefined && <TenantMark name={branding?.name} logoUrl={branding?.logoUrl} dark={false} />}</div>
           <Suspense>
             <LoginForm />
           </Suspense>

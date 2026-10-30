@@ -3,9 +3,17 @@
 const REFRESH_KEY = 'upos.refreshToken';
 const MODE_KEY = 'upos.refreshTokenStorage';
 const LAST_BUSINESS_KEY = 'upos.lastBusinessId';
+const BRANDING_KEY = 'upos.branding';
 const lastBranchKey = (businessId: string) => `upos.lastBranchId.${businessId}`;
 
 export type RefreshTokenStorageMode = 'local' | 'session';
+
+/** The client last used on this device. The sign-in screen shows it, before there is anyone to ask the API as. */
+export interface StoredBranding {
+  name: string;
+  logoUrl: string | null;
+  backgroundImageUrl: string | null;
+}
 
 function safe<T>(fn: () => T, fallback: T): T {
   try {
@@ -59,5 +67,14 @@ export const tokenStorage = {
   },
   setLastBusinessId(id: string | null) {
     safe(() => (id ? localStorage.setItem(LAST_BUSINESS_KEY, id) : localStorage.removeItem(LAST_BUSINESS_KEY)), undefined);
+  },
+  getBranding(): StoredBranding | null {
+    return safe(() => {
+      const branding = JSON.parse(localStorage.getItem(BRANDING_KEY) ?? 'null') as StoredBranding | null;
+      return branding?.name ? branding : null;
+    }, null);
+  },
+  setBranding(branding: StoredBranding) {
+    safe(() => localStorage.setItem(BRANDING_KEY, JSON.stringify(branding)), undefined);
   },
 };

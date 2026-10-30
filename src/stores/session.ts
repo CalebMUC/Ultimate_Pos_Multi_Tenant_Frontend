@@ -4,6 +4,7 @@ import type { BusinessMembershipDto, UserDto } from '@/api/dto/identity';
 import type { BranchMembershipDto } from '@/api/dto/branches';
 import type { Guid } from '@/api/dto/common';
 import { PLATFORM_PERMISSIONS } from '@/api/permissions';
+import { tokenStorage } from '@/api/tokenStorage';
 
 export type SessionStatus = 'booting' | 'anonymous' | 'authenticated';
 
@@ -74,7 +75,11 @@ export const useSession = create<SessionState>((set) => ({
       // Keep the loaded profile only if the business did not change.
       business: state.business && state.business.businessId === activeBusinessId ? state.business : null,
     })),
-  setBusiness: (business) => set({ business, businessLoadedAt: next() }),
+  setBusiness: (business) => {
+    // Outlives the session, for the sign-in screen.
+    if (business) tokenStorage.setBranding({ name: business.tradingName || business.businessName, logoUrl: business.logoUrl ?? null, backgroundImageUrl: business.backgroundImageUrl ?? null });
+    set({ business, businessLoadedAt: next() });
+  },
   setUser: (user, businesses, activeBusinessId, mustChangePassword, branches) =>
     set((s) => ({ user, businesses, membershipsAt: next(), activeBusinessId, mustChangePassword: mustChangePassword ?? s.mustChangePassword, branches: branches ?? s.branches })),
   clear: () =>
