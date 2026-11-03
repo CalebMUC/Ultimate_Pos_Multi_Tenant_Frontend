@@ -9,6 +9,7 @@ import { expensesApi, reportsApi } from '@/api/endpoints/other';
 import { stockApi, suppliersApi } from '@/api/endpoints/inventory';
 import { usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatMoney, formatQty, todayIso } from '@/lib/format';
+import { useCardLink } from '@/features/dashboard/cardLinks';
 import type { BranchFilter } from '@/features/branches/branches';
 
 /**
@@ -24,6 +25,7 @@ export function TodayPanel({ branch }: { branch: BranchFilter }) {
   const canExpenses = usePermission('Expenses.View');
   const canPayables = usePermission('Suppliers.ViewLedger');
   const canStock = usePermission('Stock.View');
+  const link = useCardLink(branch);
 
   const scope = { branchId: branch.branchId };
   const sales = useQuery({ queryKey: key('dashboard', { today: 'sales', day: today, ...scope }), queryFn: () => reportsApi.sales(today, today, 5, branch.scope), enabled: canSales });
@@ -54,9 +56,9 @@ export function TodayPanel({ branch }: { branch: BranchFilter }) {
     <section className="space-y-3" aria-labelledby="today-heading">
       <h2 id="today-heading" className="font-semibold">Today</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {canSales && <StatCard label="Today’s sales" value={sales.data ? formatMoney(sales.data.revenue) : '—'} hint={sales.data ? `${sales.data.saleCount} sale(s), excl. VAT` : undefined} icon={<TrendingUp />} />}
-        {canPurchases && <StatCard label="Supplies received today" value={purchases.data ? formatMoney(purchases.data.receivedValue) : '—'} hint="At order cost" icon={<Truck />} />}
-        {canExpenses && <StatCard label="Expenses today" value={expenses.data ? formatMoney(expenses.data.totalExpenses) : '—'} hint={expenses.data ? `${expenses.data.expenseCount} expense(s)` : undefined} icon={<Wallet />} />}
+        {canSales && <StatCard label="Today’s sales" value={sales.data ? formatMoney(sales.data.revenue) : '—'} hint={sales.data ? `${sales.data.saleCount} sale(s), excl. VAT` : undefined} icon={<TrendingUp />} href={link('Sales.View', '/sales')} />}
+        {canPurchases && <StatCard label="Supplies received today" value={purchases.data ? formatMoney(purchases.data.receivedValue) : '—'} hint="At order cost" icon={<Truck />} href={link('PurchaseReports.View', '/reports/purchases')} />}
+        {canExpenses && <StatCard label="Expenses today" value={expenses.data ? formatMoney(expenses.data.totalExpenses) : '—'} hint={expenses.data ? `${expenses.data.expenseCount} expense(s)` : undefined} icon={<Wallet />} href={link('Expenses.View', '/expenses')} />}
         {canPayables && (
           <StatCard
             label="Owed to suppliers"
@@ -64,6 +66,7 @@ export function TodayPanel({ branch }: { branch: BranchFilter }) {
             hint={payables.data ? `${suppliersOwed} supplier(s), all branches` : undefined}
             icon={<PackageCheck />}
             tone={owed ? 'warning' : 'default'}
+            href={link('Suppliers.ViewLedger', '/payables')}
           />
         )}
       </div>

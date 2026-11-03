@@ -41,7 +41,10 @@ export interface ProductionCostReportDto {
 
 export interface AgingBucketsDto { days0To30: number; days31To60: number; days61To90: number; over90: number }
 export interface OpenInvoiceDto {
+  /** The credit sale's id; invoiceNumber is its sale number. */
   invoiceId: Guid; invoiceNumber: string | null; invoiceDate: DateOnly; originalAmount: number; outstandingAmount: number; ageDays: number; bucket: string;
+  /** The day the customer promised to pay, if any. Missing on older APIs. */
+  paymentDueDate?: DateOnly | null; isPromiseOverdue?: boolean;
 }
 export interface CustomerAgingRowDto {
   customerId: Guid; customerName: string; phoneNumber: string | null; outstanding: number; unappliedCredit: number; netBalance: number;

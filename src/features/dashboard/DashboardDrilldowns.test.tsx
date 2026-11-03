@@ -64,6 +64,8 @@ let creditRequests: URLSearchParams[] = [];
 let profitRequests: URLSearchParams[] = [];
 const server = setupServer(
   http.get(`${API}/dashboard/summary`, () => HttpResponse.json(ok(summary))),
+  // The Not completed card (CustomerReports.View).
+  http.get(`${API}/reports/customer-aging`, () => HttpResponse.json(ok({ asOf: '2026-10-31', customerCount: 0, totalOutstanding: 0, totalUnappliedCredit: 0, totals: {}, customers: [] }))),
   http.get(`${API}/dashboard/credit-customers`, ({ request }) => {
     creditRequests.push(new URL(request.url).searchParams);
     return HttpResponse.json(ok(creditData));

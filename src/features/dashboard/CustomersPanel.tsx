@@ -14,6 +14,7 @@ import { daysAgo, DiscountBadge, DiscountDialog, everyDays, SegmentChip, type Di
 import type { CustomerBuyingSummaryDto, DashboardCustomersDto } from '@/api/dto/customerInsights';
 
 const buyingTab = (id: string) => `/customers/${id}?tab=buying`;
+const INSIGHTS = '/customers/insights';
 
 /** Who buys, who's drifting away and who might deserve a discount: always the last 90 days, whatever dates the dashboard shows. */
 export function CustomersPanel({ data }: { data: DashboardCustomersDto }) {
@@ -25,15 +26,15 @@ export function CustomersPanel({ data }: { data: DashboardCustomersDto }) {
     <section className="space-y-3" aria-label="Customers">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-semibold">Customers <span className="text-sm font-normal text-muted-foreground">· Last 90 days ({formatDateOnly(data.from)} – {formatDateOnly(data.to)})</span></h2>
-        <Button variant="link" asChild className="h-auto p-0"><Link href="/customers/insights">Buying insights</Link></Button>
+        <Button variant="link" asChild className="h-auto p-0"><Link href={INSIGHTS}>Buying insights</Link></Button>
       </div>
       <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Active customers" value={data.activeCustomers} icon={<Users />} />
-        <StatCard label="Regulars" value={data.regularCustomers} icon={<UserCheck />} tone="success" />
-        <StatCard label="New" value={data.newCustomers} icon={<Sparkles />} />
-        <StatCard label="Slipping away" value={data.slippingCustomers} icon={<TrendingDown />} tone={data.slippingCustomers > 0 ? 'destructive' : 'default'} />
-        <StatCard label="Discount candidates" value={data.discountCandidates} icon={<BadgePercent />} tone={data.discountCandidates > 0 ? 'warning' : 'default'} />
-        <StatCard label="With a discount" value={data.customersWithDiscount} icon={<UsersRound />} />
+        <StatCard label="Active customers" value={data.activeCustomers} icon={<Users />} href={INSIGHTS} />
+        <StatCard label="Regulars" value={data.regularCustomers} icon={<UserCheck />} tone="success" href={`${INSIGHTS}?segment=${CustomerSegment.Regular}`} />
+        <StatCard label="New" value={data.newCustomers} icon={<Sparkles />} href={`${INSIGHTS}?segment=${CustomerSegment.New}`} />
+        <StatCard label="Slipping away" value={data.slippingCustomers} icon={<TrendingDown />} tone={data.slippingCustomers > 0 ? 'destructive' : 'default'} href={`${INSIGHTS}?segment=${CustomerSegment.Slipping}`} />
+        <StatCard label="Discount candidates" value={data.discountCandidates} icon={<BadgePercent />} tone={data.discountCandidates > 0 ? 'warning' : 'default'} href={`${INSIGHTS}?suggestedAction=${CustomerSuggestedAction.ConsiderDiscount}`} />
+        <StatCard label="With a discount" value={data.customersWithDiscount} icon={<UsersRound />} href={INSIGHTS} />
       </div>
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-sm">Registered vs walk-in revenue</CardTitle></CardHeader>

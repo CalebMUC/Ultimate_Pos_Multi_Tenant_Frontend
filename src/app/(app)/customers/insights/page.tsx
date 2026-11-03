@@ -18,20 +18,13 @@ import { customerInsightsApi } from '@/api/endpoints/customerInsights';
 import { CustomerInsightsSort, CustomerSegment, CustomerSuggestedAction, enumOptions, labels } from '@/api/enums';
 import { useDebouncedValue } from '@/hooks/useDebounce';
 import { useQueryKey } from '@/hooks/useSessionInfo';
-import { cn } from '@/lib/utils';
+import { cn, enumParam } from '@/lib/utils';
 import {
   daysAgo, DiscountBadge, DiscountDialog, everyDays, last90Days, SegmentChip, SegmentHelp, suggestionText, SuggestionAction, type DiscountTarget,
 } from '@/features/customers/insights';
 import type { CustomerBuyingSummaryDto } from '@/api/dto/customerInsights';
 
 const SEGMENTS = [CustomerSegment.Top, CustomerSegment.Regular, CustomerSegment.Slipping, CustomerSegment.New, CustomerSegment.Occasional];
-
-/** A number from the query string that is one of the enum's values, else null. */
-function enumParam<T extends number>(value: string | null, map: Record<T, string>): T | null {
-  if (value === null || value === '') return null;
-  const n = Number(value);
-  return Number.isInteger(n) && n in map ? (n as T) : null;
-}
 
 function Insights() {
   const key = useQueryKey();

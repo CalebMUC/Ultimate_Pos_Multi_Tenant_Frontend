@@ -30,3 +30,10 @@ export function sum<T>(items: readonly T[], pick: (item: T) => number): number {
 export function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
+
+/** A number from the query string that is one of the enum's values, else null. */
+export function enumParam<T extends number>(value: string | null, map: Record<T, string>): T | null {
+  if (value === null || value === '') return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n in map ? (n as T) : null;
+}

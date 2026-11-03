@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { Pill, Layers } from 'lucide-react';
 import { Badge, type BadgeVariant } from '@/components/ui/primitives';
 import { formatMoney, formatQty } from '@/lib/format';
@@ -83,31 +84,29 @@ export function PageHeader({ title, description, actions, children }: { title: R
   );
 }
 
-/** With onClick the card is a real button, and ariaLabel should say what it opens. */
-export function StatCard({ label, value, hint, icon, tone = 'default', onClick, ariaLabel }: { label: string; value: ReactNode; hint?: ReactNode; icon?: ReactNode; tone?: 'default' | 'success' | 'warning' | 'destructive'; onClick?(): void; ariaLabel?: string }) {
+/** With onClick the card is a real button, with href a link to the page behind the figure; ariaLabel should say what it opens. */
+export function StatCard({ label, value, hint, icon, tone = 'default', onClick, href, ariaLabel }: { label: string; value: ReactNode; hint?: ReactNode; icon?: ReactNode; tone?: 'default' | 'success' | 'warning' | 'destructive'; onClick?(): void; href?: string; ariaLabel?: string }) {
   const toneClass = { default: 'bg-primary/10 text-primary', success: 'bg-success/15 text-success', warning: 'bg-warning/20 text-warning', destructive: 'bg-destructive/10 text-destructive' }[tone];
-  // A button may only hold inline content, so the clickable card builds the same layout from spans.
-  const Box = onClick ? 'span' : 'div';
-  const Line = onClick ? 'span' : 'p';
+  const interactive = !!(onClick || href);
+  // A button or link may only hold inline content, so the clickable card builds the same layout from spans.
+  const Box = interactive ? 'span' : 'div';
+  const Line = interactive ? 'span' : 'p';
   const cardClass = 'flex items-start gap-3 rounded-lg border bg-card p-4 shadow-sm';
   const body = (
     <>
       {icon && <Box className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg [&_svg]:size-5', toneClass)}>{icon}</Box>}
-      <Box className={cn('min-w-0', onClick && '[&>span]:block')}>
+      <Box className={cn('min-w-0', interactive && '[&>span]:block')}>
         <Line className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</Line>
         <Line className="mt-0.5 truncate text-xl font-semibold tabular">{value}</Line>
         {hint && <Line className="mt-0.5 text-xs text-muted-foreground">{hint}</Line>}
       </Box>
     </>
   );
-  if (!onClick) return <div className={cardClass}>{body}</div>;
+  if (!interactive) return <div className={cardClass}>{body}</div>;
+  const interactiveClass = cn(cardClass, 'w-full text-left ring-offset-background transition-colors hover:border-primary/40 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2');
+  if (href) return <Link href={href} aria-label={ariaLabel} className={interactiveClass}>{body}</Link>;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      className={cn(cardClass, 'w-full text-left ring-offset-background transition-colors hover:border-primary/40 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2')}
-    >
+    <button type="button" onClick={onClick} aria-label={ariaLabel} className={interactiveClass}>
       {body}
     </button>
   );

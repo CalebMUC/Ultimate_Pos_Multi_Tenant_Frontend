@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Bike, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,16 +14,15 @@ import { DateRangeFilter, presetRange } from '@/components/shared/DateRange';
 import { MoneyText, PageHeader, StatusBadge } from '@/components/shared/Display';
 import { CustomerPicker, EnumSelect } from '@/components/shared/Pickers';
 import { salesApi } from '@/api/endpoints/sales';
-import { deliveryOrdersApi } from '@/api/endpoints/deliveries';
-import { DeliveryMode, DeliveryOrderStatus, PaymentMethod, labels, type SaleStatus } from '@/api/enums';
+import { DeliveryMode, PaymentMethod, labels, type SaleStatus } from '@/api/enums';
 import { useDebouncedValue } from '@/hooks/useDebounce';
-import { useActiveBusiness, usePermission, useQueryKey } from '@/hooks/useSessionInfo';
+import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney } from '@/lib/format';
+import { enumParam } from '@/lib/utils';
 import type { SaleDto } from '@/api/dto/sales';
-import type { DeliveryOrderDto } from '@/api/dto/deliveries';
-import { describeLines, paymentLabel } from '@/features/deliveries/DeliveryDialogs';
 import { branchLabel, useBranchFilter } from '@/features/branches/branches';
 import { withBranchColumn } from '@/features/branches/branchColumn';
+import { NOT_COMPLETED_VIEW, NotCompletedSales, useNotCompletedSales } from '@/features/sales/NotCompletedSales';
 
 const columns: ColumnDef<SaleDto, unknown>[] = [
   {
@@ -54,21 +53,9 @@ const columns: ColumnDef<SaleDto, unknown>[] = [
   },
 ];
 
-/** Rider orders still out: not sales yet (they are not in GET /sales). The amount is what the rider should bring back. */
-const openOrderColumns: ColumnDef<DeliveryOrderDto, unknown>[] = [
-  { header: 'Order', accessorKey: 'orderNumber', cell: ({ row }) => <span className="font-medium">{row.original.orderNumber}</span> },
-  { header: 'Out since', accessorKey: 'dispatchedAt', cell: ({ row }) => formatDateTime(row.original.dispatchedAt ?? row.original.createdAt) },
-  { header: 'Customer', accessorKey: 'customerName' },
-  { header: 'Items', id: 'items', cell: ({ row }) => <span className="text-xs">{describeLines(row.original)}</span> },
-  { header: 'Rider', accessorKey: 'riderName', cell: ({ row }) => row.original.riderName ?? '—' },
-  { header: 'Status', id: 'status', cell: () => <Badge variant="warning">Not completed</Badge> },
-  { header: 'Payment', id: 'expected', cell: ({ row }) => paymentLabel(row.original.expectedPaymentMethod ?? PaymentMethod.Cash) },
-  { header: 'To collect', accessorKey: 'estimatedTotal', meta: { align: 'right' }, cell: ({ row }) => <MoneyText value={row.original.estimatedTotal} className="font-medium" /> },
-];
-
 function Sales() {
-  const { hasModule } = useActiveBusiness();
-  const canSeeDeliveries = usePermission('DeliveryOrders.View') && hasModule('deliveries');
+  const notCompleted = useNotCompletedSales();
+  const view = useSearchParams().get('view') === NOT_COMPLETED_VIEW && notCompleted.visible ? NOT_COMPLETED_VIEW : 'sales';
   return (
     <>
       <PageHeader
@@ -76,14 +63,17 @@ function Sales() {
         description="Every sale, with its status and payment."
         actions={<Can permission="Sales.Create"><Button asChild><Link href="/pos"><Plus />New sale</Link></Button></Can>}
       />
-      {canSeeDeliveries ? (
-        <Tabs defaultValue="sales">
+      {notCompleted.visible ? (
+        <Tabs key={view} defaultValue={view}>
           <TabsList>
             <TabsTrigger value="sales">Sales</TabsTrigger>
-            <TabsTrigger value="open">Not completed</TabsTrigger>
+            <TabsTrigger value={NOT_COMPLETED_VIEW}>
+              Not completed
+              {notCompleted.count > 0 && <Badge variant="warning" className="ml-1.5">{notCompleted.count}</Badge>}
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="sales" className="mt-3"><SalesList delivers /></TabsContent>
-          <TabsContent value="open" className="mt-3"><NotCompleted /></TabsContent>
+          <TabsContent value="sales" className="mt-3"><SalesList delivers={notCompleted.canRider} /></TabsContent>
+          <TabsContent value={NOT_COMPLETED_VIEW} className="mt-3"><NotCompletedSales data={notCompleted} /></TabsContent>
         </Tabs>
       ) : (
         <SalesList />
@@ -92,41 +82,20 @@ function Sales() {
   );
 }
 
-function NotCompleted() {
-  const key = useQueryKey();
-  const router = useRouter();
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-  const params = { status: DeliveryOrderStatus.OutForDelivery, page, pageSize };
-  const query = useQuery({ queryKey: key('delivery-orders', params), queryFn: () => deliveryOrdersApi.list(params), placeholderData: keepPreviousData, refetchInterval: 30_000 });
-  return (
-    <DataTable
-      mode="server"
-      columns={openOrderColumns}
-      data={query.data?.items}
-      isLoading={query.isLoading}
-      error={query.error}
-      onRetry={() => query.refetch()}
-      getRowId={(o) => o.deliveryOrderId}
-      onRowClick={(o) => router.push(`/deliveries?orderId=${o.deliveryOrderId}`)}
-      page={page}
-      pageSize={pageSize}
-      totalCount={query.data?.meta.totalCount ?? 0}
-      onPageChange={setPage}
-      onPageSizeChange={(n) => { setPageSize(n); setPage(1); }}
-      emptyTitle="No rider orders out"
-      emptyMessage="Orders sent with a rider show here until the rider is back and the sale is completed on the Deliveries board."
-    />
-  );
-}
+const isDate = (v: string | null): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
 function SalesList({ delivers = false }: { delivers?: boolean }) {
   const router = useRouter();
   const key = useQueryKey();
   const branch = useBranchFilter();
-  const [range, setRange] = useState(() => presetRange('today'));
-  const [status, setStatus] = useState<SaleStatus | null>(null);
-  const [method, setMethod] = useState<PaymentMethod | null>(null);
+  // The dashboard's cards link here with their dates and filters.
+  const urlParams = useSearchParams();
+  const [range, setRange] = useState(() => {
+    const from = urlParams.get('from'), to = urlParams.get('to');
+    return isDate(from) && isDate(to) ? { from, to } : presetRange('today');
+  });
+  const [status, setStatus] = useState<SaleStatus | null>(() => enumParam(urlParams.get('status'), labels.saleStatus));
+  const [method, setMethod] = useState<PaymentMethod | null>(() => enumParam(urlParams.get('paymentMethod'), labels.paymentMethod));
   const [mode, setMode] = useState<DeliveryMode | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
