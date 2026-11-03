@@ -11,6 +11,8 @@ export interface QuickKey { productId: string; unitOfMeasureId: string; productN
 interface PreferencesState {
   theme: Theme;
   receiptPaper: ReceiptPaper;
+  /** Print the receipt by itself when a sale completes at this till. */
+  autoPrintReceipt: boolean;
   quickCashAmounts: number[];
   stkTimeoutSeconds: number;
   scannerSuffix: ScannerSuffix;
@@ -29,6 +31,7 @@ export const usePreferences = create<PreferencesState>()(
     (set) => ({
       theme: 'system',
       receiptPaper: '80mm',
+      autoPrintReceipt: false,
       quickCashAmounts: [50, 100, 200, 500, 1000],
       stkTimeoutSeconds: 120,
       scannerSuffix: 'Enter',

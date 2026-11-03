@@ -5,6 +5,7 @@ import { Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/overlays';
 import { formatDateTime, formatMoney, formatQty } from '@/lib/format';
+import { printReceipt } from '@/lib/print';
 import { cn } from '@/lib/utils';
 import { usePreferences, type ReceiptPaper } from '@/stores/preferences';
 import { useSession } from '@/stores/session';
@@ -24,7 +25,8 @@ export function DeliveryNote({ order, paper }: { order: DeliveryOrderDto; paper:
   const bundles = order.lines.filter((l, i, all) => l.productBundleId && all.findIndex((x) => x.productBundleId === l.productBundleId) === i);
   return (
     <div className={cn('print-area mx-auto bg-white font-mono text-black', narrow ? 'w-[72mm] p-2 text-[11px]' : 'w-full max-w-[190mm] p-6 text-sm')}>
-      <style>{`@media print { @page { size: ${narrow ? '80mm auto' : 'A4'}; margin: ${narrow ? '2mm' : '12mm'}; } }`}</style>
+      {/* printReceipt sizes the 80 mm page to the note. */}
+      {!narrow && <style>{'@media print { @page { size: A4; margin: 12mm; } }'}</style>}
       <div className="text-center">
         <p className="text-base font-bold">{business?.tradingName || business?.businessName}</p>
         {business?.phoneNumber && <p>Tel: {business.phoneNumber}</p>}
@@ -98,7 +100,7 @@ export function DeliveryNoteDialog({ order, open, onOpenChange, actions }: { ord
           </div>
           <div className="flex gap-2">
             {actions}
-            <Button onClick={() => window.print()}><Printer />Print delivery note</Button>
+            <Button onClick={() => printReceipt(paper)}><Printer />Print delivery note</Button>
           </div>
         </DialogFooter>
       </DialogContent>

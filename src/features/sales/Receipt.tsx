@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { useHasModule, usePermission } from '@/hooks/useSessionInfo';
 import { EtimsQr } from '@/features/etims/EtimsQr';
 import { isNotFound } from '@/features/etims/etims';
 import { formatDateOnly, formatDateTime, formatMoney, formatQty } from '@/lib/format';
+import { printReceipt } from '@/lib/print';
 import { usePreferences, type ReceiptPaper } from '@/stores/preferences';
 import { useSession } from '@/stores/session';
 import { cn, round2 } from '@/lib/utils';
@@ -27,7 +28,8 @@ export function Receipt({ sale, paper, live = false }: { sale: SaleDto; paper: R
   const narrow = paper === '80mm';
   return (
     <div className={cn('print-area mx-auto bg-white font-mono text-black', narrow ? 'w-[72mm] p-2 text-[11px]' : 'w-full max-w-[190mm] p-6 text-sm')}>
-      <style>{`@media print { @page { size: ${narrow ? '80mm auto' : 'A4'}; margin: ${narrow ? '2mm' : '12mm'}; } }`}</style>
+      {/* printReceipt sizes the 80 mm page to the receipt. */}
+      {!narrow && <style>{'@media print { @page { size: A4; margin: 12mm; } }'}</style>}
       <div className="text-center">
         {business?.logoUrl && !narrow && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -140,6 +142,13 @@ function Row({ label, value, bold, wrap }: { label: string; value: string; bold?
 const SIGNATURE_POLL_MS = 5_000;
 const SIGNATURE_WAIT_MS = 60_000;
 
+/** KRA's signature for a sale. The receipt and auto-print share it, so they read one cache entry with the same retries. */
+const etimsReceiptQuery = (saleId: string) => ({
+  queryKey: ['etims-receipt', saleId],
+  queryFn: () => etimsApi.saleReceipt(saleId),
+  retry: (count: number, error: unknown) => !isNotFound(error) && count < 2,
+});
+
 /**
  * KRA's signature and QR code: what makes the receipt valid for KRA. Printed exactly as KRA returned it. No block at all when the
  * sale will never be reported (404: its branch has no active device, or the sale predates it).
@@ -148,9 +157,7 @@ function KraBlock({ saleId, narrow, live }: { saleId: string; narrow: boolean; l
   const canSeeEtims = usePermission('Etims.View');
   const startedAt = useRef(Date.now());
   const query = useQuery({
-    queryKey: ['etims-receipt', saleId],
-    queryFn: () => etimsApi.saleReceipt(saleId),
-    retry: (count, error) => !isNotFound(error) && count < 2,
+    ...etimsReceiptQuery(saleId),
     refetchInterval: (q) => {
       const status = q.state.data?.status;
       const waiting = status === EtimsSubmissionStatus.Pending || status === EtimsSubmissionStatus.Failed;
@@ -202,6 +209,30 @@ export function ReceiptDialog({ sale, open, onOpenChange, title = 'Receipt', act
 }) {
   const paper = usePreferences((s) => s.receiptPaper);
   const setPref = usePreferences((s) => s.set);
+  const autoPrint = usePreferences((s) => s.autoPrintReceipt);
+  const etims = useHasModule('etims');
+  const saleId = sale?.saleId ?? null;
+  // Only a sale just made prints by itself: a reprint from the sale's page never does.
+  const wanted = autoPrint && !!live && open && sale?.status === SaleStatus.Completed;
+  const kra = useQuery({ ...etimsReceiptQuery(saleId ?? ''), enabled: wanted && etims && !!saleId });
+  // A receipt without KRA's signature is not valid for KRA: wait for it, unless the sale will never be reported (404). Otherwise the
+  // cashier sees "signature pending" and uses Print.
+  const ready = !etims || kra.data?.status === EtimsSubmissionStatus.Sent || isNotFound(kra.error);
+  const printed = useRef<string | null>(null);
+  const close = useRef(onOpenChange);
+  close.current = onOpenChange;
+  useEffect(() => {
+    if (!wanted || !ready || !saleId || printed.current === saleId) return;
+    // After the next frame, so the receipt is on screen to be measured. The ref is set only when it prints, so a frame cancelled by a
+    // re-render or StrictMode is scheduled again, and a sale never prints twice.
+    const frame = requestAnimationFrame(() => {
+      printed.current = saleId;
+      // Printed by itself: once it has gone to the printer, the till goes straight on to the next sale.
+      window.addEventListener('afterprint', () => close.current(false), { once: true });
+      printReceipt(paper);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [wanted, ready, saleId, paper]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size={paper === 'a4' ? 'lg' : 'sm'} aria-describedby={undefined}>
@@ -217,7 +248,7 @@ export function ReceiptDialog({ sale, open, onOpenChange, title = 'Receipt', act
           </div>
           <div className="flex gap-2">
             {actions}
-            <Button onClick={() => window.print()}><Printer />Print</Button>
+            <Button onClick={() => printReceipt(paper)}><Printer />Print</Button>
           </div>
         </DialogFooter>
       </DialogContent>

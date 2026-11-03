@@ -79,4 +79,14 @@
   .print-area, .print-area *, .report, .report * { visibility: visible; }
   .print-area, .report { position: absolute; inset: 0; }
   .no-print { display: none !important; }
+  /* A dialog is fixed and scrolls: print it in the page flow, or it clips what it holds. Nothing else takes up space. */
+  body:has(.print-area) > :not(:has(.print-area)) { display: none !important; }
+  [role='dialog']:has(.print-area), [role='dialog']:has(.print-area) div:has(> .print-area) {
+    position: static !important; display: block !important; width: auto !important; max-width: none !important;
+    max-height: none !important; overflow: visible !important; transform: none !important;
+    padding: 0 !important; border: 0 !important; box-shadow: none !important;
+    /* Auto-print fires as the dialog fades in: without this, a receipt printed mid-fade comes out faint or blank. */
+    opacity: 1 !important;
+  }
+  [role='dialog'] .print-area { position: static; }
 }

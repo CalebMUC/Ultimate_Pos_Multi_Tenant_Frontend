@@ -63,6 +63,9 @@ export default function SettingsPage() {
                 <option value="80mm">80 mm thermal</option><option value="a4">A4</option>
               </NativeSelect>
             </Row>
+            <Row label="Print receipt automatically" hint="Prints when a sale completes. Set up silent printing on this till, or the print dialog opens after every sale.">
+              <Switch checked={p.autoPrintReceipt} onCheckedChange={(v) => p.set('autoPrintReceipt', v)} />
+            </Row>
             <Row label="Quick cash buttons" hint="Amounts in KES, separated by commas.">
               <Input
                 value={quick}
