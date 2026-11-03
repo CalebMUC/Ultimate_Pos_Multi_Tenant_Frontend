@@ -83,17 +83,33 @@ export function PageHeader({ title, description, actions, children }: { title: R
   );
 }
 
-export function StatCard({ label, value, hint, icon, tone = 'default' }: { label: string; value: ReactNode; hint?: ReactNode; icon?: ReactNode; tone?: 'default' | 'success' | 'warning' | 'destructive' }) {
+/** With onClick the card is a real button, and ariaLabel should say what it opens. */
+export function StatCard({ label, value, hint, icon, tone = 'default', onClick, ariaLabel }: { label: string; value: ReactNode; hint?: ReactNode; icon?: ReactNode; tone?: 'default' | 'success' | 'warning' | 'destructive'; onClick?(): void; ariaLabel?: string }) {
   const toneClass = { default: 'bg-primary/10 text-primary', success: 'bg-success/15 text-success', warning: 'bg-warning/20 text-warning', destructive: 'bg-destructive/10 text-destructive' }[tone];
+  // A button may only hold inline content, so the clickable card builds the same layout from spans.
+  const Box = onClick ? 'span' : 'div';
+  const Line = onClick ? 'span' : 'p';
+  const cardClass = 'flex items-start gap-3 rounded-lg border bg-card p-4 shadow-sm';
+  const body = (
+    <>
+      {icon && <Box className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg [&_svg]:size-5', toneClass)}>{icon}</Box>}
+      <Box className={cn('min-w-0', onClick && '[&>span]:block')}>
+        <Line className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</Line>
+        <Line className="mt-0.5 truncate text-xl font-semibold tabular">{value}</Line>
+        {hint && <Line className="mt-0.5 text-xs text-muted-foreground">{hint}</Line>}
+      </Box>
+    </>
+  );
+  if (!onClick) return <div className={cardClass}>{body}</div>;
   return (
-    <div className="flex items-start gap-3 rounded-lg border bg-card p-4 shadow-sm">
-      {icon && <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg [&_svg]:size-5', toneClass)}>{icon}</div>}
-      <div className="min-w-0">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="mt-0.5 truncate text-xl font-semibold tabular">{value}</p>
-        {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className={cn(cardClass, 'w-full text-left ring-offset-background transition-colors hover:border-primary/40 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2')}
+    >
+      {body}
+    </button>
   );
 }
 

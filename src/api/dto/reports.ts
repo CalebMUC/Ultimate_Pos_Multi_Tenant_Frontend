@@ -136,6 +136,26 @@ export interface DashboardProfitDto {
 export interface DashboardReceivablesDto { totalOutstanding: number; customersOwing: number; totalCustomerCredit: number; customersInCredit: number }
 export interface DashboardStockDto { lowStockCount: number; outOfStockCount: number; totalStockValue: number | null; productsMissingCost: number | null }
 export interface DashboardProductionDto { from: DateOnly; to: DateOnly; runCount: number; totalCost: number }
+export interface DashboardCreditCustomerDto {
+  customerId: Guid;
+  customerName: string;
+  /** Null without Customers.View. */
+  phoneNumber: string | null;
+  saleCount: number;
+  /** Sold on credit in the period, before payments and returns. */
+  creditSalesAmount: number;
+  /** The customer's latest credit sale in the period. */
+  lastSaleAt: DateTimeString;
+  /** Owed now, across every branch and period. Negative: they have prepaid. Null without Customers.ViewLedger: that is not zero. */
+  outstandingBalance: number | null;
+}
+export interface DashboardCreditCustomersDto {
+  from: DateOnly; to: DateOnly; customerCount: number;
+  /** Equals the summary's sales.creditSalesAmount for the same dates and branch. */
+  totalCreditSales: number;
+  /** Biggest first. */
+  customers: DashboardCreditCustomerDto[];
+}
 export interface DashboardSummaryDto {
   from: DateOnly; to: DateOnly; sections: string[]; hiddenSections: string[];
   sales: DashboardSalesDto | null; profit: DashboardProfitDto | null; receivables: DashboardReceivablesDto | null;

@@ -181,6 +181,8 @@ export interface MarginRowDto {
 export interface ProfitRowDto {
   productId: Guid; productName: string; sku: string; quantitySoldInBaseUnits: number;
   revenue: number; cost: number; grossProfit: number; marginPercent: number | null; uncostedRevenue: number;
+  /** "l", "kg", "pkt": the unit of quantitySoldInBaseUnits. */
+  baseUnitSymbol: string | null;
 }
 export interface ProfitReportDto {
   from: DateTimeString; to: DateTimeString; items: ProfitRowDto[];

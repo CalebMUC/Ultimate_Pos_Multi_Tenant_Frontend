@@ -21,6 +21,8 @@ import { BranchFilterSelect } from '@/features/branches/BranchFilterSelect';
 import { useBranchFilter } from '@/features/branches/branches';
 import { TodayPanel } from '@/features/dashboard/TodayPanel';
 import { CustomersPanel } from '@/features/dashboard/CustomersPanel';
+import { CreditCustomersDialog } from '@/features/dashboard/CreditCustomersDialog';
+import { CostOfGoodsDialog } from '@/features/dashboard/CostOfGoodsDialog';
 
 const dayLabel = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number);
@@ -34,6 +36,7 @@ function Dashboard() {
   const { hasModule } = useActiveBusiness();
   const canSalesReport = usePermission('SalesReports.View');
   const [range, setRange] = useState(() => presetRange('month'));
+  const [drilldown, setDrilldown] = useState<'credit' | 'cost' | null>(null);
   const branch = useBranchFilter();
   const summary = useQuery({ queryKey: key('dashboard', { ...range, branchId: branch.branchId }), queryFn: () => dashboardApi.summary(range.from, range.to, branch.scope) });
   const sales = useQuery({ queryKey: key('dashboard', { sales: range, branchId: branch.branchId }), queryFn: () => reportsApi.sales(range.from, range.to, 5, branch.scope), enabled: canSalesReport });
@@ -65,7 +68,7 @@ function Dashboard() {
             <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard label="Revenue" value={formatMoney(d.sales.revenue)} hint={`${d.sales.saleCount} sale(s)`} icon={<TrendingUp />} />
               <StatCard label="Average sale" value={formatMoney(d.sales.averageSaleValue)} icon={<Receipt />} />
-              <StatCard label="On credit" value={formatMoney(d.sales.creditSalesAmount)} icon={<Users />} />
+              <StatCard label="On credit" value={formatMoney(d.sales.creditSalesAmount)} hint="View customers" icon={<Users />} onClick={() => setDrilldown('credit')} ariaLabel="On credit: view customers" />
               <StatCard
                 label="Voided / pending"
                 value={`${d.sales.voidedCount} / ${d.sales.pendingCount}`}
@@ -80,7 +83,7 @@ function Dashboard() {
               <StatCard label="Gross profit" value={formatMoney(d.profit.grossProfit)} hint={`Margin ${formatPercent(d.profit.grossMarginPercent)}`} icon={<TrendingUp />} tone={d.profit.grossProfit < 0 ? 'destructive' : 'success'} />
               <StatCard label="Operating expenses" value={formatMoney(d.profit.operatingExpenses)} icon={<Wallet />} />
               <StatCard label="Net profit" value={formatMoney(d.profit.netProfit)} hint={`Margin ${formatPercent(d.profit.netMarginPercent)}`} icon={<Banknote />} tone={d.profit.netProfit < 0 ? 'destructive' : 'success'} />
-              <StatCard label="Cost of goods sold" value={formatMoney(d.profit.costOfGoodsSold)} icon={<Boxes />} />
+              <StatCard label="Cost of goods sold" value={formatMoney(d.profit.costOfGoodsSold)} hint="View goods" icon={<Boxes />} onClick={() => setDrilldown('cost')} ariaLabel="Cost of goods sold: view goods" />
               {!d.profit.isComplete && (
                 <Alert variant="warning" className="sm:col-span-2 lg:col-span-4">
                   <AlertTriangle />
@@ -144,6 +147,8 @@ function Dashboard() {
           {d.hiddenSections.length > 0 && <p className="text-xs text-muted-foreground">Some sections are hidden because your role doesn’t include them.</p>}
         </div>
       )}
+      <CreditCustomersDialog open={drilldown === 'credit'} onOpenChange={(o) => !o && setDrilldown(null)} range={range} branch={branch} />
+      <CostOfGoodsDialog open={drilldown === 'cost'} onOpenChange={(o) => !o && setDrilldown(null)} range={range} branch={branch} />
     </>
   );
 }

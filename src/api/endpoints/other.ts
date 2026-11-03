@@ -13,8 +13,8 @@ import type {
   CreateFormulaRequestDto, CreateProductionRunRequestDto, FormulaDto, ProductionPreviewDto, ProductionRunDto,
 } from '../dto/production';
 import type {
-  CustomerAgingReportDto, DashboardSummaryDto, OpenOrdersReportDto, PriceTrendsReportDto, ProductionCostReportDto, PurchaseSummaryDto,
-  SalesReportDto, StockAdjustmentReportDto, StockMovementReportDto, StockStatusReportDto,
+  CustomerAgingReportDto, DashboardCreditCustomersDto, DashboardSummaryDto, OpenOrdersReportDto, PriceTrendsReportDto, ProductionCostReportDto,
+  PurchaseSummaryDto, SalesReportDto, StockAdjustmentReportDto, StockMovementReportDto, StockStatusReportDto,
 } from '../dto/reports';
 
 const tz = () => ({ utcOffsetMinutes: utcOffsetMinutes() });
@@ -57,6 +57,8 @@ export const productionApi = {
 export const dashboardApi = {
   summary: (from?: DateOnly, to?: DateOnly, scope?: BranchScope) =>
     api.get<DashboardSummaryDto>('/dashboard/summary', cleanParams({ from, to, ...tz(), ...branchParam(scope) })),
+  creditCustomers: (from?: DateOnly, to?: DateOnly, scope?: BranchScope) =>
+    api.get<DashboardCreditCustomersDto>('/dashboard/credit-customers', cleanParams({ from, to, ...tz(), ...branchParam(scope) })),
 };
 
 export const reportsApi = {
