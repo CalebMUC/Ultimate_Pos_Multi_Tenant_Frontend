@@ -29,7 +29,8 @@ export const sectorProfiles: Record<BusinessSector, SectorProfile> = {
     kind: BusinessKind.Trader, allowNegativeStock: true,
     startsWith: 'Dozen, crate and carton units, and a Packaging & Carrier Bags expense category.',
   },
-  [BusinessSector.Hardware]: { kind: BusinessKind.Trader, allowNegativeStock: true, startsWith: 'Metre, bag, sheet and roll units.' },
+  [BusinessSector.Hardware]: { kind: BusinessKind.Trader, allowNegativeStock: true, startsWith: 'Metre, bag, sheet, roll, foot and tonne units.' },
+  [BusinessSector.Electrical]: { kind: BusinessKind.Trader, allowNegativeStock: true, startsWith: 'Metre, roll, coil and set units.' },
 };
 
 /** A sector's profile; an unknown sector gets General's, as in the API. */
