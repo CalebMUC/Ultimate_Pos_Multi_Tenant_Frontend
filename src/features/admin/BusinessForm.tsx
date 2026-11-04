@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { z } from 'zod';
 import type { UseFormReturn } from 'react-hook-form';
 import { Input, NativeSelect, Textarea } from '@/components/ui/primitives';
@@ -12,7 +13,8 @@ import { emptyToNull } from '@/lib/utils';
 import type { BusinessDto, UpdateBusinessRequestDto } from '@/api/dto/business';
 
 const shortCode = (label: string) => z.string().trim().refine((v) => v === '' || /^\d{5,7}$/.test(v), `A ${label} number is 5–7 digits.`);
-const url = z.string().trim().max(500).refine((v) => v === '' || /^https?:\/\//i.test(v), 'Use a full link starting with https://');
+/** A full link, or a path to an image shipped with the app (/tenants/aqua-hub/logo.png): it works on any domain the app is served from. */
+const url = z.string().trim().max(500).refine((v) => v === '' || /^https?:\/\//i.test(v) || /^\/(?!\/)\S+$/.test(v), 'Use a full link starting with https://, or a path starting with /');
 
 export const businessSchema = z.object({
   businessName: requiredText('Business name', 200),
@@ -133,7 +135,7 @@ export function BusinessFields({ form, registering }: { form: UseFormReturn<Busi
       <Field label="Email" error={e.email}><Input type="email" {...form.register('email')} /></Field>
       <Field label="County" error={e.county}><Input {...form.register('county')} /></Field>
       <Field label="Address" error={e.physicalAddress} className="sm:col-span-2 lg:col-span-3"><Textarea {...form.register('physicalAddress')} /></Field>
-      <Field label="M-Pesa till" error={e.mpesaTillNumber} hint="Buy Goods number. Till payments are routed to the business by this number."><Input inputMode="numeric" {...form.register('mpesaTillNumber')} /></Field>
+      <Field label="M-Pesa till" error={e.mpesaTillNumber} hint="Your own Buy Goods number: till payments are routed to the business by it. Bank details for invoices go under Send payment to."><Input inputMode="numeric" {...form.register('mpesaTillNumber')} /></Field>
       <Field label="M-Pesa paybill" error={e.mpesaPaybillNumber} hint="Business number. Used for routing when there is no till."><Input inputMode="numeric" {...form.register('mpesaPaybillNumber')} /></Field>
       <Field label="Max discount per sale (%)" error={e.maxDiscountPercent} hint="Empty for no cap."><Input type="number" step="0.1" min={0} max={100} {...form.register('maxDiscountPercent', { valueAsNumber: true })} /></Field>
       <Field label="VAT" error={e.isVatRegistered}>
@@ -171,8 +173,26 @@ export function BusinessFields({ form, registering }: { form: UseFormReturn<Busi
           Allow selling below zero stock
         </label>
       </Field>
-      <Field label="Logo link" error={e.logoUrl} className="sm:col-span-2"><Input type="url" placeholder="https://…" {...form.register('logoUrl')} /></Field>
+      <Field label="Logo link" error={e.logoUrl} className="sm:col-span-2" hint={<LogoPreview src={form.watch('logoUrl')} />}>
+        <Input placeholder="https://… or /tenants/your-business/logo.png" autoComplete="off" {...form.register('logoUrl')} />
+      </Field>
       <Field label="Login background link" error={e.backgroundImageUrl}><Input type="url" placeholder="https://…" {...form.register('backgroundImageUrl')} /></Field>
     </div>
+  );
+}
+
+/** The logo as receipts, invoices and the sidebar will show it, or why it will not show. */
+function LogoPreview({ src }: { src: string }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const value = src?.trim();
+  if (!value) return <>Shown on receipts, invoices, the sidebar and the sign-in page. A full link, or a path to an image shipped with the app.</>;
+  if (!/^https?:\/\//i.test(value) && !/^\/(?!\/)\S+$/.test(value)) return null;
+  if (failed === value) return <span className="text-destructive">This image could not be loaded. Check the link.</span>;
+  return (
+    <span className="mt-1 flex items-center gap-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={value} alt="Logo preview" onError={() => setFailed(value)} className="size-12 rounded border bg-white object-contain p-0.5" />
+      Preview
+    </span>
   );
 }
