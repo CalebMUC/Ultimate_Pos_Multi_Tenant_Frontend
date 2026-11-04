@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { Printer, Settings2 } from 'lucide-react';
+import { Download, Printer, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/overlays';
 import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
@@ -19,6 +20,7 @@ import type { SaleDto } from '@/api/dto/sales';
 import { InvoiceDocument } from './Invoice';
 import { accountInvoice, partyFromCustomer, saleInvoice, type InvoiceModel } from './invoiceModel';
 import { InvoiceSettingsForm } from './InvoiceSettingsForm';
+import { downloadPdf, invoiceFileName } from './downloadPdf';
 
 /** Days to pay, from the business's invoice settings. */
 const useDueDays = () => useSession((s) => s.business?.invoice?.dueDays ?? null);
@@ -49,14 +51,28 @@ export function InvoiceDialog({ open, onOpenChange, title, description, invoice,
 }) {
   const canEdit = usePermission('Businesses.Update');
   const [editing, setEditing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const page = useRef<HTMLDivElement>(null);
   const ready = !isLoading && !error && invoice;
 
+  async function download() {
+    const article = page.current?.querySelector<HTMLElement>('article');
+    if (!invoice || !article) return;
+    setDownloading(true);
+    try {
+      await downloadPdf(article, invoiceFileName(invoice.number, invoice.customer.name));
+    } catch {
+      toast.error('The PDF could not be made. Use Print invoice and choose Save as PDF instead.');
+    } finally {
+      setDownloading(false);
+    }
+  }
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) setEditing(false); onOpenChange(o); }}>
       <DialogContent size="xl">
         <DialogHeader className="no-print">
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description ?? 'Check it, then print it or save it as a PDF to send.'}</DialogDescription>
+          <DialogDescription>{description ?? 'Check it, then print it, or download it as a PDF to send.'}</DialogDescription>
         </DialogHeader>
         {editing && (
           <InvoiceSettingsForm className="no-print rounded-md border bg-muted/40 p-4" onSaved={() => setEditing(false)} onCancel={() => setEditing(false)} />
@@ -67,7 +83,7 @@ export function InvoiceDialog({ open, onOpenChange, title, description, invoice,
           ) : error ? (
             <ErrorState error={error} onRetry={onRetry} />
           ) : invoice ? (
-            <div className="shadow-md">
+            <div ref={page} className="shadow-md">
               <InvoiceDocument invoice={invoice} />
             </div>
           ) : (
@@ -80,7 +96,10 @@ export function InvoiceDialog({ open, onOpenChange, title, description, invoice,
               <Settings2 />Payment details
             </Button>
           ) : <span />}
-          <Button disabled={!ready} onClick={() => invoice && printInvoice(invoice.number)}><Printer />Print invoice</Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" disabled={!ready} loading={downloading} onClick={download}><Download />Download PDF</Button>
+            <Button disabled={!ready} onClick={() => invoice && printInvoice(invoice.number)}><Printer />Print invoice</Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

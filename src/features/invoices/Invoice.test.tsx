@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PaymentMethod, SaleStatus } from '@/api/enums';
 import { addDays, formatDateOnly, formatMoney, todayIso } from '@/lib/format';
 import { useSession } from '@/stores/session';
@@ -15,6 +15,10 @@ import { accountInvoice, accountInvoiceNumber, invoiceQty, saleInvoice } from '.
 import { dueDateFor, sendPaymentTo } from './paymentDetails';
 import { CustomerInvoiceDialog, SaleInvoiceDialog } from './InvoiceDialog';
 import { InvoiceSettingsCard } from './InvoiceSettingsForm';
+import { downloadPdf, invoiceFileName, pageSlices } from './downloadPdf';
+
+// jsdom cannot draw a canvas: the PDF itself is made in the browser. Here, only what is handed to it.
+vi.mock('./downloadPdf', async (original) => ({ ...(await original<typeof import('./downloadPdf')>()), downloadPdf: vi.fn().mockResolvedValue(undefined) }));
 
 const line = (id: string, productName: string, quantity: number, unitPrice: number): SaleLineDto => ({
   saleLineId: id, productId: productName, productName, unitOfMeasureId: 'u', quantity, unitPrice, lineTotal: quantity * unitPrice, discountAmount: 0, taxRate: 0,
@@ -197,11 +201,35 @@ describe('customer invoice', () => {
     expect(doc).not.toHaveTextContent('222111');
   });
 
+  it('downloads the invoice as a PDF named after it and the customer', async () => {
+    const user = userEvent.setup();
+    vi.mocked(downloadPdf).mockClear();
+    renderWithProviders(<CustomerInvoiceDialog customer={customer} open onOpenChange={() => {}} />);
+    const doc = await screen.findByRole('article', { name: /^Invoice ACC-/ });
+    await user.click(screen.getByRole('button', { name: /Download PDF/ }));
+    const number = doc.getAttribute('aria-label')!.replace('Invoice ', '');
+    expect(downloadPdf).toHaveBeenCalledWith(doc, `Invoice ${number} - Let's Talk Sacco.pdf`);
+  });
+
+  it('ends each PDF page under a row, never through one, and cuts only a block taller than a page', () => {
+    // Rows end at 300, 600, 900 and 1200; a page holds 700.
+    expect(pageSlices(1200, 700, [300, 600, 900, 1200])).toEqual([[0, 600], [600, 1200]]);
+    // Nothing ends within the first page: cut at its edge.
+    expect(pageSlices(1500, 700, [1000, 1500])).toEqual([[0, 700], [700, 1000], [1000, 1500]]);
+    expect(pageSlices(500, 700, [500])).toEqual([[0, 500]]);
+  });
+
+  it('names the file without characters a computer refuses', () => {
+    expect(invoiceFileName('INV-000010', 'Mama: Wanjiru / Shop?')).toBe('Invoice INV-000010 - Mama Wanjiru Shop.pdf');
+    expect(invoiceFileName('INV-000010', null)).toBe('Invoice INV-000010.pdf');
+  });
+
   it('says so when the customer owes nothing', async () => {
     agingData = { ...agingData, customers: [] };
     renderWithProviders(<CustomerInvoiceDialog customer={customer} open onOpenChange={() => {}} />);
     expect(await screen.findByText('Nothing owed')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Print invoice/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Download PDF/ })).toBeDisabled();
   });
 
   it('saves payment details from the invoice and prints them at once', async () => {
