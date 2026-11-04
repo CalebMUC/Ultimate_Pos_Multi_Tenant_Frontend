@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/overlays';
 import { PageHeader } from '@/components/shared/Display';
 import { getStorageMode, tokenStorage, type RefreshTokenStorageMode } from '@/api/tokenStorage';
 import { MonthlyRewardCard } from '@/features/admin/MonthlyRewardCard';
+import { InvoiceSettingsCard } from '@/features/invoices/InvoiceSettingsForm';
 import { usePreferences, type ReceiptPaper, type ScannerSuffix, type Theme } from '@/stores/preferences';
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -27,7 +28,7 @@ export default function SettingsPage() {
   const [quick, setQuick] = useState(p.quickCashAmounts.join(', '));
   return (
     <>
-      <PageHeader title="Settings" description="Preferences for this device and browser, and the business’s discounts." />
+      <PageHeader title="Settings" description="Preferences for this device and browser, and the business’s discounts and invoices." />
       <div className="grid max-w-3xl gap-4">
         <Can permission="Businesses.View">
           <Link href="/settings/license" className="flex items-center gap-3 rounded-lg border bg-card p-4 shadow-sm transition-colors hover:border-primary">
@@ -40,6 +41,15 @@ export default function SettingsPage() {
           <h2 className="-mb-2 text-sm font-semibold text-muted-foreground">Discounts</h2>
           <MonthlyRewardCard />
         </Can>
+      </div>
+      {/* Wider than the rest: the form sits beside a preview of what invoices print. Read-only without Businesses.Update. */}
+      <Can permission="Businesses.View">
+        <section className="mt-4 grid max-w-5xl gap-4" aria-label="Invoices">
+          <h2 className="-mb-2 text-sm font-semibold text-muted-foreground">Invoices</h2>
+          <InvoiceSettingsCard />
+        </section>
+      </Can>
+      <div className="mt-4 grid max-w-3xl gap-4">
         <Card>
           <CardHeader><CardTitle>Appearance</CardTitle></CardHeader>
           <CardContent className="divide-y">

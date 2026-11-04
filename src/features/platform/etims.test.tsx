@@ -61,6 +61,7 @@ describe('registering a business', () => {
     await user.type(screen.getByLabelText(/^KRA PIN/), 'P051234567X');
     await user.selectOptions(screen.getByLabelText(/^Kind/), String(BusinessKind.Trader));
     await user.click(screen.getByRole('button', { name: /Next/ }));
+    await user.click(await screen.findByRole('button', { name: 'Add later' }));
     await user.type(await screen.findByLabelText(/^Full name/), 'Jane Wanjiru');
     await user.type(screen.getByLabelText(/^Email/), 'jane@duka.ke');
     await user.click(screen.getByRole('button', { name: /Next/ }));

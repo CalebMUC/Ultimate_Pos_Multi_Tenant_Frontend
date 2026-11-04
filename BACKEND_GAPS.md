@@ -49,6 +49,31 @@ Still open on the API (from `docs/BACKEND_API_GAPS.md`), so no screen exists for
   used (containers are sold).
 - G8, G9, G12, G13, G14, G16: optional.
 
+## Invoices for unpaid credit sales (2026-11-04)
+
+The water refill station bills customers who pay later (a Sacco taking refills through the month). A printable A4 invoice, logo
+centred, opens from *Invoice* on a credit sale's page and on a customer's page (every unpaid credit sale, oldest first). What is
+still owed comes from `GET /reports/customer-aging?customerId=…&includeInvoices=true`.
+
+*Send payment to* and the terms are the business's (API `docs/Frontend-Invoice-Payment-Details-Prompt.md`, migration
+`BusinessInvoicePaymentDetails`): `PUT /businesses/current/invoice-settings` (`Businesses.Update`, a full replace of nine fields),
+optional `invoice` on `POST /businesses`, returned as `BusinessDto.invoice`. Bank name and branch, account name and number, the
+bank's paybill, a Buy Goods till, a send-money phone; days to pay and a note. Edited on *Settings → Invoices* (read-only with
+`Businesses.View`, with a live preview and *Clear all*), under *Payment details* in the invoice dialog, and on the optional
+*Payment details* step of the register wizard. Printed on invoices and on credit-sale receipts (80 mm and A4), never on paid ones.
+Printed only: never filled from, or in place of, the M-Pesa till and paybill that route payments. With no bank, till or phone set the
+block is left off. An older API (no `invoice`) gets a note on the form instead of a Save.
+
+A reprinted receipt of a credit sale that has since been paid still carries the block: the receipt does not ask the aging report.
+
+Client logos can ship with the frontend under `public/tenants/<client>/` and be set as the business's Logo URL (there is no upload
+endpoint). Aqua Hub: `public/tenants/aqua-hub/logo.png`.
+
+| Gap | Frontend workaround |
+|---|---|
+| No invoice record for a customer's account invoice. | Numbered `ACC-yymmdd-XXXX` (day + start of the customer id): not stored, but the same all day, so a reprint matches. A one-sale invoice uses the sale number (`INV-…`). |
+| Aging needs `CustomerReports.View`. | Without it a sale's invoice shows its whole total as due, and the customer's invoice is not offered. |
+
 ## Not supported by the API yet (from the build prompt §17)
 
 - KRA eTIMS submission and control numbers (an empty `<EtimsBlock />` slot stays on the receipt).

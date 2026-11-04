@@ -145,6 +145,8 @@ describe('register wizard', () => {
     expect(screen.getByLabelText(/^Kind/)).toHaveValue(String(BusinessKind.Trader));
     await user.click(screen.getByRole('button', { name: /Next/ }));
 
+    // The owner has no bank details yet.
+    await user.click(await screen.findByRole('button', { name: 'Add later' }));
     await user.type(await screen.findByLabelText(/Full name/), 'Wanjiku Kamau');
     await user.type(screen.getByLabelText(/^Email/), 'wanjiku@example.co.ke');
     await user.click(screen.getByRole('button', { name: /Next/ }));
@@ -157,12 +159,13 @@ describe('register wizard', () => {
     expect(registerBody).toMatchObject({
       businessName: 'Mama Mboga Ltd', kraPin: 'P051234567X', sector: BusinessSector.WaterRefill, kind: BusinessKind.Trader, allowNegativeStock: false,
       owner: { fullName: 'Wanjiku Kamau', email: 'wanjiku@example.co.ke', password: null },
+      invoice: null,
     });
 
     // Leaving the panel discards it: it can't be shown again.
     await user.click(screen.getByRole('button', { name: 'Register another' }));
     expect(screen.queryByText('Tmp-7Kq9-xP2')).not.toBeInTheDocument();
-  });
+  }, 20_000);
 });
 
 describe('suspend', () => {

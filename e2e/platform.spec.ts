@@ -39,6 +39,8 @@ test.describe.serial('Super User: register, force a password change, suspend, li
     await superPage.getByLabel(/Registered name/).fill(business.name);
     await superPage.getByLabel(/KRA PIN/).fill(business.kraPin);
     await superPage.getByRole('button', { name: /Next/ }).click();
+    // Payment details for invoices are optional: the owner adds them later.
+    await superPage.getByRole('button', { name: 'Add later' }).click();
     await superPage.getByLabel(/Full name/).fill(owner.name);
     await superPage.getByLabel(/^Email/).fill(owner.email);
     await superPage.getByRole('button', { name: /Next/ }).click();

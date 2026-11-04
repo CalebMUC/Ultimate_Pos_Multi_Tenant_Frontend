@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, BadgePercent, Banknote, Pencil, Scale, Wallet } from 'lucide-react';
+import { ArrowLeft, BadgePercent, Banknote, FileText, Pencil, Scale, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/primitives';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
@@ -21,6 +21,7 @@ import { useApiMutation } from '@/hooks/useApiMutation';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { CustomerFormDialog } from '@/features/customers/CustomerFormDialog';
 import { BuyingTab } from '@/features/customers/BuyingTab';
+import { CustomerInvoiceDialog } from '@/features/invoices/InvoiceDialog';
 import { DiscountBadge, DiscountDialog, type DiscountTarget } from '@/features/customers/insights';
 import type { CustomerLedgerEntryDto } from '@/api/dto/business';
 
@@ -49,6 +50,9 @@ function CustomerDetail({ id }: { id: string }) {
   const key = useQueryKey();
   const canLedger = usePermission('Customers.ViewLedger');
   const canInsights = usePermission('Customers.ViewInsights');
+  const canAging = usePermission('CustomerReports.View');
+  const canSales = usePermission('Sales.View');
+  const canInvoice = canAging && canSales;
   const tab = useSearchParams().get('tab') === 'buying' && canInsights ? 'buying' : 'account';
   const [discount, setDiscount] = useState<DiscountTarget | null>(null);
   const customer = useQuery({ queryKey: key('customers', { id }), queryFn: () => customersApi.get(id) });
@@ -56,6 +60,7 @@ function CustomerDetail({ id }: { id: string }) {
   const ledger = useQuery({ queryKey: key('customers', { id, ledger: true }), queryFn: () => customersApi.ledger(id), enabled: canLedger });
   const [editing, setEditing] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [invoicing, setInvoicing] = useState(false);
   const pay = useApiMutation((body: Parameters<typeof customersApi.recordPayment>[1]) => customersApi.recordPayment(id, body), {
     invalidate: ['customers', 'dashboard'],
     success: (b) => `Payment recorded. Balance now ${formatMoney(b.outstandingBalance)}`,
@@ -76,6 +81,8 @@ function CustomerDetail({ id }: { id: string }) {
           <>
             <Button variant="ghost" asChild><Link href="/customers"><ArrowLeft />Customers</Link></Button>
             <Can permission="Customers.RecordPayment"><Button onClick={() => setPaying(true)}><Banknote />Record payment</Button></Can>
+            {/* Hidden once the balance is known to be paid off; the dialog also says when nothing is owed. */}
+            {canInvoice && !(b && b.outstandingBalance <= 0) && <Button variant="outline" onClick={() => setInvoicing(true)}><FileText />Invoice</Button>}
             <Can permission="Customers.ManageDiscount">
               <Button variant="outline" onClick={() => setDiscount({ customerId: c.customerId, customerName: c.customerName, discountPercent: c.discountPercent, discountNote: c.discountNote, discountSetAt: c.discountSetAt })}>
                 <BadgePercent />{c.discountPercent ? 'Change discount' : 'Give discount'}
@@ -150,6 +157,7 @@ function CustomerDetail({ id }: { id: string }) {
           </div>
         </TabsContent>
       </Tabs>
+      {canInvoice && <CustomerInvoiceDialog customer={c} open={invoicing} onOpenChange={setInvoicing} />}
       <CustomerFormDialog open={editing} onOpenChange={setEditing} customer={c} />
       <DiscountDialog target={discount} open={!!discount} onOpenChange={(o) => !o && setDiscount(null)} />
       <SettlementDialog

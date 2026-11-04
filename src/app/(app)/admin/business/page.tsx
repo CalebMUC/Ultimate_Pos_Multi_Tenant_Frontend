@@ -16,6 +16,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { applyApiErrors } from '@/lib/forms';
 import { useSession } from '@/stores/session';
 import { BusinessFields, businessDefaults, businessSchema, toBusinessRequest, type BusinessValues } from '@/features/admin/BusinessForm';
+import { InvoiceSettingsCard } from '@/features/invoices/InvoiceSettingsForm';
 
 function BusinessProfile() {
   const key = useQueryKey();
@@ -45,7 +46,7 @@ function BusinessProfile() {
   if (business.error) return <ErrorState error={business.error} onRetry={() => business.refetch()} />;
   return (
     <>
-      <PageHeader title="Business profile" description="Shown on receipts and invoices. Also sets VAT, the M-Pesa till and the discount cap." />
+      <PageHeader title="Business profile" description="Shown on receipts and invoices. Also sets VAT, the M-Pesa till, the discount cap and where customers pay invoices." />
       <form onSubmit={form.handleSubmit(submit)} className="space-y-4" noValidate>
         <FormAlert messages={messages} />
         <Card><CardContent className="pt-4"><BusinessFields form={form} registering={false} /></CardContent></Card>
@@ -54,6 +55,8 @@ function BusinessProfile() {
           <Button type="submit" loading={form.formState.isSubmitting} disabled={!form.formState.isDirty}>Save</Button>
         </div>
       </form>
+      {/* Its own Save: the payment details are a separate API call from the profile. */}
+      <div className="mt-6"><InvoiceSettingsCard /></div>
     </>
   );
 }

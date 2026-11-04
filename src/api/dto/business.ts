@@ -39,6 +39,8 @@ export interface RegisterBusinessRequestDto extends BusinessProfileFields {
   owner?: BusinessOwnerRequestDto | null;
   /** Reports to KRA eTIMS. Defaults to false. Chosen here and changed later only by the platform (PUT /platform/businesses/{id}/etims). */
   etimsEnabled?: boolean;
+  /** Where invoices tell customers to pay. Null or left out when the owner has no details yet: they add them later in Settings. */
+  invoice?: InvoiceSettingsDto | null;
 }
 /** Full replace. Kind cannot change. */
 export type UpdateBusinessRequestDto = BusinessProfileFields;
@@ -60,6 +62,33 @@ export interface BusinessDto extends BusinessProfileFields {
   modules?: string[] | null;
   /** Reports to KRA eTIMS ("etims" is then in modules). Set by the platform only. Missing on older APIs. */
   etimsEnabled?: boolean;
+  /** What invoices print under "Send payment to", and their terms. Missing on older APIs. */
+  invoice?: InvoiceSettingsDto | null;
+}
+
+/**
+ * Where customers send the money for an invoice, and its terms: PUT /businesses/current/invoice-settings (Businesses.Update), a full
+ * replace where null clears, and optional on register. Printed only: these are not the M-Pesa till and paybill that route payments into
+ * the POS, and neither set is ever filled from the other.
+ */
+export interface InvoiceSettingsDto {
+  /** At most 100 characters. */
+  bankName: string | null;
+  bankBranch: string | null;
+  /** The bank's M-Pesa paybill, 5-10 digits. */
+  bankPaybillNumber: string | null;
+  /** The name the account is held in, at most 100 characters. */
+  bankAccountName: string | null;
+  /** At most 50 characters, kept as typed (leading zeros matter). Also the "Account" for the bank's paybill. */
+  bankAccountNumber: string | null;
+  /** A Buy Goods till for invoices, 5-7 digits. */
+  tillNumber: string | null;
+  /** A mobile number customers may send M-Pesa to. The API stores it as 2547XXXXXXXX or 2541XXXXXXXX. */
+  sendMoneyPhoneNumber: string | null;
+  /** Days to pay, 0-365. Null: no due date unless the customer promised one. */
+  dueDays: number | null;
+  /** Printed with the payment details, at most 500 characters. */
+  note: string | null;
 }
 
 /** maxBranches: open branches allowed (head office included), null = unlimited. openBranches: every open branch, whoever asks. */

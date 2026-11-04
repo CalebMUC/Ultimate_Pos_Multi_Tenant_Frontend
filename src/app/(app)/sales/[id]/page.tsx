@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Ban, Bike, Boxes, Printer, RefreshCw, Undo2 } from 'lucide-react';
+import { ArrowLeft, Ban, Bike, Boxes, FileText, Printer, RefreshCw, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge, Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/primitives';
 import { Can, PermissionRoute } from '@/components/shared/Can';
@@ -21,6 +21,7 @@ import { round2 } from '@/lib/utils';
 import { customerDiscountLabel } from '@/features/sales/customerDiscount';
 import { ReceiptDialog } from '@/features/sales/Receipt';
 import { ReturnDialog } from '@/features/sales/ReturnDialog';
+import { SaleInvoiceDialog } from '@/features/invoices/InvoiceDialog';
 import { WithActivityTab } from '@/features/audit/WithActivityTab';
 import type { SaleLineDto } from '@/api/dto/sales';
 
@@ -31,6 +32,7 @@ function SaleDetail({ id }: { id: string }) {
   const [voiding, setVoiding] = useState(false);
   const [returning, setReturning] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [invoicing, setInvoicing] = useState(false);
   const voidSale = useApiMutation(() => salesApi.void(id), { invalidate: ['sales', 'stock', 'customers', 'dashboard'], success: 'Sale voided', toastErrors: false });
   const reconcile = useApiMutation(() => salesApi.reconcileMpesa(id), {
     invalidate: ['sales'],
@@ -40,6 +42,8 @@ function SaleDetail({ id }: { id: string }) {
   if (sale.isLoading) return <LoadingState />;
   if (sale.error || !sale.data) return <ErrorState error={sale.error} onRetry={() => sale.refetch()} />;
   const s = sale.data;
+  // A credit sale is billed to its customer: the invoice is what they are sent to pay it.
+  const invoiceable = s.paymentMethod === PaymentMethod.Credit && !!s.customerId && s.status === SaleStatus.Completed;
   const returnable = s.status === SaleStatus.Completed && s.lines.some((l) => l.quantity - l.quantityReturned > 0);
   /** A sale line; a bundle's part is indented under its bundle row. */
   const lineRow = (l: SaleLineDto, part = false) => (
@@ -76,6 +80,7 @@ function SaleDetail({ id }: { id: string }) {
           <>
             <Button variant="ghost" asChild><Link href="/sales"><ArrowLeft />Sales</Link></Button>
             <Button variant="outline" onClick={() => setPrinting(true)}><Printer />Receipt</Button>
+            {invoiceable && <Button variant="outline" onClick={() => setInvoicing(true)}><FileText />Invoice</Button>}
             {s.status === SaleStatus.Pending && s.paymentMethod === PaymentMethod.MpesaStkPush && (
               <Button variant="outline" loading={reconcile.isPending} onClick={() => reconcile.mutate(undefined)}><RefreshCw />Check with M-Pesa</Button>
             )}
@@ -220,6 +225,7 @@ function SaleDetail({ id }: { id: string }) {
       />
       <ReturnDialog sale={s} open={returning} onOpenChange={setReturning} />
       <ReceiptDialog sale={s} open={printing} onOpenChange={setPrinting} />
+      {invoiceable && <SaleInvoiceDialog sale={s} open={invoicing} onOpenChange={setInvoicing} />}
     </>
   );
 }

@@ -17,6 +17,8 @@ import { useSession } from '@/stores/session';
 import { cn, round2 } from '@/lib/utils';
 import type { SaleDto } from '@/api/dto/sales';
 import { customerDiscountLabel } from './customerDiscount';
+import { dueDateFor, sendPaymentTo } from '@/features/invoices/paymentDetails';
+import { SendPaymentTo } from '@/features/invoices/SendPaymentTo';
 
 /**
  * A printable receipt. Prices, VAT and totals are the API's, never recomputed. live: the sale was just made, so keep asking for KRA's
@@ -26,6 +28,10 @@ export function Receipt({ sale, paper, live = false }: { sale: SaleDto; paper: R
   const business = useSession((s) => s.business);
   const etims = useHasModule('etims');
   const narrow = paper === '80mm';
+  // A credit sale is still to be paid: say where to send the money. A paid sale's receipt never carries it.
+  const payment = sale.paymentMethod === PaymentMethod.Credit && sale.status === SaleStatus.Completed
+    ? sendPaymentTo(business?.invoice, dueDateFor(sale.createdAt, sale.paymentDueDate, business?.invoice?.dueDays))
+    : null;
   return (
     <div className={cn('print-area mx-auto bg-white font-mono text-black', narrow ? 'w-[72mm] p-2 text-[11px]' : 'w-full max-w-[190mm] p-6 text-sm')}>
       {/* printReceipt sizes the 80 mm page to the receipt. */}
@@ -113,6 +119,7 @@ export function Receipt({ sale, paper, live = false }: { sale: SaleDto; paper: R
         {sale.status !== SaleStatus.Completed && <Row label="Status" value={labels.saleStatus[sale.status].toUpperCase()} bold />}
         {sale.returnedAmount > 0 && <Row label="Returned" value={formatMoney(sale.returnedAmount)} />}
       </div>
+      {payment && <SendPaymentTo block={payment} variant="receipt" />}
       {etims && <KraBlock saleId={sale.saleId} narrow={narrow} live={live} />}
       {sale.prescription && (
         <>

@@ -182,6 +182,8 @@ export interface SaleDto {
   customerDiscountPercent?: number | null;
   customerDiscountAmount?: number;
   customerDiscountSource?: CustomerDiscountSource | null;
+  /** Credit only: the day the customer promised to pay by. */
+  paymentDueDate?: DateOnly | null;
 }
 
 export interface SaleQuery {
