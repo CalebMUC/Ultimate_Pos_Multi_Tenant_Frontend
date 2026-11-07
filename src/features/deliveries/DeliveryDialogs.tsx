@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle, Input, Label, Textarea } from '@/c
 import { FormAlert } from '@/components/shared/States';
 import { deliveryOrdersApi } from '@/api/endpoints/deliveries';
 import { normaliseError } from '@/api/errors';
-import { PaymentMethod, labels } from '@/api/enums';
+import { PaymentMethod, labels, type AgeCheckMethod } from '@/api/enums';
 import { usePermission } from '@/hooks/useSessionInfo';
 import { formatMoney, formatQty } from '@/lib/format';
 import { cn, round2 } from '@/lib/utils';
@@ -21,6 +21,7 @@ import type { DeliveryOrderDto, DeliveryOrderLineDto } from '@/api/dto/deliverie
 import { useLinesPreview } from './useLinesPreview';
 import { customerDiscountLabel, MonthlyRewardProgress } from '@/features/sales/customerDiscount';
 import { RiderNameInput } from './RiderNameInput';
+import { AgeCheckButtons } from '@/features/ageRestricted/AgeCheck';
 
 /** Everything a delivery changes: the order, its sale, stock (reservation and issue), the customer's account, till payments and the drawer. */
 export const DELIVERY_RESOURCES = ['delivery-orders', 'sales', 'stock', 'customers', 'mpesa-unmatched', 'dashboard', 'reports', 'cash-sessions'];
@@ -268,11 +269,16 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
   const [tillTxId, setTillTxId] = useState<string | null>(null);
   const [reference, setReference] = useState('');
   const [override, setOverride] = useState(false);
+  // Alcohol or tobacco on the order: how the rider checked the customer's age at the door. Asked every time, never pre-selected.
+  const [ageCheck, setAgeCheck] = useState<AgeCheckMethod | null>(null);
+  const [apiAskedAge, setApiAskedAge] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     if (!open) return;
+    setAgeCheck(null);
+    setApiAskedAge(false);
     setLines(toLines(order));
     setBundles(toBundles(order));
     setMethod(expectedMethod(order, canCredit));
@@ -288,6 +294,8 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
   const previewCurrent = !!p && !preview.isFetching && !preview.isPlaceholderData;
   const plainLines = p?.lines.filter((l) => !l.productBundleId) ?? [];
   const total = p?.totalAmount ?? null;
+  // The goods left within the selling hours, so only the age check applies here, not the hours.
+  const needsAge = !!p?.requiresAgeCheck || apiAskedAge;
   const tenderedNum = Number(tendered);
   const change = total !== null && tendered !== '' && !Number.isNaN(tenderedNum) ? round2(tenderedNum - total) : null;
   const originalLines = toLines(order);
@@ -312,6 +320,7 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
       return setError(new Error(`The cash handed in must be at least ${formatMoney(total)}.`));
     }
     if (method === PaymentMethod.MpesaTill && !tillTxId) return setError(new Error('Select the customer’s M-Pesa payment.'));
+    if (needsAge && ageCheck === null) return setError(new Error('How did the rider check the customer’s age? Choose one.'));
     setPending(true);
     try {
       // No automatic retry: the API gives one sale per delivery, and a retry after a lost response is refused, not doubled.
@@ -321,6 +330,7 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
         mpesaTransactionId: method === PaymentMethod.MpesaTill ? tillTxId : null,
         mpesaReference: method === PaymentMethod.MpesaReference ? reference : null,
         overrideCreditLimit: method === PaymentMethod.Credit && override,
+        ageCheck: needsAge ? ageCheck : null,
         // Leaving both out keeps the order as it was.
         ...(edited
           ? {
@@ -335,6 +345,8 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
     } catch (e) {
       const apiError = normaliseError(e);
       setError(apiError);
+      // The order has alcohol or tobacco the preview did not show: ask, and the next try sends it.
+      if (apiError.code === 'AGE_CHECK_REQUIRED') setApiAskedAge(true);
       if (apiError.code === 'INVALID_ASSIGNMENT') {
         // Recorded (or returned) by someone else a moment ago, or the till payment was just taken: reload both.
         if (method === PaymentMethod.MpesaTill) setTillTxId(null);
@@ -403,6 +415,13 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
           <p className="text-xs text-muted-foreground">The order was estimated at {formatMoney(order.estimatedTotal)}; this is the price now.</p>
         )}
         {preview.error && <FormAlert error={preview.error} />}
+
+        {needsAge && (
+          <section className="space-y-2 rounded-md border border-warning/50 bg-warning/5 p-3" aria-label="Age check">
+            <p className="text-sm font-semibold">How did the rider check the customer’s age at the door?</p>
+            <AgeCheckButtons value={ageCheck} onChoose={(m) => { setAgeCheck(m); setError(null); }} />
+          </section>
+        )}
 
         <div className={cn('grid gap-1.5', methods.length === 4 ? 'grid-cols-4' : 'grid-cols-3')} role="radiogroup" aria-label="Payment">
           {methods.map(({ value, icon: Icon }) => (

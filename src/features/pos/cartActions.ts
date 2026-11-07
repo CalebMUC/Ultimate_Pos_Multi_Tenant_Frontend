@@ -1,4 +1,4 @@
-import { PaymentMethod, PriceType } from '@/api/enums';
+import { PaymentMethod, PriceType, type AgeCheckMethod } from '@/api/enums';
 import { emptyToNull } from '@/lib/utils';
 import { emptyCart, newLineKey, useCartStore, type Cart, type CartBundle, type CartLine } from '@/stores/cart';
 import type { ProductBundleDto } from '@/api/dto/bundles';
@@ -91,6 +91,7 @@ export function addLine(lines: CartLine[], product: ProductDetailDto, quantity =
     discountPercent: null,
     isBatchTracked: product.isBatchTracked,
     requiresPrescription: product.requiresPrescription,
+    isAgeRestricted: !!product.isAgeRestricted,
     units,
   }];
 }
@@ -149,6 +150,8 @@ export interface PaymentDetails {
   mpesaPhoneNumber?: string | null;
   mpesaTransactionId?: Guid | null;
   mpesaReference?: string | null;
+  /** How the cashier checked the customer's age, for this sale only. Never stored on the cart. */
+  ageCheck?: AgeCheckMethod | null;
 }
 
 /** Builds the request body. Never carries prices: the API prices every line. */
@@ -178,6 +181,7 @@ export function toSaleRequest(cart: Cart, payment: PaymentDetails = {}, includeP
         }))
       : null,
     discountAmount: cart.saleDiscountAmount || null,
+    ageCheck: payment.ageCheck ?? null,
     overrideCreditLimit: cart.paymentMethod === PaymentMethod.Credit ? cart.overrideCreditLimit : false,
     prescription: includePrescription
       ? {

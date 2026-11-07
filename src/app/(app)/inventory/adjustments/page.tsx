@@ -179,7 +179,7 @@ function Adjustments() {
               <DetailList
                 columns={1}
                 items={[
-                  { label: 'Product', value: <span className="flex items-center gap-2">{p.name} <ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} /></span> },
+                  { label: 'Product', value: <span className="flex items-center gap-2">{p.name} <ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} isAgeRestricted={p.isAgeRestricted} /></span> },
                   { label: 'On hand', value: level.data ? formatQty((last ?? level.data).quantityOnHand, p.baseUnitSymbol) : level.error ? 'No stock yet' : '…' },
                   ...(p.isBatchTracked || level.data?.reservedQuantity
                     ? [{ label: p.isBatchTracked ? 'Available (unexpired, not on delivery orders)' : 'Available (not on delivery orders)', value: level.data ? formatQty((last ?? level.data).sellableQuantity, p.baseUnitSymbol) : '—' }]

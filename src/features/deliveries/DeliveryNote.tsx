@@ -12,6 +12,8 @@ import { useSession } from '@/stores/session';
 import { PaymentMethod } from '@/api/enums';
 import type { DeliveryOrderDto } from '@/api/dto/deliveries';
 import { paymentLabel } from './DeliveryDialogs';
+import { useHasModule } from '@/hooks/useSessionInfo';
+import { useAgeRestrictedOrders } from '@/features/ageRestricted/useAgeRestrictedProducts';
 
 /**
  * What the rider takes with the goods: who, where, what, and how much to collect and how. Not a receipt: there is no sale until the rider
@@ -23,6 +25,7 @@ export function DeliveryNote({ order, paper }: { order: DeliveryOrderDto; paper:
   const method = order.expectedPaymentMethod ?? PaymentMethod.Cash;
   const plain = order.lines.filter((l) => !l.productBundleId);
   const bundles = order.lines.filter((l, i, all) => l.productBundleId && all.findIndex((x) => x.productBundleId === l.productBundleId) === i);
+  const ageRestricted = useAgeRestrictedOrders(useHasModule('ageRestricted'))(order);
   return (
     <div className={cn('print-area mx-auto bg-white font-mono text-black', narrow ? 'w-[72mm] p-2 text-[11px]' : 'w-full max-w-[190mm] p-6 text-sm')}>
       {/* printReceipt sizes the 80 mm page to the note. */}
@@ -61,6 +64,7 @@ export function DeliveryNote({ order, paper }: { order: DeliveryOrderDto; paper:
           ))}
         </tbody>
       </table>
+      {ageRestricted && <p className="mt-2 border border-black p-1 text-center font-bold">18+: see ID before handing over</p>}
       <div className="my-2 border-t border-dashed border-black" />
       <div className="space-y-0.5">
         <Row label={method === PaymentMethod.Credit ? 'ON ACCOUNT' : 'TO COLLECT'} value={formatMoney(order.estimatedTotal)} bold />

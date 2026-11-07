@@ -7,7 +7,7 @@ import { BusinessKind } from '@/api/enums';
 /** Module keys the frontend knows. The API may send others (new modules): those are ignored. */
 export type ModuleKey =
   | 'dashboard' | 'sales' | 'customers' | 'catalog' | 'stock' | 'purchasing' | 'expenses' | 'reports' | 'mpesa' | 'branches' | 'settings' | 'cashUp'
-  | 'production' | 'batches' | 'prescriptions' | 'deliveries' | 'containers' | 'bundles' | 'etims';
+  | 'production' | 'batches' | 'prescriptions' | 'deliveries' | 'containers' | 'bundles' | 'etims' | 'ageRestricted';
 
 /** Names for the "not used by this business" page. */
 export const moduleLabels: Partial<Record<ModuleKey, string>> = {
@@ -19,6 +19,7 @@ export const moduleLabels: Partial<Record<ModuleKey, string>> = {
   bundles: 'Bundles',
   cashUp: 'The cash-up',
   etims: 'KRA eTIMS',
+  ageRestricted: 'Age-restricted sales (alcohol and tobacco)',
 };
 
 /**
@@ -28,7 +29,7 @@ export const moduleLabels: Partial<Record<ModuleKey, string>> = {
  */
 export function moduleEnabled(modules: readonly string[] | null | undefined, kind: BusinessKind | null | undefined, key: ModuleKey): boolean {
   if (modules) return modules.includes(key);
-  // Newer than the module list: an API without the list has neither.
-  if (key === 'bundles' || key === 'cashUp' || key === 'etims') return false;
+  // Newer than the module list: an API without the list has none of them.
+  if (key === 'bundles' || key === 'cashUp' || key === 'etims' || key === 'ageRestricted') return false;
   return key === 'production' ? kind === BusinessKind.Manufacturer : true;
 }

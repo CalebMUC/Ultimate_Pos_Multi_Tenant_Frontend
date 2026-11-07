@@ -13,7 +13,7 @@ import { Field } from '@/components/shared/Field';
 import { FormDialog } from '@/components/shared/FormDialog';
 import { BrandPicker, CategorySelect, UnitSelect } from '@/components/shared/Pickers';
 import { productsApi } from '@/api/endpoints/catalog';
-import { enumOptions, ItemType, labels, TaxClassification } from '@/api/enums';
+import { BusinessSector, enumOptions, ItemType, labels, TaxClassification } from '@/api/enums';
 import { optionalNumber, requiredId, requiredNumber, requiredText, text } from '@/lib/schemas';
 import { emptyToNull } from '@/lib/utils';
 import { unitSymbol, useUnits } from '@/hooks/useLookups';
@@ -36,6 +36,7 @@ const schema = z.object({
   barcode: z.string().trim().max(64, 'At most 64 characters.').refine((v) => !/\s/.test(v), 'No spaces in a barcode.'),
   isBatchTracked: z.boolean(),
   requiresPrescription: z.boolean(),
+  isAgeRestricted: z.boolean(),
   genericName: text(200),
   strength: text(50),
   dosageForm: text(50),
@@ -61,13 +62,17 @@ export function brandChange(before: string, after: string): Pick<UpdateProductRe
 export function ProductFormDialog({ open, onOpenChange, product, onSaved }: { open: boolean; onOpenChange(o: boolean): void; product?: ProductDto | null; onSaved?(p: ProductDto): void }) {
   const qc = useQueryClient();
   const editing = !!product;
-  const { hasModule } = useActiveBusiness();
+  const { hasModule, sector } = useActiveBusiness();
   // Module options are offered only where the business uses them; a product that already has one keeps showing it (read-only),
   // because the API still needs batches and prescriptions for such products.
   const production = hasModule('production');
   const batches = hasModule('batches');
   const prescriptions = hasModule('prescriptions');
   const etims = hasModule('etims');
+  // Alcohol and tobacco, for a liquor store with age-restricted sales on: new products start age-restricted (switched off for soda, ice
+  // and snacks). With it off, a product already marked shows the mark read-only.
+  const ageModule = hasModule('ageRestricted');
+  const showAge = ageModule || !!product?.isAgeRestricted;
   const itemTypes = enumOptions(labels.itemType).filter((o) => production || o.value === ItemType.FinishedGood || o.value === product?.itemType);
   const hasRxDetails = !!(product?.requiresPrescription || product?.genericName || product?.strength || product?.dosageForm);
   const showRx = prescriptions || hasRxDetails;
@@ -101,6 +106,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSaved }: { op
           barcode: product?.barcode ?? '',
           isBatchTracked: product?.isBatchTracked ?? false,
           requiresPrescription: product?.requiresPrescription ?? false,
+          isAgeRestricted: product ? !!product.isAgeRestricted : ageModule && sector === BusinessSector.Liquor,
           genericName: product?.genericName ?? '',
           strength: product?.strength ?? '',
           dosageForm: product?.dosageForm ?? '',
@@ -109,9 +115,11 @@ export function ProductFormDialog({ open, onOpenChange, product, onSaved }: { op
           wholesalePrice: null,
           packs: [],
         }}
-        onSubmit={async ({ brandId, retailPrice, wholesalePrice, packs, ...v }) => {
+        onSubmit={async ({ brandId, retailPrice, wholesalePrice, packs, isAgeRestricted, ...v }) => {
           const body = {
             ...v,
+            // Sent only where the toggle is offered: left out, an update keeps what the product has and a new product is not restricted.
+            ...(ageModule ? { isAgeRestricted } : {}),
             description: emptyToNull(v.description),
             barcode: emptyToNull(v.barcode),
             genericName: emptyToNull(v.genericName),
@@ -201,8 +209,22 @@ export function ProductFormDialog({ open, onOpenChange, product, onSaved }: { op
               <Separator />
               <div className="space-y-3">
                 <p className="text-sm font-semibold">{showRx ? 'Medicine details' : 'More details'}</p>
-                {(batches || product?.isBatchTracked || showRx) && (
+                {(batches || product?.isBatchTracked || showRx || showAge) && (
                   <div className="flex flex-wrap gap-6">
+                    {showAge && (
+                      <label className="flex items-center gap-2 text-sm" title={ageModule ? undefined : 'Age-restricted sales are off for this business: the mark is kept, and applies again if they are switched on.'}>
+                        <Switch
+                          checked={form.watch('isAgeRestricted')}
+                          disabled={!ageModule}
+                          onCheckedChange={(v) => form.setValue('isAgeRestricted', v, { shouldDirty: true })}
+                          aria-label="Age-restricted (18+)"
+                        />
+                        <span>
+                          Age-restricted (18+)
+                          <span className="block text-xs text-muted-foreground">Alcohol or tobacco: the till asks for an age check.</span>
+                        </span>
+                      </label>
+                    )}
                     {(batches || product?.isBatchTracked) && (
                       <label className="flex items-center gap-2 text-sm">
                         <Switch

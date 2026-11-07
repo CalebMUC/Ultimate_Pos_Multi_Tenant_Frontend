@@ -9,7 +9,7 @@ import { Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, Dialo
 import { FormAlert } from '@/components/shared/States';
 import { mpesaApi, salesApi } from '@/api/endpoints/sales';
 import { normaliseError } from '@/api/errors';
-import { PaymentMethod, SaleStatus } from '@/api/enums';
+import { PaymentMethod, SaleStatus, type AgeCheckMethod } from '@/api/enums';
 import { useActiveBusiness, usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { round2 } from '@/lib/utils';
@@ -17,6 +17,7 @@ import { usePreferences } from '@/stores/preferences';
 import type { Cart } from '@/stores/cart';
 import type { SaleDto, SalePreviewDto } from '@/api/dto/sales';
 import { toSaleRequest, type PaymentDetails } from './cartActions';
+import { AgeCheckDialog } from '@/features/ageRestricted/AgeCheck';
 
 interface Props {
   open: boolean;
@@ -24,6 +25,10 @@ interface Props {
   cart: Cart;
   preview: SalePreviewDto;
   includePrescription: boolean;
+  /** How the cashier checked the customer's age, asked before payment when the sale has alcohol or tobacco. */
+  ageCheck?: AgeCheckMethod | null;
+  /** The age was checked again here (the API asked for it): the till keeps it for this sale. */
+  onAgeCheck?(method: AgeCheckMethod): void;
   onOverrideCreditLimit(value: boolean): void;
   /** Called once the sale is Completed. */
   onCompleted(sale: SaleDto): void;
@@ -48,6 +53,7 @@ export function PaymentDialog(props: Props) {
   const [error, setError] = useState<unknown>(null);
   const [uncertain, setUncertain] = useState(false);
   const [pendingSale, setPendingSale] = useState<SaleDto | null>(null);
+  const [askAge, setAskAge] = useState(false);
   const quickAmounts = usePreferences((s) => s.quickCashAmounts);
   const canOverride = usePermission('Sales.OverrideCreditLimit');
   const qc = useQueryClient();
@@ -60,13 +66,15 @@ export function PaymentDialog(props: Props) {
       setError(null);
       setUncertain(false);
       setPendingSale(null);
+      setAskAge(false);
     }
   }, [open]);
 
   const tenderedNum = Number(tendered);
   const change = tendered !== '' && !Number.isNaN(tenderedNum) ? round2(tenderedNum - total) : null;
 
-  async function charge() {
+  /** `ageCheck`: given when the cashier has just answered the age check this dialog asked for, so it is resent at once. */
+  async function charge(ageCheck: AgeCheckMethod | null = props.ageCheck ?? null) {
     setError(null);
     const payment: PaymentDetails = {};
     if (cart.paymentMethod === PaymentMethod.Cash) {
@@ -97,6 +105,7 @@ export function PaymentDialog(props: Props) {
       }
       payment.mpesaReference = reference;
     }
+    payment.ageCheck = ageCheck;
     setSubmitting(true);
     try {
       // No automatic retry: the API has no idempotency key, so a retry could record the sale twice.
@@ -105,6 +114,14 @@ export function PaymentDialog(props: Props) {
       else props.onCompleted(sale);
     } catch (e) {
       const apiError = normaliseError(e);
+      // An older preview did not know the sale has alcohol or tobacco: ask the cashier now, then send it again.
+      if (apiError.code === 'AGE_CHECK_REQUIRED') {
+        void qc.invalidateQueries({ queryKey: ['sale-preview'] });
+        setAskAge(true);
+        return;
+      }
+      // Past the licence's hours: the message names the products and the hours. The cart is kept; the preview shows the banner.
+      if (apiError.code === 'OUTSIDE_SELLING_HOURS') void qc.invalidateQueries({ queryKey: ['sale-preview'] });
       if (apiError.code === 'NETWORK_ERROR' || apiError.status >= 500) setUncertain(true);
       // Stock ran short since the preview (another counter sold it): re-price so the cart shows which lines are short. Cart kept.
       if (apiError.code === 'INSUFFICIENT_STOCK') {
@@ -164,7 +181,7 @@ export function PaymentDialog(props: Props) {
                 autoFocus
                 value={tendered}
                 onChange={(e) => setTendered(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && charge()}
+                onKeyDown={(e) => e.key === 'Enter' && void charge()}
                 className="h-14 text-2xl tabular"
               />
             </div>
@@ -225,7 +242,7 @@ export function PaymentDialog(props: Props) {
               placeholder="07XX XXX XXX"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && charge()}
+              onKeyDown={(e) => e.key === 'Enter' && void charge()}
               className="h-12 text-lg"
             />
             <p className="text-xs text-muted-foreground">The customer gets a prompt on their phone to enter their M-Pesa PIN.</p>
@@ -234,7 +251,7 @@ export function PaymentDialog(props: Props) {
 
         {cart.paymentMethod === PaymentMethod.MpesaTill && <TillPayments total={total} value={tillTxId} onChange={setTillTxId} enabled={open} />}
 
-        {cart.paymentMethod === PaymentMethod.MpesaReference && <MpesaReferenceEntry total={total} value={reference} onChange={setReference} onSubmit={charge} />}
+        {cart.paymentMethod === PaymentMethod.MpesaReference && <MpesaReferenceEntry total={total} value={reference} onChange={setReference} onSubmit={() => void charge()} />}
 
         {uncertain && (
           <Alert variant="warning">
@@ -254,12 +271,22 @@ export function PaymentDialog(props: Props) {
             variant="success"
             loading={submitting}
             disabled={preview.creditLimitExceeded && cart.paymentMethod === PaymentMethod.Credit && !cart.overrideCreditLimit}
-            onClick={charge}
+            onClick={() => void charge()}
           >
             {cart.paymentMethod === PaymentMethod.MpesaStkPush ? 'Send payment prompt' : `Complete sale · ${formatMoney(total)}`}
           </Button>
         </DialogFooter>
       </DialogContent>
+      <AgeCheckDialog
+        open={askAge}
+        minimumAge={preview.minimumAge}
+        onCancel={() => setAskAge(false)}
+        onChoose={(method) => {
+          setAskAge(false);
+          props.onAgeCheck?.(method);
+          void charge(method);
+        }}
+      />
     </Dialog>
   );
 }

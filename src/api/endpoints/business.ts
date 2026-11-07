@@ -2,7 +2,7 @@ import { api } from '../client';
 import type { Guid } from '../dto/common';
 import type { RegisterBusinessResultDto } from '../dto/platform';
 import type {
-  BusinessDto, BusinessLicenseStatusDto, InvoiceSettingsDto, CustomerBalanceDto, CustomerDto, CustomerLedgerEntryDto, RecordCustomerPaymentRequestDto, RegisterBusinessRequestDto,
+  AgeRestrictedSalesSettingsDto, BusinessDto, BusinessLicenseStatusDto, InvoiceSettingsDto, CustomerBalanceDto, CustomerDto, CustomerLedgerEntryDto, RecordCustomerPaymentRequestDto, RegisterBusinessRequestDto,
   RegisterCustomerRequestDto, UpdateBusinessRequestDto, UpdateCustomerRequestDto, UpdateMonthlyDiscountRequestDto,
 } from '../dto/business';
 
@@ -20,6 +20,8 @@ export const businessesApi = {
   updateMonthlyDiscount: (body: UpdateMonthlyDiscountRequestDto) => api.put<BusinessDto>('/businesses/current/monthly-discount', body),
   /** What invoices print under "Send payment to", and their terms. A full replace. 400 names the field that is wrong. */
   updateInvoiceSettings: (body: InvoiceSettingsDto) => api.put<BusinessDto>('/businesses/current/invoice-settings', body),
+  /** The minimum age and selling hours for alcohol and tobacco. A full replace; 400 details are keyed by the field. */
+  updateAgeRestrictedSales: (body: AgeRestrictedSalesSettingsDto) => api.put<BusinessDto>('/businesses/current/age-restricted-sales', body),
 };
 
 export const customersApi = {

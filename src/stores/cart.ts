@@ -20,6 +20,8 @@ export interface CartLine {
   discountPercent: number | null;
   isBatchTracked: boolean;
   requiresPrescription: boolean;
+  /** Alcohol or tobacco, from the product when it was added; the preview's flag wins once it has priced the line. */
+  isAgeRestricted?: boolean;
   /** Base unit plus active pack units: the units this line may be sold in, each with the container sold with it (if any). */
   units: SellableUnit[];
   /** A container sold with the refill line of this key. Added and kept in step by cartActions; not edited on its own. */

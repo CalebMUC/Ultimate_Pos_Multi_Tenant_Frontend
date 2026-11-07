@@ -39,6 +39,11 @@ export interface ProductRequestDto {
   manufacturer: string | null;
   /** Optional. Must be an active brand of the business. */
   brandId?: Guid | null;
+  /**
+   * Alcohol or tobacco: a sale needs an age check and, where the business set them, falls within the selling hours. On create it defaults
+   * to false; on update, left out (or null) keeps the current value.
+   */
+  isAgeRestricted?: boolean | null;
 }
 
 /** A pack a new product also comes in (Bale = 12 packets), with its own prices per pack. */
@@ -65,6 +70,8 @@ export interface ProductDto extends ProductRequestDto {
   baseUnitSymbol: string | null;
   brandId: Guid | null;
   brandName: string | null;
+  /** Missing on older APIs (= false). */
+  isAgeRestricted?: boolean;
 }
 
 export interface ProductUnitConversionDto {
@@ -112,6 +119,7 @@ export interface ProductQuery {
   isActive?: boolean;
   isBatchTracked?: boolean;
   requiresPrescription?: boolean;
+  isAgeRestricted?: boolean;
   sortBy?: ProductSortBy;
   sortDirection?: 'asc' | 'desc';
 }

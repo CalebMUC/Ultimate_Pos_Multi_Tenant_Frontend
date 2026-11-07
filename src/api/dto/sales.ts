@@ -1,5 +1,5 @@
 // Application/Sales/Dtos/SalesDtos.cs and Application/Payments/Dtos/MpesaDtos.cs
-import type { CustomerDiscountSource, DeliveryMode, MonthlyDiscountScope, MpesaTransactionStatus, MpesaTransactionType, PaymentMethod, PriceType, RefundMethod, SaleStatus } from '../enums';
+import type { AgeCheckMethod, CustomerDiscountSource, DeliveryMode, MonthlyDiscountScope, MpesaTransactionStatus, MpesaTransactionType, PaymentMethod, PriceType, RefundMethod, SaleStatus } from '../enums';
 import type { DateOnly, DateTimeString, Guid } from './common';
 
 export interface CreateSaleLineRequestDto {
@@ -39,6 +39,11 @@ export interface CreateSaleRequestDto {
   prescription?: SalePrescriptionRequestDto | null;
   /** Bundles rung up as one item each. A sale needs at least one line or one bundle. Each bundle once; whole quantities. */
   bundles?: CreateSaleBundleRequestDto[] | null;
+  /**
+   * How the cashier checked the customer's age. Required when a line (or a bundle's part) is age-restricted, else 422
+   * AGE_CHECK_REQUIRED. Chosen by the cashier for every sale: never from a setting or a default.
+   */
+  ageCheck?: AgeCheckMethod | null;
 }
 
 /** A discount here covers all of this bundle's quantity, not each one. Needs Sales.ApplyDiscount. */
@@ -75,6 +80,8 @@ export interface SalePreviewLineDto extends BundleLineFields {
   taxAmount: number;
   requiresPrescription: boolean;
   isBatchTracked: boolean;
+  /** Alcohol or tobacco. Missing on older APIs. */
+  isAgeRestricted?: boolean;
 }
 
 export interface SalePreviewDto {
@@ -100,6 +107,14 @@ export interface SalePreviewDto {
   customerDiscountSource?: CustomerDiscountSource | null;
   /** The customer's month against the reward. Null for walk-ins or when the business has no reward. */
   customerMonth?: CustomerMonthlySpendDto | null;
+  /** A line (or a bundle's part) is age-restricted: ask how the customer's age was checked. Missing on older APIs. */
+  requiresAgeCheck?: boolean;
+  /** The age to check for, when requiresAgeCheck. */
+  minimumAge?: number | null;
+  /** False: the age-restricted lines cannot be sold now, and the sale would be refused (422 OUTSIDE_SELLING_HOURS). */
+  withinSellingHours?: boolean;
+  /** The hours as text, e.g. "10:00-23:00 every day", or "at any time". */
+  sellingHours?: string | null;
 }
 
 /**
@@ -184,6 +199,8 @@ export interface SaleDto {
   customerDiscountSource?: CustomerDiscountSource | null;
   /** Credit only: the day the customer promised to pay by. */
   paymentDueDate?: DateOnly | null;
+  /** How the customer's age was checked, on sales of alcohol or tobacco. Null otherwise; missing on older APIs. */
+  ageCheck?: AgeCheckMethod | null;
 }
 
 export interface SaleQuery {
@@ -267,4 +284,22 @@ export interface MpesaTransactionDto {
   branchId?: Guid | null;
   kraBranchId?: string | null;
   branchName?: string | null;
+}
+
+// ---- Age-check register ----
+
+export interface AgeCheckRegisterLineDto { productId: Guid; productName: string; quantity: number; unitSymbol: string | null; lineTotal: number }
+
+/** A sale of alcohol or tobacco: how the age was checked and by whom. lines holds only its age-restricted items. */
+export interface AgeCheckRegisterEntryDto {
+  saleId: Guid;
+  saleNumber: string;
+  soldAt: DateTimeString;
+  saleStatus: SaleStatus;
+  ageCheck: AgeCheckMethod;
+  /** Who recorded the sale (for a delivery, who recorded it when the rider was back). */
+  checkedByName: string | null;
+  deliveryMode: DeliveryMode;
+  customerName: string | null;
+  lines: AgeCheckRegisterLineDto[];
 }

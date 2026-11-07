@@ -31,6 +31,11 @@ export const sectorProfiles: Record<BusinessSector, SectorProfile> = {
   },
   [BusinessSector.Hardware]: { kind: BusinessKind.Trader, allowNegativeStock: true, startsWith: 'Metre, bag, sheet, roll, foot and tonne units.' },
   [BusinessSector.Electrical]: { kind: BusinessKind.Trader, allowNegativeStock: true, startsWith: 'Metre, roll, coil and set units.' },
+  // Every bottle is counted, so overselling starts off.
+  [BusinessSector.Liquor]: {
+    kind: BusinessKind.Trader, allowNegativeStock: false,
+    startsWith: 'Bottle, Crate, Carton and Case units, and Packaging and Refrigeration expense categories. Selling below zero stock starts off.',
+  },
 };
 
 /** A sector's profile; an unknown sector gets General's, as in the API. */

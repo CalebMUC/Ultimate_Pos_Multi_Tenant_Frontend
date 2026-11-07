@@ -126,6 +126,7 @@ export const navigation: NavGroup[] = [
       { label: 'Stock Adjustments', href: '/reports/stock-adjustments', permission: 'InventoryReports.View' },
       { label: 'Expiry', href: '/reports/expiry', permission: 'InventoryReports.View', module: 'batches' },
       { label: 'Prescription Register', href: '/pharmacy/prescriptions', permission: 'Prescriptions.View', module: 'prescriptions' },
+      { label: 'Age-check Register', href: '/reports/age-checks', permission: 'SalesReports.View', module: 'ageRestricted' },
       { label: 'Purchases', href: '/reports/purchases', permission: 'PurchaseReports.View' },
       { label: 'Open Orders', href: '/reports/open-orders', permission: 'PurchaseReports.View' },
       { label: 'Price Trends', href: '/reports/price-trends', permission: 'PurchaseReports.View' },

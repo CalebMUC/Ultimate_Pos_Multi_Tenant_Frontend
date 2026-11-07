@@ -37,7 +37,7 @@ export function ProductPicker({ filter, ...props }: PickerProps<ProductDto> & { 
           <span className="min-w-0 flex-1 truncate">
             {p.name}{p.strength ? ` ${p.strength}` : ''} <span className="text-xs text-muted-foreground">{p.sku}</span>
           </span>
-          <ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} />
+          <ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} isAgeRestricted={p.isAgeRestricted} />
         </span>
       )}
       placeholder={props.placeholder ?? 'Select product…'}

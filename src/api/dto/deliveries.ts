@@ -1,5 +1,5 @@
 // Application/Deliveries/DeliveryOrders.cs
-import type { DeliveryOrderStatus, PaymentMethod } from '../enums';
+import type { AgeCheckMethod, DeliveryOrderStatus, PaymentMethod } from '../enums';
 import type { DateOnly, DateTimeString, Guid } from './common';
 
 /** Two 20L refills is (water, 20L, 2); a container bought with them is a line of its own. */
@@ -38,6 +38,8 @@ export interface DeliverDeliveryOrderRequestDto {
   lines?: DeliveryOrderLineRequestDto[] | null;
   bundles?: DeliveryOrderBundleRequestDto[] | null;
   notes?: string | null;
+  /** Alcohol or tobacco on the order: how the rider checked the customer's age at the door. Required for them (422 AGE_CHECK_REQUIRED). */
+  ageCheck?: AgeCheckMethod | null;
 }
 
 export interface DeliveryOrderLineDto {

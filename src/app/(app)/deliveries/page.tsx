@@ -16,7 +16,7 @@ import { EnumSelect } from '@/components/shared/Pickers';
 import { EmptyState, ErrorState } from '@/components/shared/States';
 import { deliveryOrdersApi } from '@/api/endpoints/deliveries';
 import { DeliveryOrderStatus, PaymentMethod, labels } from '@/api/enums';
-import { usePermission, useQueryKey } from '@/hooks/useSessionInfo';
+import { useHasModule, usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { addDays, formatDateTime, todayIso, toIsoDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/stores/session';
@@ -25,6 +25,7 @@ import {
   describeLines, DispatchDialog, paymentLabel, RecordDeliveryDialog, ReturnDeliveryDialog, SendTogetherDialog,
 } from '@/features/deliveries/DeliveryDialogs';
 import type { DeliveryOrderDto } from '@/api/dto/deliveries';
+import { useAgeRestrictedOrders } from '@/features/ageRestricted/useAgeRestrictedProducts';
 
 type Action = { kind: 'dispatch' | 'deliver' | 'cancel' | 'return'; order: DeliveryOrderDto } | null;
 /** A trip picked from a card: the board shows only its orders. */
@@ -269,6 +270,8 @@ function OrderCard({ order: o, onAction, onTrip, focusId, selectable, selected, 
   const elsewhere = o.branchId !== activeBranchId;
   const out = o.status === DeliveryOrderStatus.OutForDelivery;
   const expected = o.expectedPaymentMethod ?? PaymentMethod.Cash;
+  // Alcohol or tobacco: the rider sees the customer's ID before handing it over.
+  const ageRestricted = useAgeRestrictedOrders(useHasModule('ageRestricted'))(o) && isOpenOrder(o);
   return (
     <Card ref={ref} className={cn(focused && 'ring-2 ring-primary', selected && 'border-primary bg-primary/5')}>
       <CardHeader className="flex-row items-start justify-between gap-2 space-y-0 pb-2">
@@ -291,7 +294,12 @@ function OrderCard({ order: o, onAction, onTrip, focusId, selectable, selected, 
         </span>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
-        {out && <Badge variant="warning">Not completed</Badge>}
+        {(out || ageRestricted) && (
+          <p className="flex flex-wrap gap-1">
+            {out && <Badge variant="warning">Not completed</Badge>}
+            {ageRestricted && <Badge variant="destructive">18+: see ID before handing over</Badge>}
+          </p>
+        )}
         <p>{describeLines(o)}</p>
         <p className="flex items-start gap-1.5 text-muted-foreground"><MapPin className="mt-0.5 size-3.5 shrink-0" />{o.deliveryAddress}</p>
         {o.contactPhone && <p className="flex items-center gap-1.5 text-muted-foreground"><Phone className="size-3.5" /><a href={`tel:${o.contactPhone}`} className="hover:underline">{o.contactPhone}</a></p>}

@@ -64,6 +64,30 @@ export interface BusinessDto extends BusinessProfileFields {
   etimsEnabled?: boolean;
   /** What invoices print under "Send payment to", and their terms. Missing on older APIs. */
   invoice?: InvoiceSettingsDto | null;
+  /** Who may buy alcohol and tobacco, and the hours they may be sold. Missing on older APIs. */
+  ageRestrictedSales?: AgeRestrictedSalesSettingsDto | null;
+}
+
+/**
+ * The minimum age for alcohol and tobacco and the hours the liquor licence allows them to be sold, East Africa Time. Also the body of
+ * PUT /businesses/current/age-restricted-sales (Businesses.Update), a full replace. Times are "HH:mm"; seconds are dropped.
+ */
+export interface AgeRestrictedSalesSettingsDto {
+  /** 18–25. The till asks the cashier to check for this age. */
+  minimumAge: number;
+  /** With weekdayTo; both null = any time. */
+  weekdayFrom: string | null;
+  /** Before weekdayFrom = runs past midnight (17:00 → 02:00). */
+  weekdayTo: string | null;
+  /** Saturday and Sunday, when they differ. Both null = the weekday hours. */
+  weekendFrom: string | null;
+  weekendTo: string | null;
+  /**
+   * The business uses age-restricted sales: Liquor businesses only, on by default. Off (or outside Liquor) = no age check, no selling
+   * hours, no register, and "ageRestricted" is not in modules; products keep their 18+ mark. true outside Liquor is a 400 keyed
+   * "enabled". Left out of a PUT = true; missing on older APIs.
+   */
+  enabled?: boolean;
 }
 
 /**

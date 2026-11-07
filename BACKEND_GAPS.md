@@ -74,6 +74,27 @@ endpoint). Aqua Hub: `public/tenants/aqua-hub/logo.png`.
 | No invoice record for a customer's account invoice. | Numbered `ACC-yymmdd-XXXX` (day + start of the customer id): not stored, but the same all day, so a reprint matches. A one-sale invoice uses the sale number (`INV-…`). |
 | Aging needs `CustomerReports.View`. | Without it a sale's invoice shows its whole total as due, and the customer's invoice is not offered. |
 
+## Age-restricted sales and the Liquor sector (2026-11-05)
+
+API `docs/Frontend-Liquor-Age-Check-Prompt.md`, migrations `LiquorAgeRestrictedSales` and `AgeRestrictedSalesSwitch`. Liquor
+businesses only, and each can switch it off: *Use age-restricted sales* on *Settings → Age-restricted sales* sends
+`ageRestrictedSales.enabled` (the API was changed for this: a `Businesses.AgeRestrictedSalesEnabled` column, on by default; `true`
+outside Liquor is a 400). Off means off: the API drops the `ageRestricted` module and stops the age check and the hours, and the
+frontend hides the 18+ chips, toggle, filter and register; products keep their mark for when it is back on. With the module on, it
+shows the *Age-restricted (18+)* product toggle and list filter, the minimum age and selling hours (`Businesses.Update`) and
+*Reports → Age-check register* (`SalesReports.View`). Wherever the preview says
+`requiresAgeCheck`, *Pay* first asks how the age was checked (one tap, never pre-selected or remembered, nothing typed) and sends
+`ageCheck`; a 422 `AGE_CHECK_REQUIRED` from an older preview asks and resends. Outside the hours (`withinSellingHours: false`) the cart
+shows a red banner and *Pay*, or *Send with rider*, stays disabled; taking a delivery order without a rider is still allowed. *Complete
+sale* on a delivery asks how the rider checked the age at the door. Receipts print *Age checked: …*. Liquor businesses start new
+products age-restricted, and their container toggle reads *Customer brought a crate of empties?*.
+
+| Gap | Frontend workaround |
+|---|---|
+| `DeliveryOrderLineDto` has no `isAgeRestricted`, so a delivery order does not say whether it carries alcohol. | The ids of every age-restricted product are loaded once (`GET /products/get-products?isAgeRestricted=true`, 200 a page, cached 5 min) and matched against the order's lines for the *18+: see ID before handing over* line on the delivery note and the board card. Needs `Products.View`; without it the line is left off (the API still asks for the age check when the delivery is recorded). *Complete sale* uses the sale preview's `requiresAgeCheck` instead. An `isAgeRestricted` on the order line (or the order) would remove the extra call. |
+| `DeliveryTripOrderDto` has no lines. | The trip list on *Trips & fuel* carries no 18+ mark; the board and the delivery note do. |
+| `GET /sales/age-checks` takes no `branchId` (the prescription register does). | The register has no branch filter: it lists what the API returns for the caller. |
+
 ## Not supported by the API yet (from the build prompt §17)
 
 - KRA eTIMS submission and control numbers (an empty `<EtimsBlock />` slot stays on the receipt).

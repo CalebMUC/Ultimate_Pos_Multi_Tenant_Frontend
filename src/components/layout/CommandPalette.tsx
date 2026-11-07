@@ -82,7 +82,7 @@ export function CommandPalette() {
                       {p.name}
                       {p.strength ? ` ${p.strength}` : ''} <span className="text-xs text-muted-foreground">· {p.sku}</span>
                     </span>
-                    <ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} />
+                    <ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} isAgeRestricted={p.isAgeRestricted} />
                   </Command.Item>
                 ))}
               </Command.Group>

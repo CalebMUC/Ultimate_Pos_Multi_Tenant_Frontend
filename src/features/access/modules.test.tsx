@@ -57,6 +57,14 @@ describe('menus follow the modules the API sends', () => {
     expect(menu).not.toContain('Point of Sale > Deliveries');
   });
 
+  it('a liquor store has the age-check register; a pharmacy does not', () => {
+    const withReports = [...ALL, 'SalesReports.View'];
+    business(BusinessKind.Trader, BusinessSector.Liquor, [...CORE, 'batches', 'deliveries', 'containers', 'bundles', 'ageRestricted'], withReports);
+    expect(labels()).toContain('Reports > Age-check Register');
+    business(BusinessKind.Trader, BusinessSector.Pharmacy, [...CORE, 'batches', 'prescriptions'], withReports);
+    expect(labels()).not.toContain('Reports > Age-check Register');
+  });
+
   it('needs the permission as well: a cashier in a manufacturer sees no production', () => {
     business(BusinessKind.Manufacturer, BusinessSector.General, [...CORE, 'production'], ['Sales.Create', 'Dashboard.View']);
     expect(labels()).not.toContain('Production');

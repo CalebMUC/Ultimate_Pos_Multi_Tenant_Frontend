@@ -170,7 +170,7 @@ function ProductDetail({ id }: { id: string }) {
   return (
     <>
       <PageHeader
-        title={<span className="flex flex-wrap items-center gap-2">{p.name}{p.strength ? ` ${p.strength}` : ''} <StatusBadge kind="active" value={p.isActive} /><ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} /></span>}
+        title={<span className="flex flex-wrap items-center gap-2">{p.name}{p.strength ? ` ${p.strength}` : ''} <StatusBadge kind="active" value={p.isActive} /><ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} isAgeRestricted={p.isAgeRestricted} /></span>}
         description={<span>{p.sku} · {p.categoryName}{p.brandName ? ` · ${p.brandName}` : ''} · {labels.itemType[p.itemType]}</span>}
         actions={
           <>

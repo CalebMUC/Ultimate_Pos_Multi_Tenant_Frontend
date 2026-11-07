@@ -39,7 +39,9 @@ export enum RefundMethod { Cash = 0, Mpesa = 1, CreditNote = 2 }
 export enum BusinessType { Wholesaler = 0, Retailer = 1 }
 export enum BusinessKind { Manufacturer = 0, Trader = 1 }
 /** What line of business it is in. General = not classified yet (every business from before sectors). */
-export enum BusinessSector { General = 0, Pharmacy = 1, Agrovet = 2, WaterRefill = 3, Minimart = 4, Supermarket = 5, Hardware = 6, Electrical = 7 }
+export enum BusinessSector { General = 0, Pharmacy = 1, Agrovet = 2, WaterRefill = 3, Minimart = 4, Supermarket = 5, Hardware = 6, Electrical = 7, Liquor = 8 }
+/** How the cashier (or, at the door, the rider) checked that the customer is old enough for alcohol or tobacco. Never an ID number. */
+export enum AgeCheckMethod { NationalId = 0, Passport = 1, DrivingLicence = 2, OtherId = 3, KnownCustomer = 4 }
 /** Draft → Dispatched (in transit) → Received; a draft can be cancelled. Numbers in JSON. */
 export enum StockTransferStatus { Draft = 0, Dispatched = 1, Received = 2, Cancelled = 3 }
 export enum LicenseKind { Trial = 0, Paid = 1, Complimentary = 2 }
@@ -120,7 +122,11 @@ export const labels = {
   businessSector: {
     [BusinessSector.General]: 'General / unclassified', [BusinessSector.Pharmacy]: 'Pharmacy', [BusinessSector.Agrovet]: 'Agrovet',
     [BusinessSector.WaterRefill]: 'Water refill station', [BusinessSector.Minimart]: 'Minimart', [BusinessSector.Supermarket]: 'Supermarket',
-    [BusinessSector.Hardware]: 'Hardware', [BusinessSector.Electrical]: 'Electrical & solar',
+    [BusinessSector.Hardware]: 'Hardware', [BusinessSector.Electrical]: 'Electrical & solar', [BusinessSector.Liquor]: 'Wines & spirits / liquor store',
+  },
+  ageCheckMethod: {
+    [AgeCheckMethod.NationalId]: 'National ID', [AgeCheckMethod.Passport]: 'Passport', [AgeCheckMethod.DrivingLicence]: 'Driving licence',
+    [AgeCheckMethod.OtherId]: 'Other ID', [AgeCheckMethod.KnownCustomer]: 'Regular: ID seen before',
   },
   licenseKind: { [LicenseKind.Trial]: 'Trial', [LicenseKind.Paid]: 'Paid', [LicenseKind.Complimentary]: 'Complimentary' },
   licenseState: { [LicenseState.Active]: 'Active', [LicenseState.Cancelled]: 'Cancelled' },

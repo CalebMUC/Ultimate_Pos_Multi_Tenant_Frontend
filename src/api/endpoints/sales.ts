@@ -4,7 +4,7 @@ import { api } from '../client';
 import { branchParam, type BranchScope } from '../branchScope';
 import type { DateOnly, Guid, PageParams } from '../dto/common';
 import type {
-  CreateSaleRequestDto, CreateSaleReturnRequestDto, MpesaTransactionDto, PrescriptionRegisterEntryDto, SaleDto, SalePreviewDto, SaleQuery,
+  AgeCheckRegisterEntryDto, CreateSaleRequestDto, CreateSaleReturnRequestDto, MpesaTransactionDto, PrescriptionRegisterEntryDto, SaleDto, SalePreviewDto, SaleQuery,
   SaleReturnDto,
 } from '../dto/sales';
 
@@ -22,6 +22,9 @@ export const salesApi = {
   returnsForSale: (id: Guid) => api.get<SaleReturnDto[]>(`/sales/${id}/returns`),
   returns: (query: PageParams & BranchScope & { from?: DateOnly; to?: DateOnly }) =>
     api.getPaged<SaleReturnDto>('/sales/returns', cleanParams({ ...query, utcOffsetMinutes: utcOffsetMinutes() })),
+  /** Every sale of alcohol or tobacco in the period (local days), newest first. Needs SalesReports.View. */
+  ageChecks: (query: { from: DateOnly; to: DateOnly }) =>
+    api.get<AgeCheckRegisterEntryDto[]>('/sales/age-checks', { ...query, utcOffsetMinutes: utcOffsetMinutes() }),
   prescriptions: (query: BranchScope & { from: DateOnly; to: DateOnly; search?: string }) =>
     api.get<PrescriptionRegisterEntryDto[]>('/sales/prescriptions', cleanParams({ ...query, utcOffsetMinutes: utcOffsetMinutes() })),
 };

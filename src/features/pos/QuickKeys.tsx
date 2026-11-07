@@ -5,6 +5,8 @@ import { Pin, PinOff, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/overlays';
 import { usePreferences, type QuickKey } from '@/stores/preferences';
+import { BusinessSector } from '@/api/enums';
+import { useActiveBusiness } from '@/hooks/useSessionInfo';
 import type { CartLine } from '@/stores/cart';
 import { containerOf } from './cartActions';
 
@@ -79,15 +81,22 @@ export function ContainerToggle({ lines, needsContainer, onChange }: {
   needsContainer: boolean;
   onChange(needsContainer: boolean): void;
 }) {
+  // A liquor store's container is the crate of empties that goes back for its deposit: the same mechanism, in its own words.
+  const liquor = useActiveBusiness().sector === BusinessSector.Liquor;
   const applies = lines.some((l) => !!containerOf(l));
   if (!applies) return null;
+  const label = liquor ? 'Customer brought a crate of empties?' : 'Customer has a container';
   return (
     <label className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
       <span>
-        <span className="font-medium">Customer has a container</span>
-        <span className="block text-xs text-muted-foreground">{needsContainer ? 'Selling a container with each refill.' : 'Refill only.'}</span>
+        <span className="font-medium">{label}</span>
+        <span className="block text-xs text-muted-foreground">
+          {liquor
+            ? needsContainer ? 'Selling the crate and empties with each one.' : 'Drinks only: the empties are swapped.'
+            : needsContainer ? 'Selling a container with each refill.' : 'Refill only.'}
+        </span>
       </span>
-      <Switch checked={!needsContainer} onCheckedChange={(v) => onChange(!v)} aria-label="Customer has a container" />
+      <Switch checked={!needsContainer} onCheckedChange={(v) => onChange(!v)} aria-label={label} />
     </label>
   );
 }

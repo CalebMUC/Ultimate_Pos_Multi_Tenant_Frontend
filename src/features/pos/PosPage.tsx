@@ -5,20 +5,20 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  AlertTriangle, Banknote, Bike, Boxes, ClipboardList, CornerDownRight, CreditCard, Minus, PauseCircle, Pill, Plus, ScanBarcode, Search, ShoppingCart,
+  AlertTriangle, Banknote, Bike, Boxes, ClipboardList, Clock, CornerDownRight, CreditCard, Minus, PauseCircle, Pill, Plus, ScanBarcode, Search, ShoppingCart,
   Smartphone, Trash2, UserPlus, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle, Badge, Card, Input, Label, NativeSelect, Skeleton, Textarea } from '@/components/ui/primitives';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/overlays';
 import { CustomerPicker } from '@/components/shared/Pickers';
-import { MoneyText, ProductFlags } from '@/components/shared/Display';
+import { AgeRestrictedBadge, MoneyText, ProductFlags } from '@/components/shared/Display';
 import { EmptyState, FormAlert } from '@/components/shared/States';
 import { productsApi } from '@/api/endpoints/catalog';
 import { productBundlesApi } from '@/api/endpoints/bundles';
 import { deliveryOrdersApi } from '@/api/endpoints/deliveries';
 import { isApiError, normaliseError } from '@/api/errors';
-import { DeliveryMode, ItemType, PaymentMethod, PriceType, SaleStatus, labels } from '@/api/enums';
+import { DeliveryMode, ItemType, PaymentMethod, PriceType, SaleStatus, labels, type AgeCheckMethod } from '@/api/enums';
 import { useDebouncedValue } from '@/hooks/useDebounce';
 import { useActiveBusiness, usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney, formatQty, todayIso } from '@/lib/format';
@@ -36,6 +36,7 @@ import type { DeliveryOrderDto } from '@/api/dto/deliveries';
 import { ReceiptDialog } from '@/features/sales/Receipt';
 import { DeliveryNoteDialog } from '@/features/deliveries/DeliveryNote';
 import { OpenDayBanner } from '@/features/cashSessions/OpenDayBanner';
+import { AgeCheckDialog } from '@/features/ageRestricted/AgeCheck';
 import { addBundleToCart, addProductToCart, patchCart, removeBundle, removeLine, updateBundle, updateLine, useCart } from './cartActions';
 import { bundlePreview, bundlePrice, useActiveBundles } from './bundles';
 import { RefillCounter, type CounterTile } from './RefillCounter';
@@ -79,6 +80,9 @@ export function PosPage() {
   const counterLayout = bundlesOn && quickSale;
   const activeBundles = useActiveBundles();
   const [paying, setPaying] = useState(false);
+  // The age check comes first when the sale has alcohol or tobacco. Kept for this sale only: never remembered for the next one.
+  const [checkingAge, setCheckingAge] = useState(false);
+  const [ageCheck, setAgeCheck] = useState<AgeCheckMethod | null>(null);
   const [registering, setRegistering] = useState(false);
   const [receipt, setReceipt] = useState<SaleDto | null>(null);
   const [note, setNote] = useState<DeliveryOrderDto | null>(null);
@@ -104,6 +108,10 @@ export function PosPage() {
   const rx = cart.prescription;
   const rxComplete = !!(rx.prescriberName?.trim() && rx.patientName?.trim() && rx.prescriptionDate);
   const creditNeedsCustomer = !rider && cart.paymentMethod === PaymentMethod.Credit && !cart.customerId;
+  // Alcohol and tobacco past the licence's hours: the API refuses the sale, and a rider leaving with them. Taking the order is allowed.
+  const outsideHours = !!p && p.withinSellingHours === false;
+  const riderLeaving = rider && !!cart.delivery?.riderName.trim();
+  const hoursBlock = outsideHours && (!rider || riderLeaving);
 
   // Batch-tracked stock is never sold beyond unexpired lots; other stock only where the business allows selling below zero.
   // The API enforces both (409 INSUFFICIENT_STOCK); this stops the cashier before charging.
@@ -117,6 +125,8 @@ export function PosPage() {
   if (rider) blockers.push(...riderBlockers(cart, needsRx));
   if (!rider && needsRx && !canDispense) blockers.push('Only staff allowed to dispense can sell prescription-only items.');
   if (!rider && needsRx && canDispense && !rxComplete) blockers.push('Fill in the prescription: prescriber, patient and date.');
+  // The banner says why; the list only needs to say what to do.
+  if (hoursBlock) blockers.push(rider ? 'Remove the 18+ items, or leave the rider out and send it later.' : 'Remove the 18+ items.');
   const canCharge = previewCurrent && !previewError && blockers.length === 0;
 
   async function addProduct(product: ProductDto | ProductDetailDto, unitId?: string) {
@@ -168,6 +178,7 @@ export function PosPage() {
 
   function complete(sale: SaleDto) {
     setPaying(false);
+    setAgeCheck(null);
     store.reset(businessId);
     // The customer's month has changed: never show an old price (or reward) for the next sale.
     qc.removeQueries({ queryKey: ['sale-preview'] });
@@ -227,11 +238,21 @@ export function PosPage() {
 
   function charge() {
     if (rider) void sendWithRider();
-    else setPaying(true);
+    else if (p?.requiresAgeCheck) {
+      setAgeCheck(null);
+      setCheckingAge(true);
+    } else setPaying(true);
+  }
+
+  function ageChecked(method: AgeCheckMethod) {
+    setAgeCheck(method);
+    setCheckingAge(false);
+    setPaying(true);
   }
 
   function abandoned(sale: SaleDto) {
     setPaying(false);
+    setAgeCheck(null);
     qc.invalidateQueries({ queryKey: ['sales'] });
     if (sale.status === SaleStatus.Pending) {
       store.reset(businessId);
@@ -249,14 +270,14 @@ export function PosPage() {
         e.preventDefault();
         searchRef.current?.focus();
       }
-      if (e.key === 'F9' && canCharge && !paying && !sending) {
+      if (e.key === 'F9' && canCharge && !paying && !checkingAge && !sending) {
         e.preventDefault();
         chargeRef.current();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [canCharge, paying, sending]);
+  }, [canCharge, paying, checkingAge, sending]);
 
   return (
     <div className="-m-4 grid min-h-[calc(100vh-3.5rem)] md:-m-6 lg:grid-cols-[1fr_28rem]">
@@ -269,7 +290,7 @@ export function PosPage() {
             priceType={p?.priceType ?? PriceType.Retail}
             bundles={activeBundles.data}
             bundlesLoading={activeBundles.isLoading}
-            keysEnabled={!paying && !registering && !receipt && !note}
+            keysEnabled={!paying && !checkingAge && !registering && !receipt && !note}
             onTile={onTile}
           />
         ) : (
@@ -281,7 +302,7 @@ export function PosPage() {
           bundles={bundlesOn ? activeBundles.data ?? [] : null}
           priceType={p?.priceType ?? PriceType.Retail}
           onAddBundle={addBundle}
-          onEmptyEnter={() => canCharge && !paying && !sending && charge()}
+          onEmptyEnter={() => canCharge && !paying && !checkingAge && !sending && charge()}
         />
       </section>
 
@@ -356,7 +377,7 @@ export function PosPage() {
                         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           {line.sku}
                           {pl && <> · @ {formatMoney(pl.unitPrice, { currency: false })}</>}
-                          <ProductFlags requiresPrescription={line.requiresPrescription} isBatchTracked={line.isBatchTracked} />
+                          <ProductFlags requiresPrescription={line.requiresPrescription} isBatchTracked={line.isBatchTracked} isAgeRestricted={pl?.isAgeRestricted ?? line.isAgeRestricted} />
                         </p>
                       </div>
                       <div className="text-right">
@@ -468,6 +489,7 @@ export function PosPage() {
               <AlertDescription>{previewError.message}</AlertDescription>
             </Alert>
           )}
+          {outsideHours && <SellingHoursBanner hours={p?.sellingHours} rider={rider} riderLeaving={riderLeaving} />}
           {canDiscount && !empty && (
             <div className="flex items-center gap-2">
               <Label htmlFor="sale-discount" className="flex-1 text-xs text-muted-foreground">
@@ -560,12 +582,21 @@ export function PosPage() {
       </section>
 
       {p && !rider && (
+        <AgeCheckDialog open={checkingAge} minimumAge={p.minimumAge} onChoose={ageChecked} onCancel={() => setCheckingAge(false)} />
+      )}
+      {p && !rider && (
         <PaymentDialog
           open={paying}
-          onOpenChange={setPaying}
+          onOpenChange={(o) => {
+            setPaying(o);
+            // Back to the cart: the next Pay asks again.
+            if (!o) setAgeCheck(null);
+          }}
           cart={cart}
           preview={p}
           includePrescription={needsRx}
+          ageCheck={ageCheck}
+          onAgeCheck={setAgeCheck}
           onOverrideCreditLimit={(v) => patchCart(businessId, { overrideCreditLimit: v })}
           onCompleted={complete}
           onAbandoned={abandoned}
@@ -602,6 +633,32 @@ export function PosPage() {
         actions={<Button variant="outline" onClick={() => setNote(null)}>New sale</Button>}
       />
     </div>
+  );
+}
+
+/**
+ * Alcohol and tobacco past the licence's hours (the preview's withinSellingHours is false). At the counter Pay stays disabled until the
+ * 18+ items are removed; soda and snacks still sell. A delivery order can still be taken: only sending it out with a rider is refused.
+ */
+function SellingHoursBanner({ hours, rider, riderLeaving }: { hours: string | null | undefined; rider: boolean; riderLeaving: boolean }) {
+  const when = hours ?? 'only within the licence’s hours';
+  if (rider && !riderLeaving) {
+    return (
+      <Alert variant="warning">
+        <Clock />
+        <AlertDescription>Alcohol and cigarettes can be sent out {when}. The order can be taken now and sent with a rider then.</AlertDescription>
+      </Alert>
+    );
+  }
+  return (
+    <Alert variant="destructive">
+      <Clock />
+      <AlertDescription>
+        {rider
+          ? <>Alcohol and cigarettes can be sent out {when}. Remove the 18+ items, or leave the rider out so the order waits on the Deliveries board.</>
+          : <>Alcohol and cigarettes can be sold {when}. Remove the 18+ items to finish this sale.</>}
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -734,7 +791,7 @@ function ProductSearch({ inputRef, onAdd, bundles, priceType, onAddBundle, onEmp
               </span>
               <span className="flex items-center justify-between gap-1 text-xs text-muted-foreground">
                 <span className="truncate">{p.sku}</span>
-                <ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} />
+                <ProductFlags requiresPrescription={p.requiresPrescription} isBatchTracked={p.isBatchTracked} isAgeRestricted={p.isAgeRestricted} />
               </span>
             </button>
           ))}
@@ -847,11 +904,13 @@ function BundleRow({ businessId, bundle, preview, strictStock, canDiscount }: {
 }) {
   const { summary, short } = bundlePreview(preview, bundle.productBundleId);
   const blocking = short.some((l) => l.isBatchTracked || strictStock);
+  // A bundle with gin in it needs the age check like the gin alone.
+  const ageRestricted = !!preview?.lines.some((l) => l.productBundleId === bundle.productBundleId && l.isAgeRestricted);
   return (
     <li className={cn('space-y-2 p-3', short.length > 0 && blocking && 'bg-destructive/5')}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 truncate text-sm font-medium"><Boxes className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />{bundle.name}</p>
+          <p className="flex items-center gap-1.5 truncate text-sm font-medium"><Boxes className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />{bundle.name}{ageRestricted && <AgeRestrictedBadge />}</p>
           {bundle.code && <p className="text-xs text-muted-foreground">{bundle.code}</p>}
         </div>
         <div className="text-right">

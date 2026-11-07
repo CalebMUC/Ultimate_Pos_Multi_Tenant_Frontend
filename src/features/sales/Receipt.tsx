@@ -129,6 +129,8 @@ export function Receipt({ sale, paper, live = false }: { sale: SaleDto; paper: R
           {sale.prescription.prescriptionNumber && <Row label="Rx no." value={sale.prescription.prescriptionNumber} />}
         </>
       )}
+      {/* Alcohol or tobacco: how the customer's age was checked. Never an ID number: none is kept. */}
+      {sale.ageCheck != null && <p className="mt-2">Age checked: {labels.ageCheckMethod[sale.ageCheck]}</p>}
       <div className="my-2 border-t border-dashed border-black" />
       <p className="text-center">Thank you for your business!</p>
       {sale.status === SaleStatus.Voided && <p className="mt-1 text-center font-bold">*** VOID ***</p>}

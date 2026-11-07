@@ -14,7 +14,7 @@ import { BrandSelect, CategorySelect, EnumSelect } from '@/components/shared/Pic
 import { productsApi } from '@/api/endpoints/catalog';
 import { labels, type ItemType } from '@/api/enums';
 import { useDebouncedValue } from '@/hooks/useDebounce';
-import { useQueryKey } from '@/hooks/useSessionInfo';
+import { useHasModule, useQueryKey } from '@/hooks/useSessionInfo';
 import { ProductFormDialog } from '@/features/products/ProductFormDialog';
 import type { ProductDto, ProductSortBy } from '@/api/dto/catalog';
 import type { SortingState } from '@tanstack/react-table';
@@ -29,7 +29,7 @@ const columns: ColumnDef<ProductDto, unknown>[] = [
     cell: ({ row }) => (
       <span className="flex items-center gap-2">
         <span className="font-medium">{row.original.name}{row.original.strength ? ` ${row.original.strength}` : ''}</span>
-        <ProductFlags requiresPrescription={row.original.requiresPrescription} isBatchTracked={row.original.isBatchTracked} />
+        <ProductFlags requiresPrescription={row.original.requiresPrescription} isBatchTracked={row.original.isBatchTracked} isAgeRestricted={row.original.isAgeRestricted} />
       </span>
     ),
   },
@@ -52,7 +52,8 @@ function Products() {
   const [brandId, setBrandId] = useState(useSearchParams().get('brandId') ?? '');
   const [itemType, setItemType] = useState<ItemType | null>(null);
   const [status, setStatus] = useState<'active' | 'inactive' | 'all'>('active');
-  const [flag, setFlag] = useState<'' | 'rx' | 'batch'>('');
+  const [flag, setFlag] = useState<'' | 'rx' | 'batch' | 'age'>('');
+  const ageModule = useHasModule('ageRestricted');
   const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -68,6 +69,7 @@ function Products() {
     isActive: status === 'all' ? undefined : status === 'active',
     requiresPrescription: flag === 'rx' ? true : undefined,
     isBatchTracked: flag === 'batch' ? true : undefined,
+    isAgeRestricted: flag === 'age' ? true : undefined,
     sortBy: sort ? sortable[sort.id] : undefined,
     sortDirection: sort ? (sort.desc ? 'desc' : 'asc') as 'asc' | 'desc' : undefined,
   };
@@ -112,8 +114,9 @@ function Products() {
             <CategorySelect value={categoryId} onChange={(e) => reset(setCategoryId)(e.target.value)} placeholder="All categories" className="w-44" aria-label="Category" />
             <BrandSelect value={brandId} onChange={(e) => reset(setBrandId)(e.target.value)} className="w-40" aria-label="Brand" />
             <EnumSelect map={labels.itemType} value={itemType} onChange={reset(setItemType)} placeholder="All types" className="w-36" aria-label="Item type" />
-            <NativeSelect value={flag} onChange={(e) => reset(setFlag)(e.target.value as typeof flag)} className="w-36" aria-label="Medicine">
+            <NativeSelect value={flag} onChange={(e) => reset(setFlag)(e.target.value as typeof flag)} className="w-40" aria-label="Restriction">
               <option value="">Any product</option><option value="rx">Prescription only</option><option value="batch">Batch-tracked</option>
+              {ageModule && <option value="age">Age-restricted (18+)</option>}
             </NativeSelect>
             <NativeSelect value={status} onChange={(e) => reset(setStatus)(e.target.value as typeof status)} className="w-28" aria-label="Status">
               <option value="active">Active</option><option value="inactive">Inactive</option><option value="all">All</option>
@@ -134,6 +137,7 @@ function Products() {
             { header: 'Reorder level', value: (p) => p.reorderLevel },
             { header: 'Batch-tracked', value: (p) => p.isBatchTracked },
             { header: 'Rx', value: (p) => p.requiresPrescription },
+            { header: '18+', value: (p) => !!p.isAgeRestricted },
             { header: 'Active', value: (p) => p.isActive },
           ],
         }}

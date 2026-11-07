@@ -6,6 +6,7 @@ import { Pill, Layers } from 'lucide-react';
 import { Badge, type BadgeVariant } from '@/components/ui/primitives';
 import { formatMoney, formatQty } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useHasModule } from '@/hooks/useSessionInfo';
 import { DeliveryOrderStatus, PurchaseOrderStatus, SaleStatus, labels, type ExpiryStatus, ExpenseStatus } from '@/api/enums';
 
 export function MoneyText({ value, className, currency = true }: { value: number | null | undefined; className?: string; currency?: boolean }) {
@@ -61,10 +62,24 @@ export function StatusBadge(props: StatusBadgeProps) {
 }
 
 /** Rx and Batch badges for medicines. */
-export function ProductFlags({ requiresPrescription, isBatchTracked, className }: { requiresPrescription?: boolean; isBatchTracked?: boolean; className?: string }) {
-  if (!requiresPrescription && !isBatchTracked) return null;
+/** The 18+ chip: alcohol or tobacco, sold only after an age check. */
+export function AgeRestrictedBadge({ className }: { className?: string }) {
+  return <Badge variant="warning" className={className} title="Alcohol or tobacco: check the customer’s age">18+</Badge>;
+}
+
+export function ProductFlags({ requiresPrescription, isBatchTracked, isAgeRestricted, className }: {
+  requiresPrescription?: boolean;
+  isBatchTracked?: boolean;
+  isAgeRestricted?: boolean;
+  className?: string;
+}) {
+  // Age-restricted sales switched off (or not a liquor store): the mark is kept on the product but means nothing at the till.
+  const ageOn = useHasModule('ageRestricted');
+  if (!ageOn) isAgeRestricted = false;
+  if (!requiresPrescription && !isBatchTracked && !isAgeRestricted) return null;
   return (
     <span className={cn('inline-flex gap-1', className)}>
+      {isAgeRestricted && <AgeRestrictedBadge />}
       {requiresPrescription && <Badge variant="destructive" title="Prescription only"><Pill className="size-3" />Rx</Badge>}
       {isBatchTracked && <Badge variant="violet" title="Batch-tracked with expiry dates"><Layers className="size-3" />Batch</Badge>}
     </span>
