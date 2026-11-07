@@ -32,6 +32,11 @@ const actionLabel = (name: string) => {
   return spaced.charAt(0) + spaced.slice(1).toLowerCase();
 };
 
+/** A line under a permission whose name alone does not say enough (the API sends names only). */
+export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
+  'Sales.Backdate': 'Enter sales made up to 3 days ago (e.g. after a power failure)',
+};
+
 /** Roles and their permissions. /roles/{id} (role notifications, audit links) opens with that role selected. */
 export function RolesScreen({ initialRoleId = null }: { initialRoleId?: string | null }) {
   const key = useQueryKey();
@@ -141,13 +146,17 @@ export function RolesScreen({ initialRoleId = null }: { initialRoleId?: string |
                         <ul className="mt-1 space-y-1.5">
                           {perms.map((p) => (
                             <li key={p.permissionId}>
-                              <label className="flex items-center gap-2 text-sm" title={p.name}>
+                              <label className="flex items-start gap-2 text-sm" title={p.name}>
                                 <Checkbox
+                                  className="mt-0.5"
                                   disabled={!canAssign}
                                   checked={checked.has(p.name)}
                                   onCheckedChange={(v) => setChecked((s) => { const n = new Set(s); if (v === true) n.add(p.name); else n.delete(p.name); return n; })}
                                 />
-                                {actionLabel(p.name)}
+                                <span>
+                                  {actionLabel(p.name)}
+                                  {PERMISSION_DESCRIPTIONS[p.name] && <span className="block text-xs text-muted-foreground">{PERMISSION_DESCRIPTIONS[p.name]}</span>}
+                                </span>
                               </label>
                             </li>
                           ))}

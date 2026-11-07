@@ -80,6 +80,16 @@ export const isCartEmpty = (cart: Pick<Cart, 'lines' | 'bundles'>) => cart.lines
 
 export interface HeldCart { id: string; heldAt: string; label: string; cart: Cart }
 
+/**
+ * Entering past sales (after a power failure, from the paper book): every sale rung up while it is on is dated soldAt. Kept beside the
+ * cart, not in it, so it stays on from one slip to the next until the manager turns it off.
+ */
+export interface BackdateMode {
+  /** East Africa Time wall clock, "yyyy-MM-ddTHH:mm" (what a datetime-local input gives). */
+  soldAt: string;
+  reason: string;
+}
+
 export const emptyCart = (): Cart => ({
   customerId: null,
   customerName: null,
@@ -96,6 +106,9 @@ interface CartStore {
   /** Keyed by business id: a cart never crosses businesses. */
   carts: Record<Guid, Cart>;
   held: Record<Guid, HeldCart[]>;
+  /** Missing on state saved before backdating. */
+  backdate?: Record<Guid, BackdateMode | undefined>;
+  setBackdate(businessId: Guid, mode: BackdateMode | null): void;
   update(businessId: Guid, fn: (cart: Cart) => Cart): void;
   reset(businessId: Guid): void;
   hold(businessId: Guid, label: string): void;
@@ -111,6 +124,8 @@ export const useCartStore = create<CartStore>()(
     (set) => ({
       carts: {},
       held: {},
+      backdate: {},
+      setBackdate: (businessId, mode) => set((s) => ({ backdate: { ...s.backdate, [businessId]: mode ?? undefined } })),
       update: (businessId, fn) => set((s) => ({ carts: { ...s.carts, [businessId]: fn(s.carts[businessId] ?? emptyCart()) } })),
       reset: (businessId) => set((s) => ({ carts: { ...s.carts, [businessId]: emptyCart() } })),
       hold: (businessId, label) =>
@@ -135,7 +150,7 @@ export const useCartStore = create<CartStore>()(
         }),
       discardHeld: (businessId, heldId) =>
         set((s) => ({ held: { ...s.held, [businessId]: (s.held[businessId] ?? []).filter((h) => h.id !== heldId) } })),
-      clearAll: () => set({ carts: {}, held: {} }),
+      clearAll: () => set({ carts: {}, held: {}, backdate: {} }),
     }),
     { name: 'upos.cart', storage: createJSONStorage(() => sessionStorage), version: 2, migrate: () => ({ carts: {}, held: {} }) as unknown as CartStore },
   ),

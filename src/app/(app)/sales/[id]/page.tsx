@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Ban, Bike, Boxes, FileText, Printer, RefreshCw, Undo2 } from 'lucide-react';
+import { ArrowLeft, Ban, Bike, Boxes, FileText, History, Printer, RefreshCw, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge, Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/primitives';
 import { Can, PermissionRoute } from '@/components/shared/Can';
@@ -24,6 +24,7 @@ import { ReturnDialog } from '@/features/sales/ReturnDialog';
 import { SaleInvoiceDialog } from '@/features/invoices/InvoiceDialog';
 import { WithActivityTab } from '@/features/audit/WithActivityTab';
 import type { SaleLineDto } from '@/api/dto/sales';
+import { backdatedNote } from '@/features/sales/backdated';
 
 function SaleDetail({ id }: { id: string }) {
   const key = useQueryKey();
@@ -73,6 +74,7 @@ function SaleDetail({ id }: { id: string }) {
           <span className="flex items-center gap-2">
             Sale {s.saleNumber} <StatusBadge kind="sale" value={s.status} />
             {s.deliveryMode === DeliveryMode.Rider && <Badge variant="info"><Bike className="size-3" />Rider delivery</Badge>}
+            {s.recordedAt && <Badge variant="warning"><History className="size-3" />Backdated</Badge>}
           </span>
         )}
         description={formatDateTime(s.createdAt)}
@@ -144,6 +146,8 @@ function SaleDetail({ id }: { id: string }) {
                   ...(s.mpesaReference ? [{ label: 'M-Pesa code', value: <span className="font-mono">{s.mpesaReference}</span> }] : []),
                   ...(s.ageCheck != null ? [{ label: 'Age checked', value: labels.ageCheckMethod[s.ageCheck] }] : []),
                   { label: 'Cashier', value: s.createdByName },
+                  // Entered from the paper book after the fact: the date above is when it happened.
+                  ...(s.recordedAt ? [{ label: 'Entered', value: backdatedNote(s).replace(/^Entered /, '') }] : []),
                   { label: 'Subtotal', value: formatMoney(s.subtotal) },
                   ...((s.customerDiscountAmount ?? 0) > 0
                     ? [{ label: customerDiscountLabel(s.customerDiscountSource, s.customerDiscountPercent), value: formatMoney(s.customerDiscountAmount) }]

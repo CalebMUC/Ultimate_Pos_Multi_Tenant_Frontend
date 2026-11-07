@@ -44,6 +44,13 @@ export interface CreateSaleRequestDto {
    * AGE_CHECK_REQUIRED. Chosen by the cashier for every sale: never from a setting or a default.
    */
   ageCheck?: AgeCheckMethod | null;
+  /**
+   * Backdating only (Sales.Backdate): when the sale really happened, with its offset ("2026-11-05T14:30:00+03:00"). Up to 3 calendar days
+   * back, never in the future; stock is checked as it stood then. Leave out for a sale happening now.
+   */
+  soldAt?: string | null;
+  /** Why the sale is entered late. Required with soldAt, ≤ 200 characters. */
+  backdateReason?: string | null;
 }
 
 /** A discount here covers all of this bundle's quantity, not each one. Needs Sales.ApplyDiscount. */
@@ -115,6 +122,8 @@ export interface SalePreviewDto {
   withinSellingHours?: boolean;
   /** The hours as text, e.g. "10:00-23:00 every day", or "at any time". */
   sellingHours?: string | null;
+  /** A backdated preview: the sale's time (UTC). availableInBaseUnits is then what the shelf held at that time. */
+  soldAt?: DateTimeString | null;
 }
 
 /**
@@ -201,6 +210,10 @@ export interface SaleDto {
   paymentDueDate?: DateOnly | null;
   /** How the customer's age was checked, on sales of alcohol or tobacco. Null otherwise; missing on older APIs. */
   ageCheck?: AgeCheckMethod | null;
+  /** Backdated sales: when it was entered (createdAt is when it happened). Null for a sale entered as it happened. */
+  recordedAt?: DateTimeString | null;
+  /** Backdated sales: why it was entered late. */
+  backdateReason?: string | null;
 }
 
 export interface SaleQuery {
@@ -214,6 +227,8 @@ export interface SaleQuery {
   paymentMethod?: PaymentMethod;
   search?: string;
   deliveryMode?: DeliveryMode;
+  /** true: only backdated sales; false: none of them. */
+  backdated?: boolean;
 }
 
 export interface CreateSaleReturnLineRequestDto { saleLineId: Guid; quantity: number; restock: boolean }

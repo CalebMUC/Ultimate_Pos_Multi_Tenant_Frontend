@@ -53,6 +53,8 @@ export function Receipt({ sale, paper, live = false }: { sale: SaleDto; paper: R
         <Row label="Receipt" value={sale.saleNumber} />
         {sale.kraBranchId && <Row label="Branch" value={`${sale.kraBranchId} · ${sale.branchName ?? ''}`} />}
         <Row label="Date" value={formatDateTime(sale.createdAt)} />
+        {/* A sale entered later from the paper book: a reprint is never mistaken for a new sale. */}
+        {sale.recordedAt && <Row label="Entered" value={`${formatDateTime(sale.recordedAt)} (backdated)`} />}
         {sale.customerName && <Row label="Customer" value={sale.customerName} />}
         {sale.createdByName && <Row label="Served by" value={sale.createdByName} />}
       </div>
@@ -207,7 +209,7 @@ function KraBlock({ saleId, narrow, live }: { saleId: string; narrow: boolean; l
   );
 }
 
-export function ReceiptDialog({ sale, open, onOpenChange, title = 'Receipt', actions, live }: {
+export function ReceiptDialog({ sale, open, onOpenChange, title = 'Receipt', actions, live, autoPrint: allowAutoPrint = true }: {
   sale: SaleDto | null;
   open: boolean;
   onOpenChange(o: boolean): void;
@@ -215,6 +217,8 @@ export function ReceiptDialog({ sale, open, onOpenChange, title = 'Receipt', act
   actions?: React.ReactNode;
   /** A sale just made: keep fetching KRA's signature while it is pending. */
   live?: boolean;
+  /** False: never print by itself, whatever the preference (a past sale entered from the paper book). */
+  autoPrint?: boolean;
 }) {
   const paper = usePreferences((s) => s.receiptPaper);
   const setPref = usePreferences((s) => s.set);
@@ -222,7 +226,7 @@ export function ReceiptDialog({ sale, open, onOpenChange, title = 'Receipt', act
   const etims = useHasModule('etims');
   const saleId = sale?.saleId ?? null;
   // Only a sale just made prints by itself: a reprint from the sale's page never does.
-  const wanted = autoPrint && !!live && open && sale?.status === SaleStatus.Completed;
+  const wanted = autoPrint && allowAutoPrint && !!live && open && sale?.status === SaleStatus.Completed;
   const kra = useQuery({ ...etimsReceiptQuery(saleId ?? ''), enabled: wanted && etims && !!saleId });
   // A receipt without KRA's signature is not valid for KRA: wait for it, unless the sale will never be reported (404). Otherwise the
   // cashier sees "signature pending" and uses Print.

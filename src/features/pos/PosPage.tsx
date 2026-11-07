@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  AlertTriangle, Banknote, Bike, Boxes, ClipboardList, Clock, CornerDownRight, CreditCard, Minus, PauseCircle, Pill, Plus, ScanBarcode, Search, ShoppingCart,
+  AlertTriangle, Banknote, Bike, Boxes, ClipboardList, Clock, CornerDownRight, CreditCard, History, Minus, PauseCircle, Pill, Plus, ScanBarcode, Search, ShoppingCart,
   Smartphone, Trash2, UserPlus, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ import { useDebouncedValue } from '@/hooks/useDebounce';
 import { useActiveBusiness, usePermission, useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney, formatQty, todayIso } from '@/lib/format';
 import { cn, round2 } from '@/lib/utils';
-import { emptyDelivery, isCartEmpty, useCartStore, type CartBundle } from '@/stores/cart';
+import { emptyDelivery, isCartEmpty, useCartStore, type BackdateMode, type CartBundle } from '@/stores/cart';
 import { usePreferences, type QuickKey } from '@/stores/preferences';
 import { ContainerToggle, QuickKeys, QuickKeyToggle } from './QuickKeys';
 import { CustomerFormDialog } from '@/features/customers/CustomerFormDialog';
@@ -42,6 +42,7 @@ import { bundlePreview, bundlePrice, useActiveBundles } from './bundles';
 import { RefillCounter, type CounterTile } from './RefillCounter';
 import { PaymentDialog } from './PaymentDialog';
 import { useSalePreview } from './usePreview';
+import { BackdateBanner, BackdateDialog, formatBackdate } from './Backdate';
 import {
   DeliveryModeToggle, ExpectedPaymentPicker, isRiderCart, patchDelivery, RiderDeliveryFields, riderBlockers, toDeliveryOrderRequest,
 } from './RiderDelivery';
@@ -66,14 +67,20 @@ export function PosPage() {
   const qc = useQueryClient();
   const key = useQueryKey();
   const router = useRouter();
-  const preview = useSalePreview(cart);
+  // Entering past sales (after a power failure): every sale is dated at the chosen time until the manager turns it off.
+  const canBackdate = usePermission('Sales.Backdate');
+  const storedBackdate = useCartStore((s) => s.backdate?.[businessId]);
+  const backdate: BackdateMode | null = canBackdate && storedBackdate ? storedBackdate : null;
+  const [settingBackdate, setSettingBackdate] = useState(false);
+  const preview = useSalePreview(cart, backdate);
   const canDiscount = usePermission('Sales.ApplyDiscount');
   const canDispense = usePermission('Prescriptions.Dispense');
   const canRegisterCustomer = usePermission('Customers.Register');
   // Delivery by rider: a delivery order, completed when the rider is back. Offered where the business delivers.
   const canTakeDeliveries = usePermission('DeliveryOrders.Create');
   const canDeliver = hasModule('deliveries') && canTakeDeliveries;
-  const rider = canDeliver && isRiderCart(cart);
+  // A past sale is recorded as it was paid at the counter: never sent out with a rider.
+  const rider = canDeliver && !backdate && isRiderCart(cart);
   const quickSale = hasModule('containers');
   const bundlesOn = hasModule('bundles');
   // A refill station (bundles and containers): the counter's tiles replace the quick keys and the container toggle.
@@ -122,6 +129,7 @@ export function PosPage() {
   if (empty) blockers.push('Add at least one item.');
   if (stockBlocks) blockers.push('Some items are short of stock.');
   if (creditNeedsCustomer) blockers.push('A credit sale needs a customer.');
+  if (backdate && cart.paymentMethod === PaymentMethod.MpesaStkPush) blockers.push('A past sale was paid at the time: choose how it was paid.');
   if (rider) blockers.push(...riderBlockers(cart, needsRx));
   if (!rider && needsRx && !canDispense) blockers.push('Only staff allowed to dispense can sell prescription-only items.');
   if (!rider && needsRx && canDispense && !rxComplete) blockers.push('Fill in the prescription: prescriber, patient and date.');
@@ -244,6 +252,15 @@ export function PosPage() {
     } else setPaying(true);
   }
 
+  function startBackdate(mode: BackdateMode) {
+    store.setBackdate(businessId, mode);
+    // The customer paid at the time, at the counter: no payment prompt now, and no rider.
+    if (cart.paymentMethod === PaymentMethod.MpesaStkPush) patchCart(businessId, { paymentMethod: PaymentMethod.Cash });
+    if (isRiderCart(cart)) patchCart(businessId, { deliveryMode: DeliveryMode.Counter });
+    setSettingBackdate(false);
+    setTimeout(() => searchRef.current?.focus(), 50);
+  }
+
   function ageChecked(method: AgeCheckMethod) {
     setAgeCheck(method);
     setCheckingAge(false);
@@ -270,19 +287,23 @@ export function PosPage() {
         e.preventDefault();
         searchRef.current?.focus();
       }
-      if (e.key === 'F9' && canCharge && !paying && !checkingAge && !sending) {
+      if (e.key === 'F9' && canCharge && !paying && !checkingAge && !sending && !settingBackdate) {
         e.preventDefault();
         chargeRef.current();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [canCharge, paying, checkingAge, sending]);
+  }, [canCharge, paying, checkingAge, sending, settingBackdate]);
+
+  const methods = backdate ? METHODS.filter((m) => m.value !== PaymentMethod.MpesaStkPush) : METHODS;
+  const stockAt = backdate ? ` at ${formatBackdate(backdate.soldAt)}` : '';
 
   return (
     <div className="-m-4 grid min-h-[calc(100vh-3.5rem)] md:-m-6 lg:grid-cols-[1fr_28rem]">
       {/* Products */}
       <section className="flex min-w-0 flex-col gap-3 p-4 md:p-5">
+        {backdate && <BackdateBanner mode={backdate} onChange={() => setSettingBackdate(true)} onDone={() => store.setBackdate(businessId, null)} />}
         <OpenDayBanner />
         {counterLayout ? (
           <RefillCounter
@@ -290,7 +311,7 @@ export function PosPage() {
             priceType={p?.priceType ?? PriceType.Retail}
             bundles={activeBundles.data}
             bundlesLoading={activeBundles.isLoading}
-            keysEnabled={!paying && !checkingAge && !registering && !receipt && !note}
+            keysEnabled={!paying && !checkingAge && !registering && !receipt && !note && !settingBackdate}
             onTile={onTile}
           />
         ) : (
@@ -327,6 +348,11 @@ export function PosPage() {
           {canRegisterCustomer && (
             <Button variant="outline" size="icon" onClick={() => setRegistering(true)} aria-label="Register new customer" title="Register new customer">
               <UserPlus />
+            </Button>
+          )}
+          {canBackdate && !backdate && (
+            <Button variant="outline" size="icon" onClick={() => setSettingBackdate(true)} aria-label="Enter past sales" title="Enter past sales (after a power failure)">
+              <History />
             </Button>
           )}
           <HeldCarts
@@ -448,7 +474,7 @@ export function PosPage() {
                     {pl && !pl.stockSufficient && (
                       <p className={cn('flex items-center gap-1 text-xs', line.isBatchTracked || strictStock ? 'text-destructive' : 'text-warning-foreground dark:text-warning')}>
                         <AlertTriangle className="size-3.5 shrink-0" />
-                        Only {formatQty(Math.max(0, pl.availableInBaseUnits), line.units[0]?.symbol)} in stock{line.isBatchTracked ? ' (unexpired)' : ''}; needs {formatQty(pl.requiredInBaseUnits, line.units[0]?.symbol)}.
+                        Only {formatQty(Math.max(0, pl.availableInBaseUnits), line.units[0]?.symbol)} in stock{line.isBatchTracked ? ' (unexpired)' : ''}{stockAt}; needs {formatQty(pl.requiredInBaseUnits, line.units[0]?.symbol)}.
                         {!line.isBatchTracked && !strictStock && ' Stock will show below zero.'}
                       </p>
                     )}
@@ -463,6 +489,7 @@ export function PosPage() {
                   preview={p}
                   strictStock={strictStock}
                   canDiscount={canDiscount}
+                  stockAt={stockAt}
                 />
               ))}
             </ul>
@@ -528,7 +555,7 @@ export function PosPage() {
             {p && <p className="text-right text-xs text-muted-foreground">{labels.priceType[p.priceType]} prices</p>}
           </dl>
 
-          {canDeliver && (
+          {canDeliver && !backdate && (
             <DeliveryModeToggle
               value={rider ? DeliveryMode.Rider : DeliveryMode.Counter}
               onChange={(mode) => {
@@ -540,8 +567,8 @@ export function PosPage() {
           {rider ? (
             <ExpectedPaymentPicker businessId={businessId} value={cart.delivery?.expectedPaymentMethod ?? PaymentMethod.Cash} />
           ) : (
-          <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="Payment method">
-            {METHODS.map(({ value, icon: Icon }) => (
+          <div className={cn('grid gap-1.5', methods.length === 5 ? 'grid-cols-5' : 'grid-cols-4')} role="radiogroup" aria-label="Payment method">
+            {methods.map(({ value, icon: Icon }) => (
               <button
                 key={value}
                 type="button"
@@ -573,10 +600,17 @@ export function PosPage() {
               <kbd className="ml-auto rounded bg-black/15 px-1.5 text-xs">F9</kbd>
             </Button>
           ) : (
-            <Button size="xl" variant="success" className="w-full" disabled={!canCharge} onClick={charge}>
-              <ShoppingCart />Charge {p && !empty ? formatMoney(p.totalAmount) : ''}
-              <kbd className="ml-auto rounded bg-black/15 px-1.5 text-xs">F9</kbd>
-            </Button>
+            <>
+              {backdate && (
+                <p className="flex items-center justify-center gap-1 text-xs font-medium text-warning-foreground dark:text-warning">
+                  <History className="size-3.5" />Past sale, dated {formatBackdate(backdate.soldAt)}
+                </p>
+              )}
+              <Button size="xl" variant="success" className="w-full" disabled={!canCharge} onClick={charge}>
+                <ShoppingCart />Charge {p && !empty ? formatMoney(p.totalAmount) : ''}
+                <kbd className="ml-auto rounded bg-black/15 px-1.5 text-xs">F9</kbd>
+              </Button>
+            </>
           )}
         </div>
       </section>
@@ -598,9 +632,13 @@ export function PosPage() {
           ageCheck={ageCheck}
           onAgeCheck={setAgeCheck}
           onOverrideCreditLimit={(v) => patchCart(businessId, { overrideCreditLimit: v })}
+          backdate={backdate}
           onCompleted={complete}
           onAbandoned={abandoned}
         />
+      )}
+      {canBackdate && (
+        <BackdateDialog open={settingBackdate} current={backdate} onSave={startBackdate} onCancel={() => setSettingBackdate(false)} />
       )}
       <CustomerFormDialog
         open={registering}
@@ -620,6 +658,8 @@ export function PosPage() {
         onOpenChange={(o) => !o && setReceipt(null)}
         title={receipt ? `Sale ${receipt.saleNumber} complete` : 'Receipt'}
         live
+        // Entering the paper book: the customer has long gone, so nothing prints by itself. Print is still there.
+        autoPrint={!receipt?.recordedAt}
         actions={<Button variant="outline" onClick={() => setReceipt(null)}>New sale</Button>}
       />
       <DeliveryNoteDialog
@@ -895,12 +935,14 @@ function HeldCarts({ held, onHold, canHold, onRecall, onDiscard }: {
  * A bundle on the cart: one row, its quantity (whole numbers) and the server's total. Red when any part is short, naming the part with
  * the figures the preview gave. The parts are not listed here; the sale detail shows them.
  */
-function BundleRow({ businessId, bundle, preview, strictStock, canDiscount }: {
+function BundleRow({ businessId, bundle, preview, strictStock, canDiscount, stockAt = '' }: {
   businessId: string;
   bundle: CartBundle;
   preview: SalePreviewDto | undefined;
   strictStock: boolean;
   canDiscount: boolean;
+  /** Entering past sales: " at Wed 5 Nov 14:30", the time the stock figures are for. */
+  stockAt?: string;
 }) {
   const { summary, short } = bundlePreview(preview, bundle.productBundleId);
   const blocking = short.some((l) => l.isBatchTracked || strictStock);
@@ -957,7 +999,7 @@ function BundleRow({ businessId, bundle, preview, strictStock, canDiscount }: {
       {short.map((l) => (
         <p key={`${l.productId}:${l.unitOfMeasureId}`} className={cn('flex items-center gap-1 text-xs', blocking ? 'text-destructive' : 'text-warning-foreground dark:text-warning')}>
           <AlertTriangle className="size-3.5 shrink-0" />
-          {l.productName}: only {formatQty(Math.max(0, l.availableInBaseUnits))} in stock; needs {formatQty(l.requiredInBaseUnits)}.
+          {l.productName}: only {formatQty(Math.max(0, l.availableInBaseUnits))} in stock{stockAt}; needs {formatQty(l.requiredInBaseUnits)}.
         </p>
       ))}
     </li>

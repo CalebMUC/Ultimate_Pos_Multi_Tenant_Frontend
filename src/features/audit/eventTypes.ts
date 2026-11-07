@@ -13,7 +13,7 @@ export const SYSTEM_EVENT_TYPES = [
   'Platform.SuperUserActivated', 'Platform.SuperUserCreated', 'Platform.SuperUserDeactivated', 'Platform.SupportPasswordReset', 'Platform.SupportUserUnlocked',
   'PurchaseOrder.Cancelled', 'PurchaseOrder.Overdue', 'PurchaseOrder.Received',
   'Role.Created', 'Role.PermissionsChanged',
-  'Sale.CreditLimitOverridden', 'Sale.Returned', 'Sale.Voided',
+  'Sale.Backdated', 'Sale.CreditLimitOverridden', 'Sale.Returned', 'Sale.Voided',
   'Stock.Adjusted', 'Stock.BelowReorderLevel', 'Stock.OutOfStock', 'Stock.Replenished', 'Stock.Revalued',
   'StockTransfer.Cancelled', 'StockTransfer.Created', 'StockTransfer.Dispatched', 'StockTransfer.Received',
   'Supplier.PaymentRecorded',

@@ -22,7 +22,7 @@ export const BUSINESS_PERMISSIONS = [
   'StockTransfers.View', 'StockTransfers.Create', 'StockTransfers.Dispatch', 'StockTransfers.Receive',
   'Branches.Manage', 'Branches.AccessAll',
   'Formulas.Create', 'Formulas.View', 'Formulas.Deactivate', 'Production.Run', 'Production.View',
-  'Sales.Create', 'Sales.View', 'Sales.Void', 'Sales.Return', 'Sales.ApplyDiscount', 'Sales.OverrideCreditLimit',
+  'Sales.Create', 'Sales.View', 'Sales.Void', 'Sales.Return', 'Sales.ApplyDiscount', 'Sales.OverrideCreditLimit', 'Sales.Backdate',
   'DeliveryOrders.View', 'DeliveryOrders.Create', 'DeliveryOrders.Dispatch', 'DeliveryOrders.Deliver', 'DeliveryOrders.Cancel',
   'DeliveryOrders.Return', 'DeliveryOrders.AcceptCredit',
   'Prescriptions.Dispense', 'Prescriptions.View',

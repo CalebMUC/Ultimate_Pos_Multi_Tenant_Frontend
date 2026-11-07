@@ -14,10 +14,11 @@ import { useActiveBusiness, usePermission, useQueryKey } from '@/hooks/useSessio
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { round2 } from '@/lib/utils';
 import { usePreferences } from '@/stores/preferences';
-import type { Cart } from '@/stores/cart';
+import type { BackdateMode, Cart } from '@/stores/cart';
 import type { SaleDto, SalePreviewDto } from '@/api/dto/sales';
 import { toSaleRequest, type PaymentDetails } from './cartActions';
 import { AgeCheckDialog } from '@/features/ageRestricted/AgeCheck';
+import { formatBackdate } from './Backdate';
 
 interface Props {
   open: boolean;
@@ -30,6 +31,8 @@ interface Props {
   /** The age was checked again here (the API asked for it): the till keeps it for this sale. */
   onAgeCheck?(method: AgeCheckMethod): void;
   onOverrideCreditLimit(value: boolean): void;
+  /** Entering past sales: the sale is dated then. */
+  backdate?: BackdateMode | null;
   /** Called once the sale is Completed. */
   onCompleted(sale: SaleDto): void;
   /** An STK sale that failed (cart kept) or was left pending (cart cleared). */
@@ -109,7 +112,7 @@ export function PaymentDialog(props: Props) {
     setSubmitting(true);
     try {
       // No automatic retry: the API has no idempotency key, so a retry could record the sale twice.
-      const sale = await salesApi.create(toSaleRequest(cart, payment, props.includePrescription));
+      const sale = await salesApi.create(toSaleRequest(cart, payment, props.includePrescription, props.backdate ?? null));
       if (sale.status === SaleStatus.Pending) setPendingSale(sale);
       else props.onCompleted(sale);
     } catch (e) {
@@ -165,6 +168,7 @@ export function PaymentDialog(props: Props) {
           <DialogTitle className="flex items-center gap-2"><MethodIcon className="size-5" />Take payment</DialogTitle>
           <DialogDescription>
             Total due <span className="text-lg font-semibold text-foreground tabular">{formatMoney(total)}</span>
+            {props.backdate && <span className="mt-1 block text-warning-foreground dark:text-warning">Dated {formatBackdate(props.backdate.soldAt)} (past sale)</span>}
           </DialogDescription>
         </DialogHeader>
 

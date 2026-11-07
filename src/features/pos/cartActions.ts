@@ -1,10 +1,11 @@
 import { PaymentMethod, PriceType, type AgeCheckMethod } from '@/api/enums';
 import { emptyToNull } from '@/lib/utils';
-import { emptyCart, newLineKey, useCartStore, type Cart, type CartBundle, type CartLine } from '@/stores/cart';
+import { emptyCart, newLineKey, useCartStore, type BackdateMode, type Cart, type CartBundle, type CartLine } from '@/stores/cart';
 import type { ProductBundleDto } from '@/api/dto/bundles';
 import type { ProductDetailDto } from '@/api/dto/catalog';
 import type { Guid } from '@/api/dto/common';
 import type { CreateSaleRequestDto } from '@/api/dto/sales';
+import { toSoldAt } from './Backdate';
 
 /** The container sold with the line's unit, as set on the product's unit conversion. */
 export function containerOf(line: Pick<CartLine, 'unitOfMeasureId' | 'units'>) {
@@ -154,10 +155,14 @@ export interface PaymentDetails {
   ageCheck?: AgeCheckMethod | null;
 }
 
-/** Builds the request body. Never carries prices: the API prices every line. */
-export function toSaleRequest(cart: Cart, payment: PaymentDetails = {}, includePrescription = false): CreateSaleRequestDto {
+/**
+ * Builds the request body. Never carries prices: the API prices every line. `backdate`: entering past sales, so the sale is dated then
+ * (and checked against the stock there was then).
+ */
+export function toSaleRequest(cart: Cart, payment: PaymentDetails = {}, includePrescription = false, backdate: BackdateMode | null = null): CreateSaleRequestDto {
   const p = cart.prescription;
   return {
+    ...(backdate ? { soldAt: toSoldAt(backdate.soldAt), backdateReason: backdate.reason.trim() } : {}),
     customerId: cart.customerId,
     paymentMethod: cart.paymentMethod,
     notes: emptyToNull(cart.notes),

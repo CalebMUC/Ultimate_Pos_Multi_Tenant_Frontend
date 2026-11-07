@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Bike, Plus } from 'lucide-react';
+import { Bike, History, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
 import { Badge } from '@/components/ui/primitives';
@@ -20,6 +20,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { enumParam } from '@/lib/utils';
 import type { SaleDto } from '@/api/dto/sales';
+import { backdatedNote } from '@/features/sales/backdated';
 import { branchLabel, useBranchFilter } from '@/features/branches/branches';
 import { withBranchColumn } from '@/features/branches/branchColumn';
 import { NOT_COMPLETED_VIEW, NotCompletedSales, useNotCompletedSales } from '@/features/sales/NotCompletedSales';
@@ -32,6 +33,7 @@ const columns: ColumnDef<SaleDto, unknown>[] = [
       <span className="flex items-center gap-1.5 font-medium">
         {row.original.saleNumber}
         {row.original.deliveryMode === DeliveryMode.Rider && <Badge variant="info" title="Delivered by a rider"><Bike className="size-3" />Rider</Badge>}
+        {row.original.recordedAt && <BackdatedBadge sale={row.original} />}
       </span>
     ),
   },
@@ -52,6 +54,10 @@ const columns: ColumnDef<SaleDto, unknown>[] = [
     ),
   },
 ];
+
+function BackdatedBadge({ sale }: { sale: SaleDto }) {
+  return <Badge variant="warning" title={backdatedNote(sale)}><History className="size-3" />Backdated</Badge>;
+}
 
 function Sales() {
   const notCompleted = useNotCompletedSales();
@@ -97,6 +103,7 @@ function SalesList({ delivers = false }: { delivers?: boolean }) {
   const [status, setStatus] = useState<SaleStatus | null>(() => enumParam(urlParams.get('status'), labels.saleStatus));
   const [method, setMethod] = useState<PaymentMethod | null>(() => enumParam(urlParams.get('paymentMethod'), labels.paymentMethod));
   const [mode, setMode] = useState<DeliveryMode | null>(null);
+  const [backdatedOnly, setBackdatedOnly] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -106,7 +113,7 @@ function SalesList({ delivers = false }: { delivers?: boolean }) {
   const debounced = useDebouncedValue(search.trim(), 300);
   const params = {
     ...range, status: status ?? undefined, paymentMethod: method ?? undefined, deliveryMode: mode ?? undefined, customerId: customerId ?? undefined,
-    search: debounced || undefined, page, pageSize,
+    search: debounced || undefined, backdated: backdatedOnly || undefined, page, pageSize,
   };
 
   const query = useQuery({ queryKey: key('sales', { ...params, branchId: branch.branchId }), queryFn: () => salesApi.list({ ...params, ...branch.scope }), placeholderData: keepPreviousData });
@@ -139,6 +146,14 @@ function SalesList({ delivers = false }: { delivers?: boolean }) {
           <EnumSelect map={labels.paymentMethod} value={method} onChange={reset(setMethod)} placeholder="All payments" className="w-36" aria-label="Payment method" />
           {delivers && <EnumSelect map={labels.deliveryMode} value={mode} onChange={reset(setMode)} placeholder="Counter and rider" className="w-40" aria-label="Delivery" />}
           <div className="w-56"><CustomerPicker value={customerId} onChange={reset(setCustomerId)} placeholder="All customers" clearable /></div>
+          <Button
+            variant={backdatedOnly ? 'secondary' : 'outline'}
+            aria-pressed={backdatedOnly}
+            onClick={() => reset(setBackdatedOnly)(!backdatedOnly)}
+            title="Sales entered later than they happened, e.g. after a power failure"
+          >
+            <History />Backdated only
+          </Button>
         </>
       }
       csv={{
@@ -157,6 +172,8 @@ function SalesList({ delivers = false }: { delivers?: boolean }) {
           { header: 'Total', value: (s) => s.totalAmount },
           { header: 'Returned', value: (s) => s.returnedAmount },
           { header: 'Cashier', value: (s) => s.createdByName },
+          { header: 'Entered (backdated)', value: (s) => s.recordedAt ?? '' },
+          { header: 'Backdate reason', value: (s) => s.backdateReason ?? '' },
         ],
       }}
     />
