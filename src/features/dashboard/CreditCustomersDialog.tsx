@@ -27,7 +27,7 @@ function OwesNow({ value }: { value: number | null }) {
   return <span className="text-muted-foreground">Paid</span>;
 }
 
-/** The customers behind the dashboard's On credit card, for the same dates and branch. */
+/** The customers behind the dashboard's Sold on credit card, for the same dates and branch. */
 export function CreditCustomersDialog({ open, onOpenChange, range, branch }: { open: boolean; onOpenChange(open: boolean): void; range: DateRangeValue; branch: BranchFilter }) {
   const key = useQueryKey();
   const canCustomers = usePermission('Customers.View');
@@ -60,7 +60,7 @@ export function CreditCustomersDialog({ open, onOpenChange, range, branch }: { o
     }
     list.push(
       { header: 'Sales', accessorKey: 'saleCount', meta: { align: 'right' } },
-      { header: 'On credit', accessorKey: 'creditSalesAmount', meta: { align: 'right' }, cell: ({ row }) => <MoneyText value={row.original.creditSalesAmount} currency={false} /> },
+      { header: 'Sold on credit', accessorKey: 'creditSalesAmount', meta: { align: 'right' }, cell: ({ row }) => <MoneyText value={row.original.creditSalesAmount} currency={false} /> },
       { header: 'Last sale', accessorKey: 'lastSaleAt', cell: ({ row }) => <span className="whitespace-nowrap">{formatDateTime(row.original.lastSaleAt)}</span> },
     );
     if (canLedger) {
@@ -73,7 +73,7 @@ export function CreditCustomersDialog({ open, onOpenChange, range, branch }: { o
     { header: 'Customer', value: (x) => x.customerName },
     ...(canCustomers ? [{ header: 'Phone', value: (x: Row) => x.phoneNumber }] : []),
     { header: 'Sales', value: (x) => x.saleCount },
-    { header: 'On credit', value: (x) => x.creditSalesAmount },
+    { header: 'Sold on credit', value: (x) => x.creditSalesAmount },
     { header: 'Last sale', value: (x) => formatDateTime(x.lastSaleAt) },
     ...(canLedger ? [{ header: 'Owes now', value: (x: Row) => x.outstandingBalance }] : []),
   ];
@@ -87,7 +87,7 @@ export function CreditCustomersDialog({ open, onOpenChange, range, branch }: { o
         </DialogHeader>
         {r ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            <StatCard label="On credit" value={formatMoney(r.totalCreditSales)} />
+            <StatCard label="Sold on credit" value={formatMoney(r.totalCreditSales)} hint="Before any payments or returns" />
             <StatCard label="Customers" value={r.customerCount} />
           </div>
         ) : q.isLoading && <Skeleton className="h-[88px]" />}

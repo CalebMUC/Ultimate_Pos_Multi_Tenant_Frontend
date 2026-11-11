@@ -102,6 +102,8 @@ export interface DeliveryOrderQuery {
   from?: DateOnly;
   to?: DateOnly;
   deliveryTripId?: Guid;
+  /** Part of the order, sale or trip number, the customer's name or phone, the address or the rider's name. */
+  search?: string;
 }
 
 /**

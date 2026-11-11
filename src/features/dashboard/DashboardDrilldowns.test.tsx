@@ -86,7 +86,7 @@ beforeEach(() => {
 });
 
 const openCredit = async () => {
-  await userEvent.click(await screen.findByRole('button', { name: 'On credit: view customers' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Sold on credit: view customers' }));
   return screen.findByRole('dialog', { name: 'Customers on credit' });
 };
 const openCost = async () => {
@@ -104,14 +104,14 @@ describe('dashboard drill-downs', () => {
   it('calls neither list endpoint until a card is clicked', async () => {
     signIn(FULL);
     renderWithProviders(<DashboardPage />);
-    expect(await screen.findByRole('button', { name: 'On credit: view customers' })).toHaveTextContent('View customers');
+    expect(await screen.findByRole('button', { name: 'Sold on credit: view customers' })).toHaveTextContent('View customers');
     expect(screen.getByRole('button', { name: 'Cost of goods sold: view goods' })).toHaveTextContent('View goods');
     expect(creditRequests).toHaveLength(0);
     expect(profitRequests).toHaveLength(0);
   });
 
   it.each([
-    ['On credit: view customers', 'Customers on credit'],
+    ['Sold on credit: view customers', 'Customers on credit'],
     ['Cost of goods sold: view goods', 'Cost of goods sold'],
   ])('%s opens from the keyboard, and Esc goes back to the card', async (card, title) => {
     signIn(FULL);

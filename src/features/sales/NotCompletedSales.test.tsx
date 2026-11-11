@@ -19,9 +19,11 @@ vi.mock('next/navigation', () => ({
 
 let agingData: CustomerAgingReportDto = aging;
 let salesRequests: URLSearchParams[] = [];
+let riderRequests: URLSearchParams[] = [];
 const server = setupServer(
   http.get(`${API}/reports/customer-aging`, () => HttpResponse.json(ok(agingData))),
   http.get(`${API}/delivery-orders`, ({ request }) => {
+    riderRequests.push(new URL(request.url).searchParams);
     const size = Number(new URL(request.url).searchParams.get('pageSize'));
     return HttpResponse.json(paged([riderOut], 1, size));
   }),
@@ -37,6 +39,7 @@ beforeEach(() => {
   nav.push.mockReset();
   agingData = aging;
   salesRequests = [];
+  riderRequests = [];
 });
 
 const ALL = ['Sales.View', 'CustomerReports.View', 'DeliveryOrders.View'];
@@ -52,6 +55,15 @@ describe('Not completed tab', () => {
     await waitFor(() => expect(tab).toHaveTextContent('Not completed4'));
     expect(await screen.findByRole('region', { name: 'Out with a rider' })).toBeInTheDocument();
     expect(await within(screen.getByRole('region', { name: 'Out with a rider' })).findByText('DEL-000001')).toBeInTheDocument();
+  });
+
+  it('searches the orders out with a rider on the server, still only those out', async () => {
+    nav.search = 'view=not-completed';
+    signIn(ALL);
+    renderWithProviders(<SalesPage />);
+    const region = await screen.findByRole('region', { name: 'Out with a rider' });
+    await userEvent.type(within(region).getByRole('textbox', { name: 'Search' }), 'kamau');
+    await waitFor(() => expect(riderRequests.some((p) => p.get('search') === 'kamau' && p.get('status') !== null)).toBe(true));
   });
 
   it('lists unpaid credit sales oldest first, with what is still owed and an overdue promise', async () => {

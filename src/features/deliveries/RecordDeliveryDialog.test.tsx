@@ -53,11 +53,14 @@ afterEach(() => {
 const render = (o: DeliveryOrderDto = order) => renderWithProviders(<RecordDeliveryDialog order={o} open onOpenChange={vi.fn()} />);
 
 describe('record delivery', () => {
-  it('offers paying later only to users who may accept credit', async () => {
+  it('shows paying later to everyone but lets only users who may accept credit choose it', async () => {
     signIn(['DeliveryOrders.Deliver', 'Sales.View']);
     render();
     expect(await screen.findByRole('button', { name: /Complete sale · KES 700/ })).toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: /Pay later/ })).not.toBeInTheDocument();
+    const payLater = screen.getByRole('radio', { name: /Pay later/ });
+    expect(payLater).toBeDisabled();
+    expect(payLater).toHaveAccessibleDescription(/Pay later needs a manager/);
+    expect(screen.getByRole('radio', { name: 'Cash' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('puts it on the customer’s account with no date, for what was actually handed over', async () => {

@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ban, Bike, CheckCircle2, Fuel, MapPin, Phone, Plus, Route, Undo2, Wallet, X } from 'lucide-react';
+import { Ban, Bike, CheckCircle2, Fuel, MapPin, Phone, Plus, Route, Search, Undo2, Wallet, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
-import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui/primitives';
+import { Badge, Card, CardContent, CardHeader, CardTitle, Input, Skeleton } from '@/components/ui/primitives';
 import { Can, PermissionRoute } from '@/components/shared/Can';
 import { DataTable, type ColumnDef } from '@/components/shared/DataTable';
 import { MoneyText, PageHeader, StatusBadge } from '@/components/shared/Display';
@@ -17,6 +17,7 @@ import { EmptyState, ErrorState } from '@/components/shared/States';
 import { deliveryOrdersApi } from '@/api/endpoints/deliveries';
 import { DeliveryOrderStatus, PaymentMethod, labels } from '@/api/enums';
 import { useHasModule, usePermission, useQueryKey } from '@/hooks/useSessionInfo';
+import { useDebouncedValue } from '@/hooks/useDebounce';
 import { addDays, formatDateTime, todayIso, toIsoDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/stores/session';
@@ -32,6 +33,14 @@ type Action = { kind: 'dispatch' | 'deliver' | 'cancel' | 'return'; order: Deliv
 type TripFilter = { id: string; number: string } | null;
 
 const isOpenOrder = (o: Pick<DeliveryOrderDto, 'status'>) => o.status === DeliveryOrderStatus.Pending || o.status === DeliveryOrderStatus.OutForDelivery;
+
+/** The board's search: part of the order, sale or trip number, the customer, phone, address or rider — what the API's search matches. */
+function matchesOrder(o: DeliveryOrderDto, term: string): boolean {
+  const t = term.trim().toLowerCase();
+  if (!t) return true;
+  return [o.orderNumber, o.saleNumber, o.tripNumber, o.customerName, o.contactPhone, o.deliveryAddress, o.riderName]
+    .some((v) => !!v && v.toLowerCase().includes(t));
+}
 
 const columns: ColumnDef<DeliveryOrderDto, unknown>[] = [
   { header: 'Order', accessorKey: 'orderNumber', cell: ({ row }) => <span className="font-medium">{row.original.orderNumber}</span> },
@@ -144,6 +153,7 @@ function Board({ onAction, trip, onTrip, focusId }: { onAction(a: Action): void;
   const canDispatch = usePermission('DeliveryOrders.Dispatch');
   const [selected, setSelected] = useState<string[]>([]);
   const [sendingTogether, setSendingTogether] = useState(false);
+  const [search, setSearch] = useState('');
   const today = todayIso();
   const list = (status: DeliveryOrderStatus, extra: object = {}) => ({
     queryKey: key('delivery-orders', { board: status, ...extra }),
@@ -165,22 +175,24 @@ function Board({ onAction, trip, onTrip, focusId }: { onAction(a: Action): void;
   const onDay = (at: string | null | undefined) => !!at && toIsoDate(new Date(at)) === today;
 
   const ofTrip = (status: DeliveryOrderStatus) => tripOrders.data?.items.filter((o) => o.status === status);
+  const found = (orders: DeliveryOrderDto[] | undefined) => orders?.filter((o) => matchesOrder(o, search));
   const cols = trip
     ? {
-        pending: { query: tripOrders, orders: ofTrip(DeliveryOrderStatus.Pending) },
-        out: { query: tripOrders, orders: ofTrip(DeliveryOrderStatus.OutForDelivery) },
-        delivered: { query: tripOrders, orders: ofTrip(DeliveryOrderStatus.Delivered) },
-        returned: { query: tripOrders, orders: ofTrip(DeliveryOrderStatus.Returned) },
+        pending: { query: tripOrders, orders: found(ofTrip(DeliveryOrderStatus.Pending)) },
+        out: { query: tripOrders, orders: found(ofTrip(DeliveryOrderStatus.OutForDelivery)) },
+        delivered: { query: tripOrders, orders: found(ofTrip(DeliveryOrderStatus.Delivered)) },
+        returned: { query: tripOrders, orders: found(ofTrip(DeliveryOrderStatus.Returned)) },
       }
     : {
-        pending: { query: pending, orders: pending.data?.items },
-        out: { query: out, orders: out.data?.items },
-        delivered: { query: delivered, orders: delivered.data?.items.filter((o) => onDay(o.deliveredAt)) },
-        returned: { query: returned, orders: returned.data?.items.filter((o) => onDay(o.returnedAt)) },
+        pending: { query: pending, orders: found(pending.data?.items) },
+        out: { query: out, orders: found(out.data?.items) },
+        delivered: { query: delivered, orders: found(delivered.data?.items.filter((o) => onDay(o.deliveredAt))) },
+        returned: { query: returned, orders: found(returned.data?.items.filter((o) => onDay(o.returnedAt))) },
       };
+  const searching = search.trim() !== '';
 
-  // Only orders still pending can go out together.
-  const pendingOrders = cols.pending.orders ?? [];
+  // Only orders still pending can go out together. A search only hides cards: what was ticked stays ticked.
+  const pendingOrders = (trip ? ofTrip(DeliveryOrderStatus.Pending) : pending.data?.items) ?? [];
   const chosen = pendingOrders.filter((o) => selected.includes(o.deliveryOrderId));
   useEffect(() => {
     setSelected((ids) => ids.filter((id) => pendingOrders.some((o) => o.deliveryOrderId === id)));
@@ -189,8 +201,19 @@ function Board({ onAction, trip, onTrip, focusId }: { onAction(a: Action): void;
   const toggle = (id: string) => setSelected((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
 
   const card = { onAction, onTrip, focusId };
+  const none = (empty: string) => (searching ? 'No matches.' : empty);
   return (
     <div className="mt-3 space-y-3">
+      <div className="relative w-full sm:w-80">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Order, customer, phone, address, rider…"
+          className="pl-8"
+          aria-label="Search the board"
+        />
+      </div>
       {trip && (
         <div className="flex items-center gap-2 text-sm">
           <Route className="size-4 text-muted-foreground" />
@@ -203,15 +226,15 @@ function Board({ onAction, trip, onTrip, focusId }: { onAction(a: Action): void;
           title="Pending"
           icon={<MapPin />}
           {...cols.pending}
-          empty="No orders waiting."
+          empty={none('No orders waiting.')}
           action={canDispatch && chosen.length > 0 && <Button size="sm" onClick={() => setSendingTogether(true)}><Bike />Send together ({chosen.length})</Button>}
           render={(o) => (
             <OrderCard key={o.deliveryOrderId} order={o} {...card} selectable={canDispatch} selected={selected.includes(o.deliveryOrderId)} onSelect={() => toggle(o.deliveryOrderId)} />
           )}
         />
-        <Column title="Out for delivery" icon={<Bike />} {...cols.out} empty="No one is out." render={(o) => <OrderCard key={o.deliveryOrderId} order={o} {...card} />} />
-        <Column title={trip ? 'Delivered' : 'Delivered today'} icon={<CheckCircle2 />} {...cols.delivered} empty="Nothing delivered yet today." render={(o) => <OrderCard key={o.deliveryOrderId} order={o} {...card} />} />
-        <Column title={trip ? 'Returned' : 'Returned today'} icon={<Undo2 />} {...cols.returned} empty="Nothing came back today." render={(o) => <OrderCard key={o.deliveryOrderId} order={o} {...card} />} />
+        <Column title="Out for delivery" icon={<Bike />} {...cols.out} empty={none('No one is out.')} render={(o) => <OrderCard key={o.deliveryOrderId} order={o} {...card} />} />
+        <Column title={trip ? 'Delivered' : 'Delivered today'} icon={<CheckCircle2 />} {...cols.delivered} empty={none('Nothing delivered yet today.')} render={(o) => <OrderCard key={o.deliveryOrderId} order={o} {...card} />} />
+        <Column title={trip ? 'Returned' : 'Returned today'} icon={<Undo2 />} {...cols.returned} empty={none('Nothing came back today.')} render={(o) => <OrderCard key={o.deliveryOrderId} order={o} {...card} />} />
       </div>
       <SendTogetherDialog orders={chosen} open={sendingTogether} onOpenChange={setSendingTogether} onSent={() => setSelected([])} />
     </div>
@@ -357,7 +380,9 @@ function AllOrders() {
   const [status, setStatus] = useState<DeliveryOrderStatus | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const params = { page, pageSize, status: status ?? undefined };
+  const [search, setSearch] = useState('');
+  const term = useDebouncedValue(search.trim(), 300);
+  const params = { page, pageSize, status: status ?? undefined, search: term || undefined };
   const query = useQuery({ queryKey: key('delivery-orders', params), queryFn: () => deliveryOrdersApi.list(params), placeholderData: keepPreviousData });
   return (
     <div className="mt-3">
@@ -374,6 +399,9 @@ function AllOrders() {
         totalCount={query.data?.meta.totalCount ?? 0}
         onPageChange={setPage}
         onPageSizeChange={(n) => { setPageSize(n); setPage(1); }}
+        search={search}
+        onSearchChange={(v) => { setSearch(v); setPage(1); }}
+        searchPlaceholder="Order, customer, phone, rider, sale…"
         emptyTitle="No delivery orders"
         toolbar={<EnumSelect map={labels.deliveryOrderStatus} value={status} onChange={(v) => { setStatus(v); setPage(1); }} placeholder="All statuses" className="w-44" aria-label="Status" />}
         csv={{
