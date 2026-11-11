@@ -15,6 +15,7 @@ import { useQueryKey } from '@/hooks/useSessionInfo';
 import { CustomerFormDialog } from '@/features/customers/CustomerFormDialog';
 import type { CustomerDto } from '@/api/dto/business';
 import { DiscountBadge } from '@/features/customers/insights';
+import { PhoneCell } from '@/features/customers/PhoneCell';
 
 const columns: ColumnDef<CustomerDto, unknown>[] = [
   {
@@ -22,7 +23,7 @@ const columns: ColumnDef<CustomerDto, unknown>[] = [
     accessorKey: 'customerName',
     cell: ({ row }) => <span className="flex items-center gap-1.5 font-medium">{row.original.customerName}<DiscountBadge percent={row.original.discountPercent} /></span>,
   },
-  { header: 'Phone', accessorKey: 'phoneNumber', cell: ({ row }) => row.original.phoneNumber ?? '—' },
+  { header: 'Phone', accessorKey: 'phoneNumber', cell: ({ row }) => <PhoneCell customer={row.original} /> },
   { header: 'KRA PIN', accessorKey: 'kraPin', cell: ({ row }) => row.original.kraPin ?? '—' },
   { header: 'Price list', accessorKey: 'priceType', cell: ({ row }) => labels.priceType[row.original.priceType] },
   { header: 'Credit limit', accessorKey: 'creditLimit', meta: { align: 'right' }, cell: ({ row }) => (row.original.creditLimit === null ? <span className="text-muted-foreground">No limit</span> : <MoneyText value={row.original.creditLimit} />) },
@@ -40,7 +41,7 @@ function Customers() {
     <>
       <PageHeader
         title="Customers"
-        description="Registered customers, their price list and credit terms."
+        description="Registered customers, their price list and credit terms. Add or change a phone number right in the list."
         actions={<Can permission="Customers.Register"><Button onClick={() => setCreating(true)}><Plus />New customer</Button></Can>}
       />
       <DataTable
