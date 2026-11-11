@@ -35,6 +35,7 @@ const actionLabel = (name: string) => {
 /** A line under a permission whose name alone does not say enough (the API sends names only). */
 export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
   'Sales.Backdate': 'Enter sales made up to 3 days ago (e.g. after a power failure)',
+  'DeliveryOrders.AcceptCredit': 'Complete a delivery as Pay later, on the customer’s account',
 };
 
 /** Roles and their permissions. /roles/{id} (role notifications, audit links) opens with that role selected. */

@@ -133,7 +133,7 @@ describe('dashboard cards', () => {
     expect(card('Low / out of stock')).toHaveAttribute('href', '/reports/stock-status');
     expect(card('Stock value')).toHaveAttribute('href', '/inventory/valuation');
     // The two drill-downs still open their lists in place.
-    expect(screen.getByRole('button', { name: 'On credit: view customers' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sold on credit: view customers' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cost of goods sold: view goods' })).toBeInTheDocument();
   });
 

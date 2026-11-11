@@ -11,6 +11,7 @@ import { reportsApi } from '@/api/endpoints/other';
 import { deliveryOrdersApi } from '@/api/endpoints/deliveries';
 import { DeliveryOrderStatus, PaymentMethod } from '@/api/enums';
 import { useActiveBusiness, usePermission, useQueryKey } from '@/hooks/useSessionInfo';
+import { useDebouncedValue } from '@/hooks/useDebounce';
 import { formatDateOnly, formatDateTime } from '@/lib/format';
 import { sum } from '@/lib/utils';
 import { describeLines, paymentLabel } from '@/features/deliveries/DeliveryDialogs';
@@ -170,7 +171,9 @@ function RiderOrdersOut() {
   const router = useRouter();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const params = { status: DeliveryOrderStatus.OutForDelivery, page, pageSize };
+  const [search, setSearch] = useState('');
+  const term = useDebouncedValue(search.trim(), 300);
+  const params = { status: DeliveryOrderStatus.OutForDelivery, page, pageSize, search: term || undefined };
   const query = useQuery({ queryKey: key('delivery-orders', params), queryFn: () => deliveryOrdersApi.list(params), placeholderData: keepPreviousData, refetchInterval: 30_000 });
   return (
     <section className="space-y-2" aria-labelledby="rider-out-heading">
@@ -192,6 +195,9 @@ function RiderOrdersOut() {
         totalCount={query.data?.meta.totalCount ?? 0}
         onPageChange={setPage}
         onPageSizeChange={(n) => { setPageSize(n); setPage(1); }}
+        search={search}
+        onSearchChange={(v) => { setSearch(v); setPage(1); }}
+        searchPlaceholder="Order, customer, phone, rider…"
         emptyTitle="No rider orders out"
         emptyMessage="Orders sent with a rider show here until the rider is back and the sale is completed on the Deliveries board."
       />

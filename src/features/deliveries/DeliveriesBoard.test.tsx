@@ -37,9 +37,11 @@ const byStatus: Record<number, DeliveryOrderDto[]> = {
 };
 
 let tripBody: unknown = null;
+let listRequests: URLSearchParams[] = [];
 const server = setupServer(
   http.get(`${API}/delivery-orders/summary`, () => HttpResponse.json(ok({ byRider: [{ riderName: 'Peter' }] }))),
   http.get(`${API}/delivery-orders`, ({ request }) => {
+    listRequests.push(new URL(request.url).searchParams);
     const status = new URL(request.url).searchParams.get('status');
     return HttpResponse.json(paged(status === null ? [] : byStatus[Number(status)] ?? []));
   }),
@@ -53,6 +55,7 @@ afterAll(() => server.close());
 afterEach(() => server.resetHandlers());
 beforeEach(() => {
   tripBody = null;
+  listRequests = [];
   signIn(['DeliveryOrders.View', 'DeliveryOrders.Dispatch', 'DeliveryOrders.Return']);
 });
 
@@ -78,5 +81,31 @@ describe('deliveries board', () => {
     await waitFor(() => expect(tripBody).not.toBeNull());
     // Typed loosely, sent as the rider already on the board, so Peter stays one rider.
     expect(tripBody).toMatchObject({ riderName: 'Peter', deliveryOrderIds: ['p1', 'p2'] });
+  });
+
+  it('searches the board by customer, order number or rider, and keeps what was ticked', async () => {
+    renderWithProviders(<DeliveriesPage />);
+    const pending = await screen.findByRole('region', { name: 'Pending' });
+    await userEvent.click(await within(pending).findByRole('checkbox', { name: 'Select DEL-000002' }));
+
+    const search = screen.getByRole('textbox', { name: 'Search the board' });
+    await userEvent.type(search, 'wanj');
+    expect(within(pending).getByText('Wanjiku')).toBeInTheDocument();
+    expect(within(pending).queryByText('Otieno')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Returned today' })).getByText('No matches.')).toBeInTheDocument();
+    // Otieno is hidden, not unticked.
+    expect(screen.getByRole('button', { name: 'Send together (1)' })).toBeInTheDocument();
+
+    await userEvent.clear(search);
+    await userEvent.type(search, 'peter');
+    expect(within(screen.getByRole('region', { name: 'Returned today' })).getByText('Achieng')).toBeInTheDocument();
+    expect(within(pending).getByText('No matches.')).toBeInTheDocument();
+  });
+
+  it('searches all orders on the server', async () => {
+    renderWithProviders(<DeliveriesPage />);
+    await userEvent.click(screen.getByRole('tab', { name: 'All orders' }));
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Search' }), ' otieno ');
+    await waitFor(() => expect(listRequests.some((p) => p.get('search') === 'otieno' && p.get('page') === '1')).toBe(true));
   });
 });

@@ -90,7 +90,7 @@ function Dashboard() {
             <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard label="Revenue" value={formatMoney(d.sales.revenue)} hint={`${d.sales.saleCount} sale(s)`} icon={<TrendingUp />} href={link('Sales.View', '/sales', dates)} />
               <StatCard label="Average sale" value={formatMoney(d.sales.averageSaleValue)} icon={<Receipt />} href={link('SalesReports.View', '/reports/sales')} />
-              <StatCard label="On credit" value={formatMoney(d.sales.creditSalesAmount)} hint="View customers" icon={<Users />} onClick={() => setDrilldown('credit')} ariaLabel="On credit: view customers" />
+              <StatCard label="Sold on credit" value={formatMoney(d.sales.creditSalesAmount)} hint="View customers" icon={<Users />} onClick={() => setDrilldown('credit')} ariaLabel="Sold on credit: view customers" />
               {notCompletedCard}
             </section>
           )}

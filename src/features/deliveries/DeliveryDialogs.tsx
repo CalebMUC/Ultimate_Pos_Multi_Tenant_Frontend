@@ -256,7 +256,8 @@ function expectedMethod(order: DeliveryOrderDto, canCredit: boolean): PaymentMet
 
 /**
  * Completes the sale when the rider is back: what was handed over, and how it was paid. Paid by M-Pesa code, the code the rider brought
- * back is required. Credit puts the sale on the customer's account like any credit sale (managers only: DeliveryOrders.AcceptCredit).
+ * back is required. Credit (Pay later) puts the sale on the customer's account like any credit sale. Everyone sees it; only those with
+ * DeliveryOrders.AcceptCredit (managers) can choose it, and the others are told who can.
  */
 export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: DeliveryOrderDto; open: boolean; onOpenChange(o: boolean): void }) {
   const qc = useQueryClient();
@@ -358,7 +359,6 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
     }
   }
 
-  const methods = METHODS.filter((m) => m.value !== PaymentMethod.Credit || canCredit);
   return (
     <Dialog open={open} onOpenChange={(o) => !pending && onOpenChange(o)}>
       <DialogContent size="md">
@@ -423,21 +423,34 @@ export function RecordDeliveryDialog({ order, open, onOpenChange }: { order: Del
           </section>
         )}
 
-        <div className={cn('grid gap-1.5', methods.length === 4 ? 'grid-cols-4' : 'grid-cols-3')} role="radiogroup" aria-label="Payment">
-          {methods.map(({ value, icon: Icon }) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={method === value}
-              onClick={() => { setMethod(value); setError(null); }}
-              className={cn('flex flex-col items-center gap-1 rounded-md border px-1 py-2 text-xs font-medium transition-colors', method === value ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-accent')}
-            >
-              <Icon className="size-4" />
-              {paymentLabel(value)}
-            </button>
-          ))}
+        <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Payment">
+          {METHODS.map(({ value, icon: Icon }) => {
+            const locked = value === PaymentMethod.Credit && !canCredit;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={method === value}
+                disabled={locked}
+                aria-describedby={locked ? 'pay-later-locked' : undefined}
+                onClick={() => { setMethod(value); setError(null); }}
+                className={cn(
+                  'flex flex-col items-center gap-1 rounded-md border px-1 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                  method === value ? 'border-primary bg-primary/10 text-primary' : 'enabled:hover:bg-accent',
+                )}
+              >
+                <Icon className="size-4" />
+                {paymentLabel(value)}
+              </button>
+            );
+          })}
         </div>
+        {!canCredit && (
+          <p id="pay-later-locked" className="text-xs text-muted-foreground">
+            Pay later needs a manager: ask one to complete this sale, or have <span className="font-medium">Accept credit</span> (Delivery orders) added to your role.
+          </p>
+        )}
 
         {method === PaymentMethod.Cash && (
           <div className="grid grid-cols-2 gap-3">
